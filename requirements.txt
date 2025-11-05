@@ -1,0 +1,8 @@
+# Pixel Art to 3MF Converter - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Image processing
+Pillow>=10.0.0
+
+# Fast numerical operations for pixel array processing
+numpy>=1.24.0
