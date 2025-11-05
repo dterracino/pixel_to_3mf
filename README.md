@@ -19,6 +19,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - Your color_tools library (place the color_tools folder in the same directory)
 
 Install dependencies:
+
 ```bash
 pip install Pillow numpy
 ```
@@ -26,7 +27,8 @@ pip install Pillow numpy
 ### Setting Up color_tools
 
 Place your `color_tools` folder in the same directory as `pixel_to_3mf`:
-```
+
+```text
 your_project/
 ├── pixel_to_3mf/
 │   ├── __init__.py
@@ -83,43 +85,77 @@ python run_converter.py image.png \
 ## Examples 📸
 
 ### Simple Sprite
+
 ```bash
 python run_converter.py mario.png
 ```
+
 - 64x32 pixel sprite
 - Scales to 192mm x 96mm (3mm per pixel)
 - Results in ~5-10 colored regions
 
 ### Large Detailed Art
+
 ```bash
 python run_converter.py detailed_art.png --max-size 180 --pixel-rounding 1.0
 ```
+
 - Uses slightly smaller max size for safety margin
 - Rounds to whole millimeters for cleaner numbers
 
 ### Thick Layers for Durability
+
 ```bash
 python run_converter.py coaster.png --color-height 2.0 --base-height 3.0
 ```
+
 - Makes a sturdier coaster with thicker layers
 - Total thickness: 5mm
 
 ## Project Structure 📁
 
-```
+```text
 pixel_to_3mf/
 ├── __init__.py              # Package initialization
 ├── constants.py             # All configurable defaults
-├── pixel_to_3mf.py         # Main CLI entry point
+├── cli.py                   # Command-line interface (argparse, pretty printing)
+├── pixel_to_3mf.py         # Core conversion logic (pure business logic)
 ├── image_processor.py       # Image loading and scaling
 ├── region_merger.py         # Flood-fill region detection
 ├── mesh_generator.py        # 3D geometry generation
-├── threemf_writer.py        # 3MF file export
-└── color_tools/             # Color science library
-    ├── palette.py           # Color matching
-    ├── conversions.py       # RGB/LAB conversions
-    └── distance.py          # Delta E metrics
+└── threemf_writer.py        # 3MF file export
 ```
+
+### Architecture Notes
+
+The code follows a clean separation between the **CLI layer** and the **business logic**:
+
+- **cli.py** - Handles all command-line stuff (argparse, error messages, progress output)
+- **pixel_to_3mf.py** - Pure conversion function that can be imported and used programmatically
+
+This means you can use the converter in two ways:
+
+**As a CLI tool:**
+
+```bash
+python run_converter.py image.png
+```
+
+**As a Python library:**
+
+```python
+from pixel_to_3mf import convert_image_to_3mf
+
+stats = convert_image_to_3mf(
+    input_path="sprite.png",
+    output_path="sprite.3mf",
+    max_size_mm=150,
+    color_height_mm=2.0
+)
+print(f"Created model with {stats['num_regions']} regions!")
+```
+
+This separation makes testing easier and keeps concerns properly separated! 🎯
 
 ## Editing Defaults 🔧
 
@@ -140,17 +176,20 @@ BASE_LAYER_HEIGHT_MM = 1.0
 ## Tips & Tricks 💡
 
 ### For Best Results
+
 - Use PNG files with transparency for holes in your design
 - Keep pixel art relatively small (under 200x200px) for reasonable print times
 - Use distinct colors - the algorithm will merge similar shades
 
 ### Slicer Setup
+
 1. Open the 3MF file in Bambu Studio, PrusaSlicer, etc.
 2. You'll see each colored region as a separate object with its color name
 3. Assign filament colors to match (or get creative!)
 4. The "backing_plate" object is your solid base layer
 
 ### Common Issues
+
 - **Model too small**: Decrease `--max-size` or use a larger print bed
 - **Colors not merging**: Regions are only merged if they're the same exact RGB value
 - **Weird object names**: The color detection uses perceptual matching, so "red" might show up as "crimson" or "firebrick"
@@ -158,13 +197,17 @@ BASE_LAYER_HEIGHT_MM = 1.0
 ## Technical Details 🤓
 
 ### Region Merging Algorithm
+
 Uses breadth-first flood fill to find connected components. Only pixels sharing an edge (not diagonal corners) are merged. Time complexity: O(n) where n = number of pixels.
 
 ### Color Naming
+
 Converts RGB → LAB color space, then uses Delta E 2000 formula to find the nearest CSS color name from a database of 147 standard colors. Delta E 2000 is the industry standard for perceptual color difference.
 
 ### 3MF Structure
+
 The generated file contains:
+
 - `3D/Objects/object_1.model` - All mesh geometry
 - `3D/3dmodel.model` - Main assembly
 - `Metadata/model_settings.config` - Object names

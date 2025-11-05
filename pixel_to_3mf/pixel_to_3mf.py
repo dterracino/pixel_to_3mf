@@ -1,191 +1,145 @@
-#!/usr/bin/env python3
 """
-Pixel Art to 3MF Converter
+Core conversion logic for pixel art to 3MF.
 
-Convert pixel art images into 3D printable 3MF files with automatic color
-detection and region merging. Perfect for making colorful pixel art coasters,
-wall art, or any other flat 3D printed designs! 🎨🖨️
+This module contains the pure business logic for converting pixel art
+images into 3MF files. It's completely separate from the CLI layer,
+making it easy to use programmatically or test.
 
-Usage:
-    python pixel_to_3mf.py input_image.png [options]
-
-Example:
-    python pixel_to_3mf.py mario.png --max-size 150 --output mario_3d.3mf
+No print statements, no argparse, just clean conversion logic! 🎯
 """
 
-import argparse
-import sys
+from typing import Optional, Callable, Dict, Any
 from pathlib import Path
 
+from .image_processor import load_image
+from .region_merger import merge_regions
+from .mesh_generator import generate_region_mesh, generate_backing_plate
+from .threemf_writer import write_3mf
 from .constants import (
     MAX_MODEL_SIZE_MM,
     PIXEL_ROUNDING_MM,
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
-    DEFAULT_OUTPUT_SUFFIX
 )
-from .image_processor import load_image
-from .region_merger import merge_regions
-from .mesh_generator import generate_region_mesh, generate_backing_plate
-from .threemf_writer import write_3mf
 
 
-def main():
-    """Main entry point for the pixel art to 3MF converter."""
+def convert_image_to_3mf(
+    input_path: str,
+    output_path: str,
+    max_size_mm: float = MAX_MODEL_SIZE_MM,
+    pixel_rounding_mm: float = PIXEL_ROUNDING_MM,
+    color_height_mm: float = COLOR_LAYER_HEIGHT_MM,
+    base_height_mm: float = BASE_LAYER_HEIGHT_MM,
+    progress_callback: Optional[Callable[[str, str], None]] = None
+) -> Dict[str, Any]:
+    """
+    Convert a pixel art image to a 3MF file.
     
-    # Set up command-line argument parser
-    parser = argparse.ArgumentParser(
-        description="Convert pixel art images to 3D printable 3MF files",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s sprite.png
-  %(prog)s mario.png --output mario_model.3mf
-  %(prog)s pixel_art.png --max-size 150 --color-height 1.5
-  %(prog)s icon.png --pixel-rounding 1.0 --base-height 2.0
-
-The program will:
-  1. Load your pixel art image
-  2. Calculate appropriate scaling to fit your print bed
-  3. Merge connected same-color pixels into regions
-  4. Generate 3D geometry (extruded regions + backing plate)
-  5. Export to 3MF with color names for easy slicer setup
-        """
-    )
+    This is the main conversion function that orchestrates the entire process.
+    It's designed to be called programmatically - no CLI stuff here!
     
-    # Positional argument: input file
-    parser.add_argument(
-        "image_file",
-        type=str,
-        help="Input pixel art image file (PNG, JPG, etc.)"
-    )
+    The process:
+    1. Load and scale the image
+    2. Merge connected same-color pixels into regions
+    3. Generate 3D meshes for each region + backing plate
+    4. Export to 3MF with color names
     
-    # Optional arguments
-    parser.add_argument(
-        "-o", "--output",
-        type=str,
-        default=None,
-        help="Output 3MF file path (default: {input_name}_model.3mf)"
-    )
+    Args:
+        input_path: Path to input image file
+        output_path: Path where 3MF file should be written
+        max_size_mm: Maximum model dimension in millimeters
+        pixel_rounding_mm: Round pixel size to nearest multiple of this
+        color_height_mm: Height of colored layer in millimeters
+        base_height_mm: Height of backing plate in millimeters
+        progress_callback: Optional function to call with progress updates
+                          Signature: callback(stage: str, message: str)
     
-    parser.add_argument(
-        "--max-size",
-        type=float,
-        default=MAX_MODEL_SIZE_MM,
-        help=f"Maximum dimension (width or height) in mm (default: {MAX_MODEL_SIZE_MM})"
-    )
+    Returns:
+        Dictionary with conversion statistics:
+        {
+            'image_width': int,
+            'image_height': int,
+            'pixel_size_mm': float,
+            'model_width_mm': float,
+            'model_height_mm': float,
+            'num_pixels': int,
+            'num_colors': int,
+            'num_regions': int,
+            'output_path': str
+        }
     
-    parser.add_argument(
-        "--pixel-rounding",
-        type=float,
-        default=PIXEL_ROUNDING_MM,
-        help=f"Round pixel size to nearest multiple of this value in mm (default: {PIXEL_ROUNDING_MM})"
-    )
+    Raises:
+        FileNotFoundError: If input image doesn't exist
+        IOError: If image can't be loaded or 3MF can't be written
+        ValueError: If parameters are invalid
+    """
     
-    parser.add_argument(
-        "--color-height",
-        type=float,
-        default=COLOR_LAYER_HEIGHT_MM,
-        help=f"Height of colored regions in mm (default: {COLOR_LAYER_HEIGHT_MM})"
-    )
-    
-    parser.add_argument(
-        "--base-height",
-        type=float,
-        default=BASE_LAYER_HEIGHT_MM,
-        help=f"Height of backing plate in mm (default: {BASE_LAYER_HEIGHT_MM})"
-    )
-    
-    # Parse arguments
-    args = parser.parse_args()
+    # Helper to send progress updates
+    def _progress(stage: str, message: str):
+        if progress_callback:
+            progress_callback(stage, message)
     
     # Validate input file exists
-    input_path = Path(args.image_file)
-    if not input_path.exists():
-        print(f"❌ Error: Input file not found: {args.image_file}", file=sys.stderr)
-        sys.exit(1)
+    input_file = Path(input_path)
+    if not input_file.exists():
+        raise FileNotFoundError(f"Input image not found: {input_path}")
     
-    # Determine output path
-    if args.output:
-        output_path = args.output
-    else:
-        # Default: same name as input with _model.3mf suffix
-        output_path = str(input_path.with_suffix('')) + DEFAULT_OUTPUT_SUFFIX + '.3mf'
-    
-    # Override constants with command-line arguments if provided
-    # (This lets users tweak settings without editing constants.py)
-    max_size = args.max_size
-    pixel_rounding = args.pixel_rounding
-    color_height = args.color_height
-    base_height = args.base_height
-    
-    print("=" * 70)
-    print("🎨 Pixel Art to 3MF Converter")
-    print("=" * 70)
-    print()
+    # Validate parameters
+    if max_size_mm <= 0:
+        raise ValueError(f"max_size_mm must be positive, got {max_size_mm}")
+    if pixel_rounding_mm <= 0:
+        raise ValueError(f"pixel_rounding_mm must be positive, got {pixel_rounding_mm}")
+    if color_height_mm <= 0:
+        raise ValueError(f"color_height_mm must be positive, got {color_height_mm}")
+    if base_height_mm <= 0:
+        raise ValueError(f"base_height_mm must be positive, got {base_height_mm}")
     
     # Step 1: Load and process image
-    print(f"📁 Loading image: {input_path.name}")
-    try:
-        pixel_data = load_image(
-            str(input_path),
-            max_size_mm=max_size,
-            rounding_mm=pixel_rounding
-        )
-    except Exception as e:
-        print(f"❌ Error loading image: {e}", file=sys.stderr)
-        sys.exit(1)
+    _progress("load", f"Loading image: {input_file.name}")
+    pixel_data = load_image(
+        str(input_path),
+        max_size_mm=max_size_mm,
+        rounding_mm=pixel_rounding_mm
+    )
     
-    print(f"   Image size: {pixel_data.width} x {pixel_data.height} pixels")
-    print(f"   Pixel size: {pixel_data.pixel_size_mm} mm")
-    print(f"   Model size: {pixel_data.model_width_mm:.1f} x {pixel_data.model_height_mm:.1f} mm")
-    print(f"   Non-transparent pixels: {len(pixel_data.pixels)}")
-    print(f"   Unique colors: {len(pixel_data.get_unique_colors())}")
-    print()
+    _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
+                     f"{pixel_data.pixel_size_mm}mm per pixel")
     
     # Step 2: Merge regions
-    print("🧩 Merging connected pixels into regions...")
+    _progress("merge", "Merging connected pixels into regions...")
     regions = merge_regions(pixel_data)
-    print(f"   Found {len(regions)} connected regions")
-    print()
+    _progress("merge", f"Found {len(regions)} connected regions")
     
-    # Step 3: Generate meshes for each region
-    print("🎲 Generating 3D geometry...")
+    # Step 3: Generate meshes
+    _progress("mesh", "Generating 3D geometry...")
     meshes = []
     region_colors = []
     
     for i, region in enumerate(regions, start=1):
-        print(f"   Region {i}/{len(regions)}: {len(region.pixels)} pixels, color RGB{region.color}")
-        mesh = generate_region_mesh(region, pixel_data, layer_height=color_height)
+        _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
+        mesh = generate_region_mesh(region, pixel_data, layer_height=color_height_mm)
         meshes.append((mesh, f"region_{i}"))
         region_colors.append(region.color)
     
     # Generate backing plate
-    print(f"   Backing plate: {pixel_data.model_width_mm:.1f} x {pixel_data.model_height_mm:.1f} mm")
-    backing_mesh = generate_backing_plate(pixel_data, base_height=base_height)
+    _progress("mesh", "Generating backing plate...")
+    backing_mesh = generate_backing_plate(pixel_data, base_height=base_height_mm)
     meshes.append((backing_mesh, "backing_plate"))
-    print()
     
-    # Step 4: Write 3MF file
-    print("📦 Writing 3MF file...")
-    try:
-        write_3mf(output_path, meshes, region_colors)
-    except Exception as e:
-        print(f"❌ Error writing 3MF: {e}", file=sys.stderr)
-        sys.exit(1)
+    # Step 4: Write 3MF
+    _progress("export", "Writing 3MF file...")
+    write_3mf(output_path, meshes, region_colors)
+    _progress("export", f"3MF written to: {output_path}")
     
-    print()
-    print("=" * 70)
-    print("✅ Conversion complete!")
-    print("=" * 70)
-    print(f"Output file: {output_path}")
-    print()
-    print("Next steps:")
-    print("  1. Open the 3MF file in your slicer (Bambu Studio, PrusaSlicer, etc.)")
-    print("  2. Assign filament colors to each named object")
-    print("  3. Slice and print!")
-    print()
-
-
-if __name__ == "__main__":
-    main()
+    # Return statistics
+    return {
+        'image_width': pixel_data.width,
+        'image_height': pixel_data.height,
+        'pixel_size_mm': pixel_data.pixel_size_mm,
+        'model_width_mm': pixel_data.model_width_mm,
+        'model_height_mm': pixel_data.model_height_mm,
+        'num_pixels': len(pixel_data.pixels),
+        'num_colors': len(pixel_data.get_unique_colors()),
+        'num_regions': len(regions),
+        'output_path': output_path
+    }

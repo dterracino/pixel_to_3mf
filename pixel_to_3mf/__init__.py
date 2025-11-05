@@ -7,7 +7,10 @@ detection, region merging, and proper object naming for slicers.
 
 __version__ = "1.0.0"
 
-# Make the main function easily accessible
-from .pixel_to_3mf import main
+# Make the CLI main function easily accessible
+from .cli import main
 
-__all__ = ["main"]
+# Also expose the core conversion function for programmatic use
+from .pixel_to_3mf import convert_image_to_3mf
+
+__all__ = ["main", "convert_image_to_3mf"]
