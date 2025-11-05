@@ -22,7 +22,7 @@ import uuid
 
 from .mesh_generator import Mesh
 from .constants import COORDINATE_PRECISION
-from color_tools import Palette, rgb_to_lab
+from .color_tools import Palette, rgb_to_lab
 
 
 # XML namespaces used in 3MF files
