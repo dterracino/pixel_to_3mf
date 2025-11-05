@@ -154,11 +154,16 @@ def generate_main_model_xml(num_objects: int) -> str:
     object_1.model. It creates a "build" that instances each object.
     
     Args:
-        num_objects: Total number of mesh objects
+        num_objects: Total number of mesh objects (1-indexed, so if you have
+                    44 meshes, they're numbered 1 through 44)
     
     Returns:
         XML string for the main model file
     """
+    # The container object ID should be one more than the last mesh object
+    # For example: if we have 44 mesh objects (IDs 1-44), the container is ID 45
+    container_id = num_objects + 1
+    
     root = ET.Element(
         "model",
         attrib={
@@ -179,13 +184,13 @@ def generate_main_model_xml(num_objects: int) -> str:
     resources = ET.SubElement(root, "resources")
     
     # Create a container object that references all the individual objects
-    # This is object ID 0, and it contains components pointing to IDs 1-N
+    # This uses the container_id we calculated above
     container_uuid = str(uuid.uuid4())
     container_obj = ET.SubElement(
         resources,
         "object",
         attrib={
-            "id": "0",
+            "id": str(container_id),
             f"p:UUID": container_uuid,
             "type": "model"
         }
@@ -193,7 +198,7 @@ def generate_main_model_xml(num_objects: int) -> str:
     
     components = ET.SubElement(container_obj, "components")
     
-    # Reference each object in the object_1.model file
+    # Reference each mesh object in the object_1.model file (IDs 1 through num_objects)
     for obj_id in range(1, num_objects + 1):
         comp_uuid = str(uuid.uuid4())
         ET.SubElement(
@@ -210,7 +215,7 @@ def generate_main_model_xml(num_objects: int) -> str:
     
     # Create build section (what actually gets printed)
     build = ET.SubElement(root, "build")
-    ET.SubElement(build, "item", objectid="0")
+    ET.SubElement(build, "item", objectid=str(container_id))
     
     return prettify_xml(root)
 
@@ -230,14 +235,33 @@ def generate_model_settings_xml(object_names: List[Tuple[int, str]]) -> str:
     """
     root = ET.Element("config")
     
-    # Create a parent object entry (ID 0) - the container
-    parent_obj = ET.SubElement(root, "object", id="0")
+    # Get the container object ID (should be the highest object ID)
+    container_id = max(obj_id for obj_id, _ in object_names)
+    
+    # Create a parent object entry - the container
+    parent_obj = ET.SubElement(root, "object", id=str(container_id))
     ET.SubElement(parent_obj, "metadata", key="name", value="PixelArt3D")
     
-    # Add each named object as a "part" of the parent
+    # Add each named object as a "part" of the parent (excluding the container itself)
     for obj_id, color_name in object_names:
-        part = ET.SubElement(parent_obj, "part", id=str(obj_id), subtype="normal_part")
-        ET.SubElement(part, "metadata", key="name", value=color_name)
+        if obj_id != container_id:  # Don't add the container as a part of itself
+            part = ET.SubElement(parent_obj, "part", id=str(obj_id), subtype="normal_part")
+            ET.SubElement(part, "metadata", key="name", value=color_name)
+    
+    # Add the assemble section at the root level
+    # This tells the slicer how to assemble/place the object
+    assemble = ET.SubElement(root, "assemble")
+    ET.SubElement(
+        assemble,
+        "assemble_item",
+        attrib={
+            "object_id": str(container_id),
+            "instance_id": "0",
+            # Identity transform: no scaling (1, 1, 1), no rotation, no translation
+            "transform": "1 0 0 0 1 0 0 0 1 0 0 0",
+            "offset": "0 0 0"
+        }
+    )
     
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + prettify_xml(root)
 
@@ -360,15 +384,21 @@ def write_3mf(
     num_regions = len(region_colors)
     
     # Create a list of (object_id, color_name) pairs
+    # Objects are numbered 1, 2, 3, ... N (the meshes)
+    # Then we need the container object at N+1
     object_names: List[Tuple[int, str]] = []
     
     for i, rgb in enumerate(region_colors, start=1):
         color_name = get_color_name(rgb)
         object_names.append((i, color_name))
     
-    # Add the backing plate (last object)
+    # Add the backing plate (last mesh object)
     backing_plate_id = len(meshes)
     object_names.append((backing_plate_id, "backing_plate"))
+    
+    # Add the container object (one more than the last mesh)
+    container_id = len(meshes) + 1
+    object_names.append((container_id, "PixelArt3D"))
     
     # Generate XML content for all files
     object_model_xml = generate_object_model_xml(meshes)
