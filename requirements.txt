@@ -8,4 +8,8 @@ Pillow>=10.0.0
 numpy>=1.24.0
 
 # Colorized terminal output and progress bars
-rich>=13.0.0
+rich
+
+# Geometric operations and triangulation
+shapely>=2.0.0
+triangle
