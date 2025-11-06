@@ -8,6 +8,8 @@ making it easy to use programmatically or test.
 No print statements, no argparse, just clean conversion logic! 🎯
 """
 
+import os, math
+
 from typing import Optional, Callable, Dict, Any
 from pathlib import Path
 
@@ -17,20 +19,35 @@ from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf
 from .constants import (
     MAX_MODEL_SIZE_MM,
-    PIXEL_ROUNDING_MM,
+    LINE_WIDTH_MM,
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
+    MAX_COLORS,
 )
 
+def format_filesize(size_bytes):
+    """Converts a file size in bytes to a human-readable format."""
+    if size_bytes == 0:
+        return "0B"
+    # Define the size units
+    size_units = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    # Calculate the logarithm base 1024 to find the correct unit index
+    i = math.floor(math.log(size_bytes, 1024))
+    # 'pow' is 1024 raised to the power of i
+    p = math.pow(1024, i)
+    # Divide the size in bytes by the appropriate power of 1024
+    s = round(size_bytes / p, 2)
+    # Return the formatted string
+    return f"{s} {size_units[i]}"
 
 def convert_image_to_3mf(
     input_path: str,
     output_path: str,
     max_size_mm: float = MAX_MODEL_SIZE_MM,
-    pixel_rounding_mm: float = PIXEL_ROUNDING_MM,
+    line_width_mm: float = LINE_WIDTH_MM,
     color_height_mm: float = COLOR_LAYER_HEIGHT_MM,
     base_height_mm: float = BASE_LAYER_HEIGHT_MM,
-    max_colors: Optional[int] = None,
+    max_colors: int = MAX_COLORS,
     progress_callback: Optional[Callable[[str, str], None]] = None
 ) -> Dict[str, Any]:
     """
@@ -40,19 +57,20 @@ def convert_image_to_3mf(
     It's designed to be called programmatically - no CLI stuff here!
     
     The process:
-    1. Load and scale the image
-    2. Merge connected same-color pixels into regions
-    3. Generate 3D meshes for each region + backing plate
-    4. Export to 3MF with color names
+    1. Load and scale the image (largest dimension → max_size_mm exactly)
+    2. Check if resolution is appropriate for the line width (interactive prompt if too high)
+    3. Merge connected same-color pixels into regions
+    4. Generate 3D meshes for each region + backing plate
+    5. Export to 3MF with color names
     
     Args:
         input_path: Path to input image file
         output_path: Path where 3MF file should be written
-        max_size_mm: Maximum model dimension in millimeters
-        pixel_rounding_mm: Round pixel size to nearest multiple of this
+        max_size_mm: Maximum model dimension in millimeters (exact scaling)
+        line_width_mm: Nozzle line width for printability check (default from constants)
         color_height_mm: Height of colored layer in millimeters
         base_height_mm: Height of backing plate in millimeters
-        max_colors: Maximum unique colors allowed (None = no limit)
+        max_colors: Maximum unique colors allowed (default from constants)
         progress_callback: Optional function to call with progress updates
                           Signature: callback(stage: str, message: str)
     
@@ -89,24 +107,63 @@ def convert_image_to_3mf(
     # Validate parameters
     if max_size_mm <= 0:
         raise ValueError(f"max_size_mm must be positive, got {max_size_mm}")
-    if pixel_rounding_mm <= 0:
-        raise ValueError(f"pixel_rounding_mm must be positive, got {pixel_rounding_mm}")
     if color_height_mm <= 0:
         raise ValueError(f"color_height_mm must be positive, got {color_height_mm}")
     if base_height_mm <= 0:
         raise ValueError(f"base_height_mm must be positive, got {base_height_mm}")
+    if line_width_mm <= 0:
+        raise ValueError(f"line_width_mm must be positive, got {line_width_mm}")
+    if max_colors <= 0:
+        raise ValueError(f"max_colors must be positive, got {max_colors}")
     
     # Step 1: Load and process image
     _progress("load", f"Loading image: {input_file.name}")
     pixel_data = load_image(
         str(input_path),
         max_size_mm=max_size_mm,
-        rounding_mm=pixel_rounding_mm,
         max_colors=max_colors
     )
     
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
                      f"{pixel_data.pixel_size_mm}mm per pixel")
+    
+    # Check if resolution is too high for the line width
+    max_dimension_px = max(pixel_data.width, pixel_data.height)
+    max_recommended_px = int(max_size_mm / line_width_mm)
+    
+    if max_dimension_px > max_recommended_px:
+        # Pixels are smaller than line width - warn user!
+        print()
+        print("⚠️  " + "=" * 68)
+        print("⚠️  WARNING: Image resolution may be too high for reliable printing!")
+        print("=" * 72)
+        print()
+        print(f"   Image dimensions: {pixel_data.width} x {pixel_data.height} pixels ({max_dimension_px}px largest)")
+        print(f"   Your line width:  {line_width_mm}mm")
+        print(f"   Max recommended:  {max_recommended_px} pixels ({max_size_mm}mm ÷ {line_width_mm}mm)")
+        print()
+        print(f"   Your pixels will be: {pixel_data.pixel_size_mm:.3f}mm each")
+        print(f"   This is SMALLER than your line width ({line_width_mm}mm)!")
+        print()
+        print("   The printer may struggle with details this fine.")
+        print()
+        
+        # Interactive prompt
+        response = input("Do you want to continue anyway? [y/N]: ").strip().lower()
+        if response not in ['y', 'yes']:
+            print()
+            print("Conversion cancelled.")
+            print()
+            print("💡 Suggestions:")
+            print(f"   • Resize your image to max {max_recommended_px}px in an image editor")
+            print(f"   • Increase --max-size (e.g., --max-size {int(max_dimension_px * line_width_mm)})")
+            print(f"   • Use a smaller nozzle and adjust --line-width accordingly")
+            print()
+            raise ValueError("Image resolution too high for specified line width")
+        
+        print()
+        print("Continuing with conversion...")
+        print()
     
     # Step 2: Merge regions
     _progress("merge", "Merging connected pixels into regions...")
@@ -144,5 +201,6 @@ def convert_image_to_3mf(
         'num_pixels': len(pixel_data.pixels),
         'num_colors': len(pixel_data.get_unique_colors()),
         'num_regions': len(regions),
-        'output_path': output_path
+        'output_path': output_path,
+        'file_size': format_filesize(os.path.getsize(output_path))
     }

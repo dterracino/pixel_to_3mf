@@ -50,8 +50,8 @@ def flood_fill(
     
     This is a classic computer science algorithm! We start at one pixel and
     "flood" outward to all adjacent pixels of the same color, marking them
-    as we go. We only consider edge-connected pixels (up/down/left/right),
-    NOT diagonally-connected ones.
+    as we go. We use 8-connectivity (includes diagonals) so pixels touching
+    at corners are merged into the same region.
     
     We use an iterative approach with a queue rather than recursion to avoid
     stack overflow on large regions. Python's recursion limit is only ~1000,
@@ -82,13 +82,17 @@ def flood_fill(
         # Add it to our region
         region_pixels.add((x, y))
         
-        # Check all 4 adjacent pixels (up, down, left, right)
-        # Note: NO diagonals! (1,1) and (2,2) only touch at a corner
+        # Check all 8 adjacent pixels (including diagonals!)
+        # This creates much fewer objects for diagonal patterns
         neighbors = [
-            (x + 1, y),  # right
-            (x - 1, y),  # left
-            (x, y + 1),  # down
-            (x, y - 1),  # up
+            (x + 1, y),      # right
+            (x - 1, y),      # left
+            (x, y + 1),      # down
+            (x, y - 1),      # up
+            (x + 1, y + 1),  # diagonal: down-right
+            (x - 1, y - 1),  # diagonal: up-left
+            (x + 1, y - 1),  # diagonal: up-right
+            (x - 1, y + 1),  # diagonal: down-left
         ]
         
         for nx, ny in neighbors:

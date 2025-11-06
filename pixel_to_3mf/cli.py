@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .constants import (
     MAX_MODEL_SIZE_MM,
-    PIXEL_ROUNDING_MM,
+    LINE_WIDTH_MM,
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
     DEFAULT_OUTPUT_SUFFIX,
@@ -36,7 +36,7 @@ Examples:
   %(prog)s sprite.png
   %(prog)s mario.png --output mario_model.3mf
   %(prog)s pixel_art.png --max-size 150 --color-height 1.5
-  %(prog)s icon.png --pixel-rounding 1.0 --base-height 2.0
+  %(prog)s icon.png --base-height 2.0 --max-colors 20
 
 The program will:
   1. Load your pixel art image
@@ -70,10 +70,10 @@ The program will:
     )
     
     parser.add_argument(
-        "--pixel-rounding",
+        "--line-width",
         type=float,
-        default=PIXEL_ROUNDING_MM,
-        help=f"Round pixel size to nearest multiple of this value in mm (default: {PIXEL_ROUNDING_MM})"
+        default=LINE_WIDTH_MM,
+        help=f"Nozzle line width in mm - used to check if pixels are printable (default: {LINE_WIDTH_MM})"
     )
     
     parser.add_argument(
@@ -154,7 +154,7 @@ The program will:
             input_path=str(input_path),
             output_path=output_path,
             max_size_mm=args.max_size,
-            pixel_rounding_mm=args.pixel_rounding,
+            line_width_mm=args.line_width,
             color_height_mm=args.color_height,
             base_height_mm=args.base_height,
             max_colors=args.max_colors,
@@ -182,7 +182,7 @@ The program will:
     print(f"   Model: {stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
     print(f"   Pixel size: {stats['pixel_size_mm']} mm")
     print(f"   Regions: {stats['num_regions']} ({stats['num_colors']} unique colors)")
-    print(f"   Output: {stats['output_path']}")
+    print(f"   Output: {stats['output_path']} ({stats['file_size']})")
     print()
     print("🎯 Next steps:")
     print("  1. Open the 3MF file in your slicer (Bambu Studio, PrusaSlicer, etc.)")

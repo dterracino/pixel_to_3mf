@@ -10,7 +10,7 @@ This module handles:
 from PIL import Image
 from typing import Tuple, Dict, Set, Optional
 import numpy as np
-from .constants import MAX_MODEL_SIZE_MM, PIXEL_ROUNDING_MM
+from .constants import MAX_MODEL_SIZE_MM
 
 
 class PixelData:
@@ -69,64 +69,57 @@ class PixelData:
 def calculate_pixel_size(
     image_width: int,
     image_height: int,
-    max_size_mm: float = MAX_MODEL_SIZE_MM,
-    rounding_mm: float = PIXEL_ROUNDING_MM
+    max_size_mm: float = MAX_MODEL_SIZE_MM
 ) -> float:
     """
     Calculate the size of each pixel in millimeters.
     
-    This is where the magic scaling happens! We figure out which dimension
-    is bigger, scale it to fit the max size, then round to a nice number.
+    Simple and predictable: scales the largest dimension to exactly match
+    max_size_mm. No rounding, no surprises!
     
     Example:
         64x32 image with max_size=200mm
         → width is bigger (64 > 32)
-        → ideal size: 200mm / 64px = 3.125mm per pixel
-        → rounded to nearest 0.5mm = 3.0mm per pixel
-        → final model: 192mm x 96mm (nice and tidy!)
+        → pixel size: 200mm / 64px = 3.125mm per pixel
+        → final model: 200mm x 100mm ✅
+    
+    Example:
+        224x288 image with max_size=200mm
+        → height is bigger (288 > 224)
+        → pixel size: 200mm / 288px = 0.694mm per pixel
+        → final model: 155.6mm x 200mm ✅
     
     Args:
         image_width: Width of image in pixels
         image_height: Height of image in pixels
         max_size_mm: Maximum dimension (width or height) in millimeters
-        rounding_mm: Round to nearest multiple of this value
     
     Returns:
-        Pixel size in millimeters (rounded)
+        Pixel size in millimeters (exact, no rounding)
     """
     # Find the larger dimension
     max_dimension_px = max(image_width, image_height)
     
-    # Calculate ideal pixel size to fit that dimension to max_size_mm
-    ideal_pixel_size = max_size_mm / max_dimension_px
+    # Calculate exact pixel size to fit that dimension to max_size_mm
+    pixel_size_mm = max_size_mm / max_dimension_px
     
-    # Round to nearest multiple of rounding_mm
-    # The formula: round(value / increment) * increment
-    rounded_pixel_size = round(ideal_pixel_size / rounding_mm) * rounding_mm
-    
-    # Safety check: ensure we don't round down to zero!
-    if rounded_pixel_size <= 0:
-        rounded_pixel_size = rounding_mm
-    
-    return rounded_pixel_size
+    return pixel_size_mm
 
 
 def load_image(
     image_path: str,
     max_size_mm: float = MAX_MODEL_SIZE_MM,
-    rounding_mm: float = PIXEL_ROUNDING_MM,
     max_colors: Optional[int] = None
 ) -> PixelData:
     """
     Load an image file and extract pixel data with automatic scaling.
     
     This is the main entry point for image processing. It loads the image,
-    figures out the right scaling, and packages everything up nicely.
+    calculates exact scaling to fit the print bed, and packages everything up nicely.
     
     Args:
         image_path: Path to the image file (PNG, JPG, etc.)
         max_size_mm: Maximum dimension for scaling (default from constants)
-        rounding_mm: Pixel size rounding increment (default from constants)
         max_colors: Maximum allowed unique colors (None = no limit)
     
     Returns:
@@ -148,7 +141,7 @@ def load_image(
     width, height = img.size
     
     # Calculate appropriate pixel size
-    pixel_size_mm = calculate_pixel_size(width, height, max_size_mm, rounding_mm)
+    pixel_size_mm = calculate_pixel_size(width, height, max_size_mm)
     
     # Extract pixel data as numpy array for fast processing
     # Shape will be (height, width, 4) where 4 = RGBA

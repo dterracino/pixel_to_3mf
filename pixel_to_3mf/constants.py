@@ -15,10 +15,10 @@ No hunting through code required! 🎯
 # longest dimension fits within this limit
 MAX_MODEL_SIZE_MM = 200.0
 
-# Pixel size rounding increment in millimeters
-# After calculating the ideal pixel size, we round to the nearest multiple
-# of this value to get nice round numbers (e.g., 3.125mm → 3.0mm)
-PIXEL_ROUNDING_MM = 0.5
+# Line width in millimeters (typical nozzle extrusion width)
+# Used to calculate maximum recommended pixel resolution
+# If pixels are smaller than this, printing may be unreliable
+LINE_WIDTH_MM = 0.42
 
 # ============================================================================
 # Layer Heights
