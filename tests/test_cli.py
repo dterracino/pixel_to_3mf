@@ -165,11 +165,14 @@ class TestProcessBatch(unittest.TestCase):
     def test_process_with_skip_checks(self):
         """Test batch processing with skip_checks enabled."""
         # Create a high-resolution image that would normally trigger a warning
-        # 500x500 image with default max_size_mm=200 and line_width_mm=0.42
-        # gives max_recommended_px = 200/0.42 = ~476, so 500 > 476
-        positions = [(x, y) for x in range(500) for y in range(500)]
+        # Calculate a size that exceeds the recommended resolution
+        config_for_calc = ConversionConfig()
+        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
+        test_size = max_recommended_px + 100  # Ensure we exceed the limit
+        
+        positions = [(x, y) for x in range(test_size) for y in range(test_size)]
         colors = {(255, 0, 0, 255): positions}
-        img_path = create_test_image(500, 500, colors)
+        img_path = create_test_image(test_size, test_size, colors)
         
         dest_path = self.input_dir / "highres.png"
         shutil.move(img_path, dest_path)
@@ -185,10 +188,14 @@ class TestProcessBatch(unittest.TestCase):
     
     def test_process_without_skip_checks_high_resolution(self):
         """Test batch processing without skip_checks on high-resolution image."""
-        # Create a high-resolution image
-        positions = [(x, y) for x in range(500) for y in range(500)]
+        # Create a high-resolution image that exceeds the recommended resolution
+        config_for_calc = ConversionConfig()
+        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
+        test_size = max_recommended_px + 100  # Ensure we exceed the limit
+        
+        positions = [(x, y) for x in range(test_size) for y in range(test_size)]
         colors = {(255, 0, 0, 255): positions}
-        img_path = create_test_image(500, 500, colors)
+        img_path = create_test_image(test_size, test_size, colors)
         
         dest_path = self.input_dir / "highres.png"
         shutil.move(img_path, dest_path)
@@ -272,9 +279,13 @@ class TestProcessBatch(unittest.TestCase):
         shutil.move(img1_path, self.input_dir / "good.png")
         
         # Create a high-resolution image (will be skipped)
-        positions = [(x, y) for x in range(500) for y in range(500)]
+        config_for_calc = ConversionConfig()
+        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
+        test_size = max_recommended_px + 100  # Ensure we exceed the limit
+        
+        positions = [(x, y) for x in range(test_size) for y in range(test_size)]
         colors = {(255, 0, 0, 255): positions}
-        img2_path = create_test_image(500, 500, colors)
+        img2_path = create_test_image(test_size, test_size, colors)
         shutil.move(img2_path, self.input_dir / "highres.png")
         
         # Create an image with too many colors (will fail)
