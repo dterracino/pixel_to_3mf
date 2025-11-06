@@ -107,7 +107,7 @@ def generate_region_mesh(
     # For each pixel, create 2 triangles to form a square
     
     # Map from (x, y) pixel coords to vertex index for top face
-    top_vertex_map: dict[Tuple[int, int, str], int] = {}
+    top_vertex_map: dict[Tuple[int, int], int] = {}
     
     for x, y in region.pixels:
         # Each pixel square has 4 corners
@@ -128,7 +128,9 @@ def generate_region_mesh(
         # Create vertices for each corner (if not already created)
         corner_indices = []
         for cx, cy, label in corners:
-            key = (cx, cy, label)
+            # KEY FIX: Use only coordinates for the key, not the label!
+            # Adjacent pixels call the same corner different names (e.g. one pixel's "tr" is another's "tl")
+            key = (cx, cy)
             if key not in top_vertex_map:
                 # Create new vertex at (cx * ps, cy * ps, layer_height)
                 top_vertex_map[key] = len(vertices)
@@ -136,8 +138,7 @@ def generate_region_mesh(
             corner_indices.append(top_vertex_map[key])
         
         # Create 2 triangles for the top face
-        # Triangle 1: bl -> br -> tl
-        # Triangle 2: br -> tr -> tl
+        # Counter-clockwise winding when viewed from above (looking down at +Z)
         bl, br, tl, tr = corner_indices
         triangles.append((bl, br, tl))
         triangles.append((br, tr, tl))
@@ -147,7 +148,7 @@ def generate_region_mesh(
     # ========================================================================
     # Same as top face, but at z=0 and with reversed winding (for correct normals)
     
-    bottom_vertex_map: dict[Tuple[int, int, str], int] = {}
+    bottom_vertex_map: dict[Tuple[int, int], int] = {}
     
     for x, y in region.pixels:
         corners = [
@@ -159,15 +160,16 @@ def generate_region_mesh(
         
         corner_indices = []
         for cx, cy, label in corners:
-            key = (cx, cy, label)
+            # KEY FIX: Use only coordinates, not label!
+            key = (cx, cy)
             if key not in bottom_vertex_map:
                 bottom_vertex_map[key] = len(vertices)
                 vertices.append((cx * ps, cy * ps, 0.0))
             corner_indices.append(bottom_vertex_map[key])
         
-        # Bottom face triangles (reversed winding!)
+        # Bottom face triangles (CCW when viewed from below, looking up at -Z)
         bl, br, tl, tr = corner_indices
-        triangles.append((bl, tl, br))  # Note: tl and br swapped vs top face
+        triangles.append((bl, tl, br))
         triangles.append((br, tl, tr))
     
     # ========================================================================
@@ -203,31 +205,32 @@ def generate_region_mesh(
                 continue
             
             # Create a wall quad (2 triangles) between bottom and top
-            # We need 4 vertices: bottom-left, bottom-right, top-left, top-right
+            # CRITICAL FIX: Reuse existing vertices instead of creating duplicates!
             
-            # Bottom edge vertices (z=0)
-            bl_bottom = (x1 * ps, y1 * ps, 0.0)
-            br_bottom = (x2 * ps, y2 * ps, 0.0)
+            # Now that our keys are just (x, y) coordinates, lookup is simple!
+            # For bottom vertices (z=0)
+            bl_key = (x1, y1)
+            br_key = (x2, y2)
             
-            # Top edge vertices (z=layer_height)
-            tl_top = (x1 * ps, y1 * ps, layer_height)
-            tr_top = (x2 * ps, y2 * ps, layer_height)
+            # For top vertices (z=layer_height)
+            tl_key = (x1, y1)
+            tr_key = (x2, y2)
             
-            # Add these 4 vertices
-            idx_bl = len(vertices)
-            vertices.append(bl_bottom)
-            idx_br = len(vertices)
-            vertices.append(br_bottom)
-            idx_tl = len(vertices)
-            vertices.append(tl_top)
-            idx_tr = len(vertices)
-            vertices.append(tr_top)
+            # Get vertex indices (should always be found since we created faces for this pixel)
+            assert bl_key in bottom_vertex_map, f"Could not find bottom vertex for wall at {bl_key}"
+            assert br_key in bottom_vertex_map, f"Could not find bottom vertex for wall at {br_key}"
+            assert tl_key in top_vertex_map, f"Could not find top vertex for wall at {tl_key}"
+            assert tr_key in top_vertex_map, f"Could not find top vertex for wall at {tr_key}"
             
-            # Create 2 triangles for the wall (outward-facing normals)
-            # Triangle 1: bl -> tl -> br
-            # Triangle 2: br -> tl -> tr
-            triangles.append((idx_bl, idx_tl, idx_br))
-            triangles.append((idx_br, idx_tl, idx_tr))
+            idx_bl = bottom_vertex_map[bl_key]
+            idx_br = bottom_vertex_map[br_key]
+            idx_tl = top_vertex_map[tl_key]
+            idx_tr = top_vertex_map[tr_key]
+            
+            # Create 2 triangles for the wall (REVERSED winding for outward-facing normals)
+            # The issue was that our walls were inside-out!
+            triangles.append((idx_bl, idx_br, idx_tl))
+            triangles.append((idx_br, idx_tr, idx_tl))
     
     return Mesh(vertices=vertices, triangles=triangles)
 
@@ -237,14 +240,13 @@ def generate_backing_plate(
     base_height: float = BASE_LAYER_HEIGHT_MM
 ) -> Mesh:
     """
-    Generate the solid backing plate that goes under everything.
+    Generate the backing plate that goes under everything.
     
-    This is much simpler than the region meshes! We just create a rectangular
-    slab that spans the entire image bounds. It goes from z=-base_height to z=0,
-    so it sits underneath all the colored regions.
+    The backing plate should match the EXACT footprint of the non-transparent pixels,
+    with holes where transparent pixels are. It goes from z=-base_height to z=0.
     
     Args:
-        pixel_data: Pixel data (for dimensions)
+        pixel_data: Pixel data (includes which pixels are non-transparent)
         base_height: Thickness of the backing plate (default: BASE_LAYER_HEIGHT_MM)
     
     Returns:
@@ -253,51 +255,100 @@ def generate_backing_plate(
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
     
-    # The backing plate spans the full image dimensions
-    width_mm = pixel_data.model_width_mm
-    height_mm = pixel_data.model_height_mm
+    ps = pixel_data.pixel_size_mm
     
-    # 8 vertices for a rectangular box:
-    # Bottom face (z = -base_height)
-    v0 = (0.0, 0.0, -base_height)
-    v1 = (width_mm, 0.0, -base_height)
-    v2 = (width_mm, height_mm, -base_height)
-    v3 = (0.0, height_mm, -base_height)
+    # Similar to region generation, but simpler - we create a slab for each pixel
+    # Top face (z = 0) and bottom face (z = -base_height)
     
-    # Top face (z = 0)
-    v4 = (0.0, 0.0, 0.0)
-    v5 = (width_mm, 0.0, 0.0)
-    v6 = (width_mm, height_mm, 0.0)
-    v7 = (0.0, height_mm, 0.0)
+    top_vertex_map: dict[Tuple[int, int], int] = {}
+    bottom_vertex_map: dict[Tuple[int, int], int] = {}
     
-    vertices = [v0, v1, v2, v3, v4, v5, v6, v7]
+    # Get all non-transparent pixel positions
+    pixel_positions = set(pixel_data.pixels.keys())
     
-    # Now create triangles for all 6 faces of the box
-    # Each face is 2 triangles (quad split into triangles)
+    # Generate top and bottom faces
+    for x, y in pixel_positions:
+        # Top face vertices (z = 0)
+        top_corners = [
+            (x, y, "bl"),
+            (x+1, y, "br"),
+            (x, y+1, "tl"),
+            (x+1, y+1, "tr"),
+        ]
+        
+        top_indices = []
+        for cx, cy, label in top_corners:
+            # KEY FIX: Remove label from key!
+            key = (cx, cy)
+            if key not in top_vertex_map:
+                top_vertex_map[key] = len(vertices)
+                vertices.append((cx * ps, cy * ps, 0.0))
+            top_indices.append(top_vertex_map[key])
+        
+        # Top face triangles (facing up)
+        bl, br, tl, tr = top_indices
+        triangles.append((bl, br, tl))
+        triangles.append((br, tr, tl))
+        
+        # Bottom face vertices (z = -base_height)
+        bottom_corners = [
+            (x, y, "bl"),
+            (x+1, y, "br"),
+            (x, y+1, "tl"),
+            (x+1, y+1, "tr"),
+        ]
+        
+        bottom_indices = []
+        for cx, cy, label in bottom_corners:
+            # KEY FIX: Remove label from key!
+            key = (cx, cy)
+            if key not in bottom_vertex_map:
+                bottom_vertex_map[key] = len(vertices)
+                vertices.append((cx * ps, cy * ps, -base_height))
+            bottom_indices.append(bottom_vertex_map[key])
+        
+        # Bottom face triangles (facing down - reversed winding)
+        bl, br, tl, tr = bottom_indices
+        triangles.append((bl, tl, br))
+        triangles.append((br, tl, tr))
     
-    # Bottom face (z = -base_height) - normal pointing down
-    triangles.append((0, 2, 1))
-    triangles.append((0, 3, 2))
-    
-    # Top face (z = 0) - normal pointing up
-    triangles.append((4, 5, 6))
-    triangles.append((4, 6, 7))
-    
-    # Side faces (4 walls)
-    # Front (y = 0)
-    triangles.append((0, 1, 5))
-    triangles.append((0, 5, 4))
-    
-    # Right (x = width_mm)
-    triangles.append((1, 2, 6))
-    triangles.append((1, 6, 5))
-    
-    # Back (y = height_mm)
-    triangles.append((2, 3, 7))
-    triangles.append((2, 7, 6))
-    
-    # Left (x = 0)
-    triangles.append((3, 0, 4))
-    triangles.append((3, 4, 7))
+    # Generate perimeter walls (only where edges are exposed)
+    for x, y in pixel_positions:
+        # Check each of the 4 edges
+        edges = [
+            ((x, y), (x+1, y), (x, y-1), "bottom"),      # Bottom edge, neighbor below
+            ((x+1, y), (x+1, y+1), (x+1, y), "right"),   # Right edge, neighbor right
+            ((x+1, y+1), (x, y+1), (x, y+1), "top"),     # Top edge, neighbor above
+            ((x, y+1), (x, y), (x-1, y), "left"),        # Left edge, neighbor left
+        ]
+        
+        for (x1, y1), (x2, y2), neighbor, edge_name in edges:
+            # If neighbor pixel exists, skip this edge (it's internal)
+            if neighbor in pixel_positions:
+                continue
+            
+            # Create wall quad
+            # CRITICAL FIX: Reuse vertices from top/bottom maps to avoid duplicates!
+            
+            # Now that keys are just (x, y), lookup is simple!
+            bl_key = (x1, y1)
+            br_key = (x2, y2)
+            tl_key = (x1, y1)
+            tr_key = (x2, y2)
+            
+            # Get the vertex indices from our maps
+            assert bl_key in bottom_vertex_map, f"Could not find bottom vertex for backing plate wall at {bl_key}"
+            assert br_key in bottom_vertex_map, f"Could not find bottom vertex for backing plate wall at {br_key}"
+            assert tl_key in top_vertex_map, f"Could not find top vertex for backing plate wall at {tl_key}"
+            assert tr_key in top_vertex_map, f"Could not find top vertex for backing plate wall at {tr_key}"
+            
+            idx_bl = bottom_vertex_map[bl_key]
+            idx_br = bottom_vertex_map[br_key]
+            idx_tl = top_vertex_map[tl_key]
+            idx_tr = top_vertex_map[tr_key]
+            
+            # Wall triangles (REVERSED winding for outward-facing normals)
+            triangles.append((idx_bl, idx_br, idx_tl))
+            triangles.append((idx_br, idx_tr, idx_tl))
     
     return Mesh(vertices=vertices, triangles=triangles)

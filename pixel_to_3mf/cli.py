@@ -18,7 +18,8 @@ from .constants import (
     PIXEL_ROUNDING_MM,
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
-    DEFAULT_OUTPUT_SUFFIX
+    DEFAULT_OUTPUT_SUFFIX,
+    MAX_COLORS
 )
 from .pixel_to_3mf import convert_image_to_3mf
 
@@ -89,6 +90,13 @@ The program will:
         help=f"Height of backing plate in mm (default: {BASE_LAYER_HEIGHT_MM})"
     )
     
+    parser.add_argument(
+        "--max-colors",
+        type=int,
+        default=MAX_COLORS,
+        help=f"Maximum unique colors allowed (default: {MAX_COLORS})"
+    )
+    
     # Parse arguments
     args = parser.parse_args()
     
@@ -149,6 +157,7 @@ The program will:
             pixel_rounding_mm=args.pixel_rounding,
             color_height_mm=args.color_height,
             base_height_mm=args.base_height,
+            max_colors=args.max_colors,
             progress_callback=progress_callback
         )
     except FileNotFoundError as e:

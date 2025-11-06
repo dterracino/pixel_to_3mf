@@ -30,6 +30,7 @@ def convert_image_to_3mf(
     pixel_rounding_mm: float = PIXEL_ROUNDING_MM,
     color_height_mm: float = COLOR_LAYER_HEIGHT_MM,
     base_height_mm: float = BASE_LAYER_HEIGHT_MM,
+    max_colors: Optional[int] = None,
     progress_callback: Optional[Callable[[str, str], None]] = None
 ) -> Dict[str, Any]:
     """
@@ -51,6 +52,7 @@ def convert_image_to_3mf(
         pixel_rounding_mm: Round pixel size to nearest multiple of this
         color_height_mm: Height of colored layer in millimeters
         base_height_mm: Height of backing plate in millimeters
+        max_colors: Maximum unique colors allowed (None = no limit)
         progress_callback: Optional function to call with progress updates
                           Signature: callback(stage: str, message: str)
     
@@ -99,7 +101,8 @@ def convert_image_to_3mf(
     pixel_data = load_image(
         str(input_path),
         max_size_mm=max_size_mm,
-        rounding_mm=pixel_rounding_mm
+        rounding_mm=pixel_rounding_mm,
+        max_colors=max_colors
     )
     
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
@@ -128,7 +131,7 @@ def convert_image_to_3mf(
     
     # Step 4: Write 3MF
     _progress("export", "Writing 3MF file...")
-    write_3mf(output_path, meshes, region_colors)
+    write_3mf(output_path, meshes, region_colors, pixel_data)
     _progress("export", f"3MF written to: {output_path}")
     
     # Return statistics

@@ -33,6 +33,15 @@ COLOR_LAYER_HEIGHT_MM = 1.0
 BASE_LAYER_HEIGHT_MM = 1.0
 
 # ============================================================================
+# Color Limits
+# ============================================================================
+
+# Maximum number of unique colors allowed in the input image
+# Most slicers support 16 filaments max, and even that's a lot!
+# This prevents accidentally converting huge photos with thousands of colors
+MAX_COLORS = 16
+
+# ============================================================================
 # 3MF File Generation
 # ============================================================================
 

@@ -8,7 +8,7 @@ This module handles:
 """
 
 from PIL import Image
-from typing import Tuple, Dict, Set
+from typing import Tuple, Dict, Set, Optional
 import numpy as np
 from .constants import MAX_MODEL_SIZE_MM, PIXEL_ROUNDING_MM
 
@@ -114,7 +114,8 @@ def calculate_pixel_size(
 def load_image(
     image_path: str,
     max_size_mm: float = MAX_MODEL_SIZE_MM,
-    rounding_mm: float = PIXEL_ROUNDING_MM
+    rounding_mm: float = PIXEL_ROUNDING_MM,
+    max_colors: Optional[int] = None
 ) -> PixelData:
     """
     Load an image file and extract pixel data with automatic scaling.
@@ -126,6 +127,7 @@ def load_image(
         image_path: Path to the image file (PNG, JPG, etc.)
         max_size_mm: Maximum dimension for scaling (default from constants)
         rounding_mm: Pixel size rounding increment (default from constants)
+        max_colors: Maximum allowed unique colors (None = no limit)
     
     Returns:
         PixelData object containing all the goodies
@@ -133,6 +135,7 @@ def load_image(
     Raises:
         FileNotFoundError: If image doesn't exist
         IOError: If image can't be loaded
+        ValueError: If image has too many colors
     """
     # Load image with PIL
     img = Image.open(image_path)
@@ -162,9 +165,23 @@ def load_image(
             # Skip transparent pixels (alpha == 0)
             # These will become holes in the model
             if a > 0:
-                # Store as (x, y) -> (r, g, b, a)
-                # Note: image coordinates are (x, y) but array is [y, x]!
-                pixels[(x, y)] = (int(r), int(g), int(b), int(a))
+                # CRITICAL FIX: Flip Y coordinate!
+                # Image coordinates: Y=0 is TOP, increases DOWNWARD
+                # 3D coordinates: Y=0 is BOTTOM, increases UPWARD
+                # So we need to flip: image_y=0 → 3d_y=(height-1)
+                flipped_y = height - 1 - y
+                pixels[(x, flipped_y)] = (int(r), int(g), int(b), int(a))
+    
+    # Check color count if max_colors is specified
+    if max_colors is not None:
+        unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
+        num_colors = len(unique_colors)
+        
+        if num_colors > max_colors:
+            raise ValueError(
+                f"Image has {num_colors} unique colors, but maximum is {max_colors}.\n"
+                f"Try reducing colors in your image editor or increase --max-colors."
+            )
     
     return PixelData(
         width=width,
