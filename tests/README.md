@@ -36,6 +36,7 @@ python -m unittest tests.test_pixel_to_3mf
 The test suite covers:
 
 ### Image Processing (`test_image_processor.py`)
+
 - PixelData container class functionality
 - Pixel size calculation for different image aspect ratios
 - Image loading with transparency support
@@ -44,6 +45,7 @@ The test suite covers:
 - Pixel bounds calculation in millimeters
 
 ### Region Merging (`test_region_merger.py`)
+
 - Region class functionality
 - Flood fill algorithm (single pixel, squares, complex shapes)
 - Diagonal connectivity (8-connectivity)
@@ -52,6 +54,7 @@ The test suite covers:
 - Region bounds calculation
 
 ### Mesh Generation (`test_mesh_generator.py`)
+
 - Mesh class functionality
 - Region mesh generation (single pixel, squares, L-shapes)
 - Layer height configuration
@@ -61,6 +64,7 @@ The test suite covers:
 - Mesh validity (no degenerate triangles)
 
 ### 3MF Writing (`test_threemf_writer.py`)
+
 - Float formatting for coordinates
 - Simple 3MF file creation
 - ZIP archive validation
@@ -70,6 +74,7 @@ The test suite covers:
 - Large meshes
 
 ### Integration (`test_pixel_to_3mf.py`)
+
 - Complete conversion pipeline
 - Single color images
 - Multiple regions
