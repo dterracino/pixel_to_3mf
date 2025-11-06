@@ -11,7 +11,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - [Examples](#examples-)
 - [How It Works](#how-it-works-)
 - [Technical Details](#technical-details-)
-- [Tips & Best Practices](#tips--tricks-)
+- [Tips & Best Practices](#tips--best-practices-)
 - [Troubleshooting](#troubleshooting-)
 - [Project Structure](#project-structure-)
 - [Contributing](#contributing-)
@@ -23,7 +23,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Smart Region Merging**: Uses flood-fill algorithm with 8-connectivity (includes diagonals) to merge connected same-color pixels into single manifold objects
 - **Perceptual Color Names**: Uses Delta E 2000 (industry standard) to find the nearest CSS color name for each region
 - **Transparent Pixel Support**: Transparent areas become holes in the model
-- **Dual-Layer Design**: Colored regions on top (default 1mm) + solid backing plate with matching footprint (default 1mm)
+- **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable)
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
@@ -94,6 +94,7 @@ python run_converter.py your_pixel_art.png
 ```
 
 Creates `your_pixel_art_model.3mf` with:
+
 - Largest dimension: 200mm
 - Color layer: 1mm thick
 - Base layer: 1mm thick
@@ -148,7 +149,7 @@ python run_converter.py --batch \
 | `--max-size` | Maximum model dimension in mm | 200 |
 | `--line-width` | Nozzle line width for printability checks (mm) | 0.42 |
 | `--color-height` | Height of colored layer (mm) | 1.0 |
-| `--base-height` | Height of backing plate (mm) | 1.0 |
+| `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
 
@@ -161,7 +162,7 @@ python run_converter.py --batch \
 | `--batch-output` | Output folder for 3MF files | `batch/output` |
 | `--skip-checks` | Skip resolution warnings | Off |
 
-*Note: All single file options apply to batch mode*
+> **Note:** All single file options apply to batch mode
 
 ### Using as a Python Library
 
@@ -264,6 +265,16 @@ python run_converter.py detailed_art.png --max-colors 32
 - **Raises limit:** From 16 to 32 unique colors
 - **Note:** More colors = longer print time with filament changes
 
+#### No Backing Plate (Decals, Stickers)
+
+```bash
+python run_converter.py decal.png --base-height 0
+```
+
+- **Output:** Only colored regions, no backing plate
+- **Total height:** Just the color layer (default 1mm)
+- **Use case:** Decals, stickers, or if you want to add your own backing
+
 #### Batch Convert Sprite Collection
 
 ```bash
@@ -283,7 +294,7 @@ python run_converter.py --batch \
 
 The converter follows a precise pipeline to transform 2D images into 3D printable files:
 
-```
+```text
 Image Loading → Color Validation → Exact Scaling → Region Merging → 
 Mesh Generation → Color Naming → 3MF Export
 ```
@@ -318,7 +329,7 @@ Mesh Generation → Color Naming → 3MF Export
      - Perimeter walls connecting them
    - **Shared vertices** between adjacent pixels
    - **Counter-clockwise winding** for correct normals
-   - Generates backing plate with holes for transparent areas
+   - Generates optional backing plate with holes for transparent areas (if base_height > 0)
 
 6. **Name Colors**
    - Converts RGB → LAB color space
@@ -329,7 +340,8 @@ Mesh Generation → Color Naming → 3MF Export
    - Packages meshes into 3MF format (ZIP archive)
    - Includes object names (color names) for slicer UI
    - 3MF structure:
-     ```
+
+     ```text
      .3mf (ZIP)
      ├── 3D/
      │   ├── 3dmodel.model         # Assembly
@@ -345,7 +357,7 @@ Mesh Generation → Color Naming → 3MF Export
 
 The region merger uses **8-connectivity**, meaning pixels are considered connected if they share an edge **or a diagonal corner**. This prevents diagonal lines from being split into separate objects.
 
-```
+```text
 Example: 4-connectivity vs 8-connectivity
 
 Diagonal line in 4-connectivity: 3 separate regions ❌
@@ -368,13 +380,15 @@ X . .
 All meshes are **manifold** - no repair needed in slicers!
 
 **Manifold properties:**
+
 - ✅ **No duplicate vertices:** Adjacent pixels share corner vertices
 - ✅ **Consistent winding:** Counter-clockwise triangles = outward normals
 - ✅ **Edge connectivity:** Every edge shared by exactly 2 triangles
 - ✅ **Closed surface:** No gaps or holes (except intentional transparency)
 
 **Mesh structure per region:**
-```
+
+```text
 Top face: 2 triangles per pixel
 Bottom face: 2 triangles per pixel  
 Walls: Up to 8 triangles per perimeter pixel
@@ -383,10 +397,12 @@ Walls: Up to 8 triangles per perimeter pixel
 ### Coordinate System & Orientation
 
 **Image coordinates:**
+
 - Origin: Top-left (0,0)
 - Y-axis: Points down
 
 **3D coordinates (after Y-flip):**
+
 - Origin: Bottom-left (0,0,0)
 - Y-axis: Points up
 - Z-axis: Height (0 = bottom, height_mm = top)
@@ -425,6 +441,7 @@ model_height_mm = height_px * pixel_size_mm
 ```
 
 **Examples:**
+
 - 64×32 image, max_size=200 → 200÷64 = 3.125mm/pixel → 200×100mm model
 - 288×224 image, max_size=200 → 200÷288 = 0.694mm/pixel → 200×155.6mm model
 - 100×100 image, max_size=200 → 200÷100 = 2.0mm/pixel → 200×200mm model
@@ -436,7 +453,8 @@ The larger dimension **always equals** max_size exactly.
 3MF is a modern 3D printing format (ZIP archive containing XML):
 
 **Structure:**
-```
+
+```text
 model.3mf (ZIP archive)
 ├── [Content_Types].xml          # MIME types
 ├── _rels/.rels                  # Relationships
@@ -449,6 +467,7 @@ model.3mf (ZIP archive)
 ```
 
 **Advantages over STL:**
+
 - ✅ Supports multiple objects with names
 - ✅ Smaller file size (compressed)
 - ✅ Richer metadata
@@ -477,6 +496,7 @@ The converter warns if pixel size < 0.42mm (typical nozzle width):
 | 500×500 | 200mm | 0.4mm | ❌ Too small |
 
 **Solutions for high-resolution images:**
+
 - Reduce image resolution before converting
 - Increase `--max-size` parameter
 - Use larger nozzle (0.6mm, 0.8mm)
@@ -502,7 +522,7 @@ python run_converter.py --batch --batch-input resized_sprites
 3. **Assign filaments:**
    - Each region is named with its color (e.g., "Red", "Blue")
    - Match filament colors or customize
-   - The "Backing" object is your base layer
+   - The "Backing" object is your base layer (if you didn't disable it with `--base-height 0`)
 4. **No repair needed** - meshes are manifold!
 5. **Slice and print** 🎉
 
@@ -515,6 +535,7 @@ python run_converter.py --batch --batch-input resized_sprites
 **Problem:** Image has more unique colors than allowed (default: 16)
 
 **Solutions:**
+
 ```bash
 # Option 1: Increase limit
 python run_converter.py image.png --max-colors 32
@@ -529,13 +550,15 @@ python run_converter.py image.png --max-colors 32
 **Problem:** Anti-aliasing or JPEG compression creates subtle color variations
 
 **Solutions:**
+
 - ✅ Save as PNG (not JPEG - JPEG adds compression artifacts)
 - ✅ Use indexed color mode in image editor
 - ✅ Disable anti-aliasing when creating pixel art
 - ✅ Use "nearest neighbor" scaling if resizing
 
 **Example in GIMP:**
-```
+
+```text
 Image → Mode → Indexed
   Maximum colors: 16
   ☑ Remove unused colors
@@ -546,6 +569,7 @@ Image → Mode → Indexed
 **Symptoms:** Text or recognizable elements inverted
 
 **This shouldn't happen** - the converter auto-flips images. If it does:
+
 1. Check if image was pre-flipped before conversion
 2. Report as bug with sample image
 
@@ -556,6 +580,7 @@ Image → Mode → Indexed
 **Meaning:** Pixels may be too small to print reliably
 
 **Solutions:**
+
 ```bash
 # Increase model size
 python run_converter.py image.png --max-size 300
@@ -567,6 +592,7 @@ python run_converter.py image.png --max-size 300
 #### File won't open in slicer
 
 **Rare, but possible causes:**
+
 1. **3MF corrupted** - Try re-converting
 2. **Slicer compatibility** - Try different slicer (Bambu, Prusa, Cura)
 3. **Invalid geometry** - Report as bug with sample image
@@ -578,6 +604,7 @@ The converter generates valid manifold meshes, but edge cases may exist.
 **Problem:** Very large images (>1000×1000px) may consume significant RAM
 
 **Solutions:**
+
 ```bash
 # Reduce image resolution first
 # Pixel art shouldn't need high resolution anyway
@@ -589,7 +616,7 @@ The converter generates valid manifold meshes, but edge cases may exist.
 
 ### Code Organization
 
-```
+```text
 pixel_to_3mf/
 ├── __init__.py           # Package entry point
 ├── constants.py          # All default values (edit here to change defaults)
@@ -611,17 +638,20 @@ pixel_to_3mf/
 The codebase separates **CLI layer** from **business logic**:
 
 **CLI layer** (`cli.py`, `run_converter.py`):
+
 - Command-line argument parsing
 - User-facing output (print statements, progress)
 - Error messages and formatting
 
 **Business logic** (all other modules):
+
 - Pure conversion functions
 - No print statements
 - Fully programmatic API
 - Testable independently
 
 This allows using the converter as:
+
 1. **Command-line tool** - `python run_converter.py image.png`
 2. **Python library** - `from pixel_to_3mf import convert_image_to_3mf`
 
@@ -711,6 +741,7 @@ Created for personal and educational use. The `color_tools` library is a separat
 Built with love for the 3D printing and pixel art communities!
 
 **Technologies:**
+
 - **Pillow** - Image processing
 - **NumPy** - Fast array operations  
 - **Rich** - Beautiful terminal output
