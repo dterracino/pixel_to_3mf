@@ -19,7 +19,8 @@ from .constants import (
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
     DEFAULT_OUTPUT_SUFFIX,
-    MAX_COLORS
+    MAX_COLORS,
+    COORDINATE_PRECISION
 )
 from .pixel_to_3mf import convert_image_to_3mf
 
@@ -180,7 +181,7 @@ The program will:
     print(f"📊 Statistics:")
     print(f"   Image: {stats['image_width']} x {stats['image_height']} pixels")
     print(f"   Model: {stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
-    print(f"   Pixel size: {round(stats['pixel_size_mm'], 3)} mm")
+    print(f"   Pixel size: {round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
     print(f"   Regions: {stats['num_regions']} ({stats['num_colors']} unique colors)")
     print(f"   Output: {stats['output_path']} ({stats['file_size']})")
     print()

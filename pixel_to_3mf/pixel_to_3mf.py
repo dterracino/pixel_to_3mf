@@ -23,6 +23,7 @@ from .constants import (
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
     MAX_COLORS,
+    COORDINATE_PRECISION
 )
 
 def format_filesize(size_bytes):
@@ -125,7 +126,7 @@ def convert_image_to_3mf(
     )
     
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
-                     f"{round(pixel_data.pixel_size_mm, 3)}mm per pixel")
+                     f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel")
     
     # Check if resolution is too high for the line width
     max_dimension_px = max(pixel_data.width, pixel_data.height)
