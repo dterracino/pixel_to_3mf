@@ -27,6 +27,7 @@ from .color_tools import Palette, rgb_to_lab
 # Import for type checking only (avoids circular imports)
 if TYPE_CHECKING:
     from .image_processor import PixelData
+    from .config import ConversionConfig
 
 
 # XML namespaces used in 3MF files
@@ -435,6 +436,7 @@ def write_3mf(
     meshes: List[Tuple[Mesh, str]],
     region_colors: List[Tuple[int, int, int]],
     pixel_data: 'PixelData',  # We need this to calculate positions
+    config: 'ConversionConfig',
     progress_callback: Optional[Callable[[str, str], None]] = None
 ) -> None:
     """
@@ -455,6 +457,7 @@ def write_3mf(
         meshes: List of (Mesh, color_name) tuples (regions + backing plate)
         region_colors: List of RGB colors for each region (for naming)
         pixel_data: PixelData object with model dimensions
+        config: ConversionConfig object with conversion parameters
         progress_callback: Optional function to call with progress updates
     """
     # Helper to send progress updates

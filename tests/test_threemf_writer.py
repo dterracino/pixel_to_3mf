@@ -20,6 +20,7 @@ from pixel_to_3mf.threemf_writer import (
 )
 from pixel_to_3mf.mesh_generator import Mesh
 from pixel_to_3mf.image_processor import PixelData
+from pixel_to_3mf.config import ConversionConfig
 
 
 class TestFormatFloat(unittest.TestCase):
@@ -78,6 +79,9 @@ class TestWrite3MF(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
+        # Create config
+        config = ConversionConfig()
+        
         # Write 3MF
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
@@ -86,7 +90,7 @@ class TestWrite3MF(unittest.TestCase):
         meshes = [(mesh, "region_1")]
         region_colors = [(255, 0, 0)]
         
-        write_3mf(output_path, meshes, region_colors, pixel_data)
+        write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
         # Verify file was created
         self.assertTrue(os.path.exists(output_path))
@@ -102,6 +106,8 @@ class TestWrite3MF(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
+        config = ConversionConfig()
+        
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
         self.temp_files.append(output_path)
@@ -109,7 +115,7 @@ class TestWrite3MF(unittest.TestCase):
         meshes = [(mesh, "region_1")]
         region_colors = [(255, 0, 0)]
         
-        write_3mf(output_path, meshes, region_colors, pixel_data)
+        write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
         # Test that it's a valid ZIP
         self.assertTrue(zipfile.is_zipfile(output_path))
@@ -124,6 +130,8 @@ class TestWrite3MF(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
+        config = ConversionConfig()
+        
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
         self.temp_files.append(output_path)
@@ -131,7 +139,7 @@ class TestWrite3MF(unittest.TestCase):
         meshes = [(mesh, "region_1")]
         region_colors = [(255, 0, 0)]
         
-        write_3mf(output_path, meshes, region_colors, pixel_data)
+        write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
         # Check contents
         with zipfile.ZipFile(output_path, 'r') as zf:
@@ -159,6 +167,8 @@ class TestWrite3MF(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255), (1, 0): (0, 0, 255, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
+        config = ConversionConfig()
+        
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
         self.temp_files.append(output_path)
@@ -166,7 +176,7 @@ class TestWrite3MF(unittest.TestCase):
         meshes = [(mesh1, "region_1"), (mesh2, "region_2")]
         region_colors = [(255, 0, 0), (0, 0, 255)]
         
-        write_3mf(output_path, meshes, region_colors, pixel_data)
+        write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
         # Verify file was created
         self.assertTrue(os.path.exists(output_path))
@@ -186,6 +196,8 @@ class TestWrite3MF(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
+        config = ConversionConfig()
+        
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
         self.temp_files.append(output_path)
@@ -193,7 +205,7 @@ class TestWrite3MF(unittest.TestCase):
         meshes = [(mesh1, "region_1"), (backing_mesh, "backing_plate")]
         region_colors = [(255, 0, 0)]
         
-        write_3mf(output_path, meshes, region_colors, pixel_data)
+        write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
         # Verify file was created
         self.assertTrue(os.path.exists(output_path))
@@ -208,6 +220,8 @@ class TestWrite3MF(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
+        config = ConversionConfig()
+        
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
         self.temp_files.append(output_path)
@@ -215,7 +229,7 @@ class TestWrite3MF(unittest.TestCase):
         meshes = [(mesh, "region_1")]
         region_colors = [(255, 0, 0)]
         
-        write_3mf(output_path, meshes, region_colors, pixel_data)
+        write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
         # Verify file was created
         self.assertTrue(os.path.exists(output_path))
@@ -267,7 +281,7 @@ class TestWrite3MFIntegration(unittest.TestCase):
         os.close(fd)
         self.temp_files.append(output_path)
         
-        write_3mf(output_path, meshes, region_colors, pixel_data)
+        write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
         # Verify
         self.assertTrue(os.path.exists(output_path))

@@ -91,27 +91,32 @@ class TestCalculatePixelSize(unittest.TestCase):
     
     def test_square_image(self):
         """Test pixel size for square image."""
-        pixel_size = calculate_pixel_size(100, 100, max_size_mm=200.0)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_size = calculate_pixel_size(100, 100, config)
         self.assertEqual(pixel_size, 2.0)  # 200 / 100
     
     def test_landscape_image(self):
         """Test pixel size for landscape (wider than tall) image."""
-        pixel_size = calculate_pixel_size(200, 100, max_size_mm=200.0)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_size = calculate_pixel_size(200, 100, config)
         self.assertEqual(pixel_size, 1.0)  # 200 / 200 (width is larger)
     
     def test_portrait_image(self):
         """Test pixel size for portrait (taller than wide) image."""
-        pixel_size = calculate_pixel_size(100, 200, max_size_mm=200.0)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_size = calculate_pixel_size(100, 200, config)
         self.assertEqual(pixel_size, 1.0)  # 200 / 200 (height is larger)
     
     def test_non_round_dimension(self):
         """Test pixel size calculation with non-round dimensions."""
-        pixel_size = calculate_pixel_size(64, 32, max_size_mm=200.0)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_size = calculate_pixel_size(64, 32, config)
         self.assertAlmostEqual(pixel_size, 3.125, places=6)  # 200 / 64
     
     def test_different_max_size(self):
         """Test pixel size with different max_size_mm."""
-        pixel_size = calculate_pixel_size(100, 100, max_size_mm=150.0)
+        config = ConversionConfig(max_size_mm=150.0)
+        pixel_size = calculate_pixel_size(100, 100, config)
         self.assertEqual(pixel_size, 1.5)  # 150 / 100
 
 

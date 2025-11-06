@@ -73,13 +73,13 @@ class PixelData:
 def calculate_pixel_size(
     image_width: int,
     image_height: int,
-    max_size_mm: float = MAX_MODEL_SIZE_MM
+    config: 'ConversionConfig'
 ) -> float:
     """
     Calculate the size of each pixel in millimeters.
     
     Simple and predictable: scales the largest dimension to exactly match
-    max_size_mm. No rounding, no surprises!
+    the max_size_mm from config. No rounding, no surprises!
     
     Example:
         64x32 image with max_size=200mm
@@ -96,7 +96,7 @@ def calculate_pixel_size(
     Args:
         image_width: Width of image in pixels
         image_height: Height of image in pixels
-        max_size_mm: Maximum dimension (width or height) in millimeters
+        config: ConversionConfig object with max_size_mm and other parameters
     
     Returns:
         Pixel size in millimeters (exact, no rounding)
@@ -105,7 +105,7 @@ def calculate_pixel_size(
     max_dimension_px = max(image_width, image_height)
     
     # Calculate exact pixel size to fit that dimension to max_size_mm
-    pixel_size_mm = max_size_mm / max_dimension_px
+    pixel_size_mm = config.max_size_mm / max_dimension_px
     
     return pixel_size_mm
 
@@ -143,7 +143,7 @@ def load_image(
     width, height = img.size
 
     # Calculate appropriate pixel size
-    pixel_size_mm = calculate_pixel_size(width, height, config.max_size_mm)
+    pixel_size_mm = calculate_pixel_size(width, height, config)
     
     # Extract pixel data as numpy array for fast processing
     # Shape will be (height, width, 4) where 4 = RGBA
