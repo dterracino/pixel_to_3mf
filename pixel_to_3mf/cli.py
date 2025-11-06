@@ -12,6 +12,8 @@ Separation of concerns FTW! 🎯
 import argparse
 import sys
 from pathlib import Path
+from datetime import datetime
+from typing import Dict, List, Any
 
 from .constants import (
     MAX_MODEL_SIZE_MM,
@@ -21,10 +23,197 @@ from .constants import (
     DEFAULT_OUTPUT_SUFFIX,
     MAX_COLORS,
     BACKING_COLOR,
-    COORDINATE_PRECISION
+    COORDINATE_PRECISION,
+    SUPPORTED_IMAGE_EXTENSIONS
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
+
+
+def is_image_file(filepath: Path) -> bool:
+    """Check if a file is a supported image format."""
+    return filepath.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS
+
+
+def generate_batch_summary(
+    results: Dict[str, List[Dict[str, Any]]],
+    output_folder: Path,
+    start_time: datetime,
+    end_time: datetime
+) -> str:
+    """
+    Generate a Markdown summary of batch processing results.
+    
+    Args:
+        results: Dictionary with 'success', 'skipped', and 'failed' lists
+        output_folder: Where to write the summary file
+        start_time: When batch processing started
+        end_time: When batch processing finished
+        
+    Returns:
+        Path to the generated summary file
+    """
+    timestamp = start_time.strftime("%Y%m%d%H%M%S")
+    summary_path = output_folder / f"batch_summary_{timestamp}.md"
+    
+    duration = end_time - start_time
+    
+    # Build the markdown content
+    lines = []
+    lines.append("# Batch Conversion Summary")
+    lines.append(f"**Date:** {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"**Duration:** {duration.total_seconds():.1f} seconds")
+    lines.append("")
+    
+    # Results overview
+    lines.append("## Results Overview")
+    lines.append(f"- ✅ **Successful:** {len(results['success'])} files")
+    lines.append(f"- ⚠️  **Skipped:** {len(results['skipped'])} files")
+    lines.append(f"- ❌ **Failed:** {len(results['failed'])} files")
+    lines.append(f"- 📁 **Total processed:** {len(results['success']) + len(results['skipped']) + len(results['failed'])} files")
+    lines.append("")
+    
+    # Successful conversions
+    if results['success']:
+        lines.append("## ✅ Successful Conversions")
+        lines.append("")
+        lines.append("| Input File | Output File | Regions | Colors | Model Size | File Size |")
+        lines.append("|------------|-------------|---------|--------|------------|-----------|")
+        
+        for item in results['success']:
+            lines.append(
+                f"| {item['input_file']} | {item['output_file']} | "
+                f"{item['num_regions']} | {item['num_colors']} | "
+                f"{item['model_width_mm']:.1f}x{item['model_height_mm']:.1f}mm | "
+                f"{item['file_size']} |"
+            )
+        lines.append("")
+    
+    # Skipped files
+    if results['skipped']:
+        lines.append("## ⚠️  Skipped Files")
+        lines.append("")
+        lines.append("These files were skipped due to resolution warnings:")
+        lines.append("")
+        
+        for item in results['skipped']:
+            lines.append(f"### {item['input_file']}")
+            lines.append(f"**Reason:** {item['reason']}")
+            lines.append("")
+    
+    # Failed files
+    if results['failed']:
+        lines.append("## ❌ Failed Files")
+        lines.append("")
+        lines.append("These files encountered errors during conversion:")
+        lines.append("")
+        
+        for item in results['failed']:
+            lines.append(f"### {item['input_file']}")
+            lines.append(f"**Error:** {item['error']}")
+            lines.append("")
+    
+    # Write the summary
+    summary_path.write_text('\n'.join(lines), encoding='utf-8')
+    
+    return str(summary_path)
+
+
+def process_batch(
+    input_folder: Path,
+    output_folder: Path,
+    config: ConversionConfig
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Process all images in a folder in batch mode.
+    
+    Args:
+        input_folder: Folder containing input images
+        output_folder: Folder where output files should be written
+        config: ConversionConfig object with conversion parameters (including skip_checks and batch_mode flags)
+        
+    Returns:
+        Dictionary with 'success', 'skipped', and 'failed' results
+    """
+    results = {
+        'success': [],
+        'skipped': [],
+        'failed': []
+    }
+    
+    # Make sure output folder exists
+    output_folder.mkdir(parents=True, exist_ok=True)
+    
+    # Find all image files
+    image_files = [f for f in input_folder.iterdir() if f.is_file() and is_image_file(f)]
+    
+    if not image_files:
+        print(f"⚠️  No image files found in {input_folder}")
+        return results
+    
+    print(f"📁 Found {len(image_files)} image(s) to process")
+    print()
+    
+    # Process each file
+    for i, input_path in enumerate(sorted(image_files), start=1):
+        print(f"[{i}/{len(image_files)}] Processing: {input_path.name}")
+        
+        # Determine output path
+        output_filename = input_path.stem + DEFAULT_OUTPUT_SUFFIX + '.3mf'
+        output_path = output_folder / output_filename
+        
+        try:
+            # Try to convert the image
+            # All settings including skip_checks and batch_mode are in the config!
+            stats = convert_image_to_3mf(
+                input_path=str(input_path),
+                output_path=str(output_path),
+                config=config,
+                progress_callback=None  # No progress in batch mode
+            )
+            
+            # Success!
+            results['success'].append({
+                'input_file': input_path.name,
+                'output_file': output_filename,
+                'num_regions': stats['num_regions'],
+                'num_colors': stats['num_colors'],
+                'model_width_mm': stats['model_width_mm'],
+                'model_height_mm': stats['model_height_mm'],
+                'file_size': stats['file_size']
+            })
+            print(f"   ✅ Success: {stats['num_regions']} regions, {stats['file_size']}")
+            
+        except ValueError as e:
+            error_msg = str(e)
+            
+            # Check if this is a resolution warning
+            # The error message from the resolution check contains this specific text
+            if "resolution too high" in error_msg.lower():
+                results['skipped'].append({
+                    'input_file': input_path.name,
+                    'reason': error_msg
+                })
+                print(f"   ⚠️  Skipped: Resolution warning")
+            else:
+                # Other ValueError = actual failure (e.g., too many colors)
+                results['failed'].append({
+                    'input_file': input_path.name,
+                    'error': error_msg
+                })
+                print(f"   ❌ Failed: {error_msg}")
+                
+        except Exception as e:
+            # Any other error = failure
+            results['failed'].append({
+                'input_file': input_path.name,
+                'error': str(e)
+            })
+            print(f"   ❌ Failed: {e}")
+        
+        print()
+    
+    return results
 
 
 def main():
@@ -50,11 +239,39 @@ The program will:
         """
     )
     
-    # Positional argument: input file
+    # Positional argument: input file (optional if using batch mode)
     parser.add_argument(
         "image_file",
         type=str,
-        help="Input pixel art image file (PNG, JPG, etc.)"
+        nargs='?',  # Makes it optional
+        help="Input pixel art image file (PNG, JPG, etc.) - not used in batch mode"
+    )
+    
+    # Batch mode arguments
+    parser.add_argument(
+        "--batch",
+        action="store_true",
+        help="Enable batch mode to process multiple images from a folder"
+    )
+    
+    parser.add_argument(
+        "--batch-input",
+        type=str,
+        default="batch/input",
+        help="Input folder for batch mode (default: batch/input)"
+    )
+    
+    parser.add_argument(
+        "--batch-output",
+        type=str,
+        default="batch/output",
+        help="Output folder for batch mode (default: batch/output)"
+    )
+    
+    parser.add_argument(
+        "--skip-checks",
+        action="store_true",
+        help="Skip resolution warnings in batch mode (process all files regardless of pixel size)"
     )
     
     # Optional arguments
@@ -110,6 +327,20 @@ The program will:
 
     # Parse arguments
     args = parser.parse_args()
+    
+    # Validate batch mode vs single-file mode
+    if args.batch:
+        # Batch mode - image_file should not be provided
+        if args.image_file:
+            print("❌ Error: Don't specify an image file when using --batch mode", file=sys.stderr)
+            print("   Use --batch-input to specify the input folder instead", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Single-file mode - image_file is required
+        if not args.image_file:
+            print("❌ Error: Image file is required (or use --batch mode)", file=sys.stderr)
+            parser.print_help()
+            sys.exit(1)
 
     # Parse backing color if provided
     backing_color = BACKING_COLOR
@@ -118,7 +349,8 @@ The program will:
             parts = args.backing_color.split(',')
             if len(parts) != 3:
                 raise ValueError("Must have exactly 3 values (R,G,B)")
-            backing_color = tuple(int(p.strip()) for p in parts)
+            r, g, b = (int(p.strip()) for p in parts)
+            backing_color = (r, g, b)  # Explicitly create 3-tuple
             if not all(0 <= c <= 255 for c in backing_color):
                 raise ValueError("RGB values must be 0-255")
         except Exception as e:
@@ -134,11 +366,69 @@ The program will:
             color_height_mm=args.color_height,
             base_height_mm=args.base_height,
             max_colors=args.max_colors,
-            backing_color=backing_color
+            backing_color=backing_color,
+            skip_checks=args.skip_checks,
+            batch_mode=args.batch
         )
     except ValueError as e:
         print(f"❌ Error: Invalid configuration: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # =========================================================================
+    # BATCH MODE
+    # =========================================================================
+    if args.batch:
+        print("=" * 70)
+        print("🎨 Pixel Art to 3MF Converter - BATCH MODE")
+        print("=" * 70)
+        print()
+        
+        input_folder = Path(args.batch_input)
+        output_folder = Path(args.batch_output)
+        
+        # Validate input folder exists
+        if not input_folder.exists():
+            print(f"❌ Error: Input folder not found: {input_folder}", file=sys.stderr)
+            sys.exit(1)
+        
+        if not input_folder.is_dir():
+            print(f"❌ Error: Input path is not a directory: {input_folder}", file=sys.stderr)
+            sys.exit(1)
+        
+        print(f"📂 Input folder:  {input_folder}")
+        print(f"📂 Output folder: {output_folder}")
+        print(f"⚙️  Skip checks:   {args.skip_checks}")
+        print()
+        
+        # Process the batch
+        start_time = datetime.now()
+        results = process_batch(input_folder, output_folder, config)
+        end_time = datetime.now()
+        
+        # Generate summary
+        summary_path = generate_batch_summary(results, output_folder, start_time, end_time)
+        
+        # Print final results
+        print("=" * 70)
+        print("✅ Batch processing complete!")
+        print("=" * 70)
+        print(f"📊 Results:")
+        print(f"   ✅ Successful: {len(results['success'])} files")
+        print(f"   ⚠️  Skipped:    {len(results['skipped'])} files")
+        print(f"   ❌ Failed:     {len(results['failed'])} files")
+        print()
+        print(f"📄 Summary: {summary_path}")
+        print()
+        
+        # Exit with error code if there were failures
+        if results['failed']:
+            sys.exit(1)
+        
+        return
+
+    # =========================================================================
+    # SINGLE-FILE MODE
+    # =========================================================================
 
     # Validate input file exists
     input_path = Path(args.image_file)

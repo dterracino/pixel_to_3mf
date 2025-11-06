@@ -35,6 +35,8 @@ class ConversionConfig:
         base_height_mm: Height of backing plate in millimeters
         max_colors: Maximum unique colors allowed
         backing_color: RGB color for the backing plate (reserved if not in image)
+        skip_checks: If True, skip resolution warnings entirely
+        batch_mode: If True, raise errors immediately instead of prompting user
     """
 
     max_size_mm: float = MAX_MODEL_SIZE_MM
@@ -43,6 +45,8 @@ class ConversionConfig:
     base_height_mm: float = BASE_LAYER_HEIGHT_MM
     max_colors: int = MAX_COLORS
     backing_color: Tuple[int, int, int] = BACKING_COLOR
+    skip_checks: bool = False
+    batch_mode: bool = False
 
     def __post_init__(self):
         """Validate configuration parameters."""

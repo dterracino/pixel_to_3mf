@@ -47,6 +47,16 @@ MAX_COLORS = 16
 BACKING_COLOR = (255, 255, 255)  # White
 
 # ============================================================================
+# Batch Processing
+# ============================================================================
+
+# Supported image file extensions for batch processing
+# These are the formats PIL/Pillow can reliably load
+# This is not user-configurable - if we add support for new formats (like HEIC, AVIF),
+# we just update this list here
+SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+
+# ============================================================================
 # 3MF File Generation
 # ============================================================================
 

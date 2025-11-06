@@ -78,7 +78,7 @@ def convert_image_to_3mf(
     Raises:
         FileNotFoundError: If input image doesn't exist
         IOError: If image can't be loaded or 3MF can't be written
-        ValueError: If parameters are invalid
+        ValueError: If parameters are invalid or resolution check fails
     """
 
     # Helper to send progress updates
@@ -109,38 +109,53 @@ def convert_image_to_3mf(
     max_recommended_px = int(config.max_size_mm / config.line_width_mm)
     
     if max_dimension_px > max_recommended_px:
-        # Pixels are smaller than line width - warn user!
-        print()
-        print("⚠️  " + "=" * 68)
-        print("⚠️  WARNING: Image resolution may be too high for reliable printing!")
-        print("=" * 72)
-        print()
-        print(f"   Image dimensions: {pixel_data.width} x {pixel_data.height} pixels ({max_dimension_px}px largest)")
-        print(f"   Your line width:  {config.line_width_mm}mm")
-        print(f"   Max recommended:  {max_recommended_px} pixels ({config.max_size_mm}mm ÷ {config.line_width_mm}mm)")
-        print()
-        print(f"   Your pixels will be: {pixel_data.pixel_size_mm:.3f}mm each")
-        print(f"   This is SMALLER than your line width ({config.line_width_mm}mm)!")
-        print()
-        print("   The printer may struggle with details this fine.")
-        print()
+        # Pixels are smaller than line width!
+        
+        if config.skip_checks:
+            # Skip the check entirely - just continue silently
+            pass
+        elif config.batch_mode:
+            # Batch mode - raise error immediately without prompting
+            # The batch processor will catch this and skip the file
+            raise ValueError(
+                f"Image resolution too high for reliable printing. "
+                f"Image: {pixel_data.width}x{pixel_data.height}px ({max_dimension_px}px max), "
+                f"Recommended max: {max_recommended_px}px for {config.line_width_mm}mm line width. "
+                f"Pixel size would be {pixel_data.pixel_size_mm:.3f}mm (smaller than line width)."
+            )
+        else:
+            # Interactive mode - warn user and ask if they want to continue
+            print()
+            print("⚠️  " + "=" * 68)
+            print("⚠️  WARNING: Image resolution may be too high for reliable printing!")
+            print("=" * 72)
+            print()
+            print(f"   Image dimensions: {pixel_data.width} x {pixel_data.height} pixels ({max_dimension_px}px largest)")
+            print(f"   Your line width:  {config.line_width_mm}mm")
+            print(f"   Max recommended:  {max_recommended_px} pixels ({config.max_size_mm}mm ÷ {config.line_width_mm}mm)")
+            print()
+            print(f"   Your pixels will be: {pixel_data.pixel_size_mm:.3f}mm each")
+            print(f"   This is SMALLER than your line width ({config.line_width_mm}mm)!")
+            print()
+            print("   The printer may struggle with details this fine.")
+            print()
 
-        # Interactive prompt
-        response = input("Do you want to continue anyway? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
-            print()
-            print("Conversion cancelled.")
-            print()
-            print("💡 Suggestions:")
-            print(f"   • Resize your image to max {max_recommended_px}px in an image editor")
-            print(f"   • Increase --max-size (e.g., --max-size {int(max_dimension_px * config.line_width_mm)})")
-            print(f"   • Use a smaller nozzle and adjust --line-width accordingly")
-            print()
-            raise ValueError("Image resolution too high for specified line width")
+            # Interactive prompt
+            response = input("Do you want to continue anyway? [y/N]: ").strip().lower()
+            if response not in ['y', 'yes']:
+                print()
+                print("Conversion cancelled.")
+                print()
+                print("💡 Suggestions:")
+                print(f"   • Resize your image to max {max_recommended_px}px in an image editor")
+                print(f"   • Increase --max-size (e.g., --max-size {int(max_dimension_px * config.line_width_mm)})")
+                print(f"   • Use a smaller nozzle and adjust --line-width accordingly")
+                print()
+                raise ValueError("Image resolution too high for specified line width")
 
-        print()
-        print("Continuing with conversion...")
-        print()
+            print()
+            print("Continuing with conversion...")
+            print()
     
     # Step 2: Merge regions
     _progress("merge", "Merging connected pixels into regions...")
