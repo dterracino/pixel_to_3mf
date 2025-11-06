@@ -1,0 +1,2 @@
+# This .gitkeep file ensures the 'output' directory is tracked by git.
+# Do not remove. Batch processing output files will be placed here.
