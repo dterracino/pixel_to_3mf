@@ -18,6 +18,25 @@ from .image_processor import PixelData
 if TYPE_CHECKING:
     from .config import ConversionConfig
 
+# ============================================================================
+# Feature flag for optimized mesh generation
+# ============================================================================
+# When True, uses polygon merging + triangulation for significant reduction
+# in vertex/triangle counts (50-90% typical). When False, uses original
+# per-pixel mesh generation. Both produce manifold meshes with identical
+# visual results.
+USE_OPTIMIZED_MESH_GENERATION = False
+
+# Try to import optimized functions
+try:
+    from .polygon_optimizer import (
+        generate_region_mesh_optimized,
+        generate_backing_plate_optimized
+    )
+    OPTIMIZATION_AVAILABLE = True
+except ImportError:
+    OPTIMIZATION_AVAILABLE = False
+
 
 class Mesh:
     """
@@ -66,6 +85,9 @@ def generate_region_mesh(
 
     The tricky part is the perimeter detection - we need to find which pixels
     are on the edge (have at least one neighbor that's NOT in the region).
+    
+    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
+    optimization for reduced vertex/triangle counts.
 
     Args:
         region: The region to extrude
@@ -75,6 +97,11 @@ def generate_region_mesh(
     Returns:
         A Mesh object ready for export to 3MF
     """
+    # Dispatch to optimized version if enabled and available
+    if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
+        return generate_region_mesh_optimized(region, pixel_data, config)
+    
+    # Original per-pixel mesh generation
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
     
@@ -247,6 +274,9 @@ def generate_backing_plate(
 
     The backing plate should match the EXACT footprint of the non-transparent pixels,
     with holes where transparent pixels are. It goes from z=-config.base_height_mm to z=0.
+    
+    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
+    optimization for reduced vertex/triangle counts.
 
     Args:
         pixel_data: Pixel data (includes which pixels are non-transparent)
@@ -255,6 +285,11 @@ def generate_backing_plate(
     Returns:
         A Mesh object for the backing plate
     """
+    # Dispatch to optimized version if enabled and available
+    if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
+        return generate_backing_plate_optimized(pixel_data, config)
+    
+    # Original per-pixel mesh generation
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
 
