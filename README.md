@@ -4,8 +4,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 
 ## Features ✨
 
-- **Automatic Scaling**: Intelligently scales your pixel art to fit your print bed (default 200mm max dimension)
-- **Smart Rounding**: Rounds pixel sizes to nice numbers for easier slicer setup (default 0.5mm increments)
+- **Exact Scaling**: Scales your pixel art so the largest dimension exactly matches your target size (default 200mm)
 - **Region Merging**: Uses flood-fill algorithm to merge connected same-color pixels into single manifold objects
 - **Perceptual Color Names**: Uses Delta E 2000 (industry standard) to find the nearest CSS color name for each region
 - **Transparent Pixel Support**: Transparent areas become holes in the model
@@ -44,8 +43,6 @@ your_project/
 └── run_converter.py
 ```
 
-The converter imports color_tools directly for perceptual color matching.
-
 ## Usage 🚀
 
 ### Basic Usage
@@ -62,7 +59,6 @@ This will create `your_pixel_art_model.3mf` in the same directory.
 python run_converter.py image.png \
   --output custom_name.3mf \
   --max-size 150 \
-  --pixel-rounding 0.1 \
   --color-height 1.5 \
   --base-height 2.0 \
   --max-colors 20
@@ -72,8 +68,7 @@ python run_converter.py image.png \
 
 - `image_file` (required): Input pixel art image (PNG, JPG, etc.)
 - `-o, --output`: Output 3MF file path (default: `{input_name}_model.3mf`)
-- `--max-size`: Maximum model dimension in mm (default: 200)
-- `--pixel-rounding`: Round pixel size to nearest multiple (default: 0.5mm)
+- `--max-size`: Maximum model dimension in mm (default: 200) - the largest dimension will scale to exactly this size
 - `--color-height`: Height of colored layer in mm (default: 1.0)
 - `--base-height`: Height of backing plate in mm (default: 1.0)
 - `--max-colors`: Maximum unique colors allowed (default: 16)
@@ -82,7 +77,7 @@ python run_converter.py image.png \
 
 1. **Load Image**: Reads your pixel art, converts to RGBA, and flips Y-axis for correct orientation
 2. **Validate Colors**: Checks that the image doesn't exceed the color limit
-3. **Calculate Scaling**: Determines pixel size to fit your print bed (respecting the max size limit)
+3. **Calculate Scaling**: Determines exact pixel size so largest dimension = max_size_mm
 4. **Merge Regions**: Groups connected same-color pixels using flood-fill algorithm
 5. **Generate Meshes**: Creates manifold 3D geometry for each region + backing plate
 6. **Name Colors**: Uses color science (Delta E 2000) to find nearest color names
@@ -90,28 +85,38 @@ python run_converter.py image.png \
 
 ## Examples 📸
 
-### Simple Sprite
+### Simple 8-bit Sprite
 
 ```bash
 python run_converter.py mario.png
 ```
 
-- 64x32 pixel sprite
-- Scales to fit within 200mm
+- Input: 64x32 pixel sprite
+- Output: 200mm x 100mm model (3.125mm per pixel)
 - Results in ~5-10 colored regions
 - Total height: 2mm (1mm color + 1mm base)
 
-### Large Detailed Art (Use Finer Rounding!)
+### Detailed Pixel Art
 
 ```bash
-python run_converter.py ms-pac-man.png --pixel-rounding 0.1
+python run_converter.py ms-pac-man.png
 ```
 
-- For images with 200+ pixels, use `--pixel-rounding 0.1` instead of the default 0.5mm
-- This gives much better scaling (closer to your target size)
-- Example: 224x288px image will be ~201mm instead of 144mm
+- Input: 224x288 pixel image
+- Output: 155.6mm x 200mm model (0.694mm per pixel)
+- The taller dimension (288px) scales to exactly 200mm
+- Smaller pixels = more detail!
 
-### Thick Layers for Durability
+### Custom Size for Smaller Bed
+
+```bash
+python run_converter.py image.png --max-size 150
+```
+
+- Scales to fit a 150mm x 150mm build area
+- Perfect for smaller printers
+
+### Thick & Sturdy
 
 ```bash
 python run_converter.py coaster.png --color-height 2.0 --base-height 3.0
@@ -135,8 +140,8 @@ python run_converter.py complex_art.png --max-colors 32
 pixel_to_3mf/
 ├── __init__.py              # Package initialization
 ├── constants.py             # All configurable defaults
-├── cli.py                   # Command-line interface (argparse, pretty printing)
-├── pixel_to_3mf.py         # Core conversion logic (pure business logic)
+├── cli.py                   # Command-line interface
+├── pixel_to_3mf.py         # Core conversion logic
 ├── image_processor.py       # Image loading, Y-flip, scaling, color validation
 ├── region_merger.py         # Flood-fill region detection
 ├── mesh_generator.py        # Manifold 3D geometry generation
@@ -146,11 +151,6 @@ pixel_to_3mf/
 ### Architecture Notes
 
 The code follows clean separation between the **CLI layer** and the **business logic**:
-
-- **cli.py** - Handles all command-line stuff (argparse, error messages, progress output)
-- **pixel_to_3mf.py** - Pure conversion function that can be imported and used programmatically
-
-This means you can use the converter in two ways:
 
 **As a CLI tool:**
 
@@ -170,21 +170,18 @@ stats = convert_image_to_3mf(
     color_height_mm=2.0,
     max_colors=16
 )
-print(f"Created model with {stats['num_regions']} regions!")
+print(f"Created {stats['model_width_mm']:.1f}x{stats['model_height_mm']:.1f}mm model")
+print(f"Pixel size: {stats['pixel_size_mm']:.3f}mm")
+print(f"Regions: {stats['num_regions']}")
 ```
-
-This separation makes testing easier and keeps concerns properly separated! 🎯
 
 ## Editing Defaults 🔧
 
 Want to change the default settings? Just edit `pixel_to_3mf/constants.py`:
 
 ```python
-# Your print bed size
+# Your print bed size - largest dimension will scale to this
 MAX_MODEL_SIZE_MM = 200.0
-
-# Pixel size rounding (use 0.1 for detailed images)
-PIXEL_ROUNDING_MM = 0.5
 
 # Layer heights
 COLOR_LAYER_HEIGHT_MM = 1.0
@@ -199,27 +196,19 @@ MAX_COLORS = 16
 ### For Best Results
 
 - **Use PNG files** with transparency for holes in your design
-- **Keep pixel art small** (under 200x200px) for reasonable print times
+- **Keep pixel art reasonable** (under 300x300px) for practical print times
 - **Use distinct colors** - the algorithm merges adjacent pixels with the exact same RGB value
-- **For detailed images** (200+ pixels): Use `--pixel-rounding 0.1` instead of the default 0.5mm
+- **Consistent pixel sizes across images?** Resize all your images to the same dimensions first (e.g., using ImageMagick)
 
-### Understanding Pixel Rounding
+### Understanding Scaling
 
-The `--pixel-rounding` parameter affects how close your final model size is to the `--max-size` target:
+The scaling is **exact and predictable**:
 
-- **Coarse rounding (0.5mm)**: Good for small pixel art (32x32, 64x64), gives nice round numbers
-- **Fine rounding (0.1mm)**: Better for detailed images (200x200+), gets closer to target size
-- **Trade-off**: Finer rounding means less round numbers, but better size accuracy
+- A 64px wide image with `--max-size 200` → 200mm ÷ 64 = 3.125mm per pixel → 200mm x 100mm model
+- A 288px tall image with `--max-size 200` → 200mm ÷ 288 = 0.694mm per pixel → 155.6mm x 200mm model
+- A 100px square image with `--max-size 200` → 200mm ÷ 100 = 2.0mm per pixel → 200mm x 200mm model
 
-Example with a 288-pixel tall image and 200mm max:
-
-```bash
-# With default 0.5mm rounding: 288 × 0.5 = 144mm (undersized!)
-python run_converter.py image.png
-
-# With 0.1mm rounding: 288 × 0.7 = 201.6mm (much better!)
-python run_converter.py image.png --pixel-rounding 0.1
-```
+The largest dimension always equals your max-size, and the smaller dimension scales proportionally!
 
 ### Slicer Setup
 
@@ -231,28 +220,23 @@ python run_converter.py image.png --pixel-rounding 0.1
 
 ### Common Issues
 
-**Model too small after conversion:**
-
-- This happens with detailed images (200+ pixels) using default 0.5mm rounding
-- Solution: Use `--pixel-rounding 0.1` for finer control
-- See "Understanding Pixel Rounding" section above
-
 **"Too many colors" error:**
 
 - Your image has more unique colors than the limit allows
-- Solution 1: Reduce colors in your image editor (posterize/index)
+- Solution 1: Reduce colors in your image editor (posterize/index mode)
 - Solution 2: Increase the limit with `--max-colors 32` (but longer prints!)
 
 **Colors not merging:**
 
 - Regions only merge if they're the exact same RGB value
 - Anti-aliasing and compression can create subtle color variations
-- Solution: Use indexed color mode in your image editor
+- Solution: Use indexed color mode in your image editor (no anti-aliasing)
 
-**Model appears flipped:**
+**Want consistent pixel sizes across multiple images?**
 
-- This shouldn't happen anymore! We fixed the Y-axis flip.
-- If you still see this, please report it as a bug
+- Don't rely on the converter to do this!
+- Resize all images to the same dimensions first using an image editor
+- Example: Make all sprites 64x64px before converting
 
 ## Technical Details 🤓
 
@@ -292,13 +276,13 @@ The backing plate has the exact same footprint as the colored regions (with hole
 
 **Recent Improvements:**
 
+- ✅ **Removed pixel rounding** - Scaling is now exact and predictable!
 - ✅ Fixed manifold geometry (no more repair needed!)
 - ✅ Fixed triangle winding for correct normals
 - ✅ Fixed Y-axis orientation (models appear right-side-up)
 - ✅ Fixed backing plate to match pixel footprint with holes
 - ✅ Fixed vertex sharing in merged regions
 - ✅ Added color limiting with `--max-colors` parameter
-- ✅ Improved scaling algorithm to respect max size limit
 - ✅ Updated all type hints for Pylance compatibility
 
 ## License 📄
