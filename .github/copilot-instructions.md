@@ -1,5 +1,14 @@
 # Pixel Art to 3MF Converter - AI Agent Instructions
 
+## General Instructions
+
+- Avoid making assumptions. If you need additional context to accurately answer the user, ask the user for the missing information. Be specific about which context you need.
+- Never abbreviate or abridge code; always provide the full code as it appears in the source files.
+- Make sure that any changes you suggest are consistent with the existing code style and architecture.
+- Document any changes you make to the code, including the reasoning behind them.
+- When refactoring code, ensure that the functionality remains unchanged unless explicitly requested by the user.
+- Do not jump ahead and make code changes if the user has not yet requested them; instead, offer suggestions or ask clarifying questions first.
+
 ## Project Overview
 
 This tool converts pixel art images into 3D-printable 3MF files. It performs region merging (flood-fill with 8-connectivity), color naming via perceptual Delta E 2000 matching, and generates **manifold** 3MF meshes with proper topology.
