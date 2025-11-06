@@ -1,0 +1,510 @@
+"""
+Tests for CLI-specific functionality including batch processing.
+
+This module tests the command-line interface functionality including:
+- Batch processing (process_batch function)
+- Batch summary generation (generate_batch_summary function)
+- Image file detection (is_image_file function)
+- CLI argument validation
+- skip_checks flag behavior
+"""
+
+import unittest
+import sys
+import os
+import tempfile
+import shutil
+from pathlib import Path
+from datetime import datetime
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from pixel_to_3mf.cli import is_image_file, process_batch, generate_batch_summary
+from pixel_to_3mf.config import ConversionConfig
+from tests.test_helpers import (
+    create_simple_square_image,
+    create_two_region_image,
+    create_test_image,
+    cleanup_test_file
+)
+
+
+class TestIsImageFile(unittest.TestCase):
+    """Test the is_image_file function."""
+    
+    def test_png_file(self):
+        """Test that PNG files are recognized as images."""
+        path = Path("test.png")
+        self.assertTrue(is_image_file(path))
+    
+    def test_jpg_file(self):
+        """Test that JPG files are recognized as images."""
+        path = Path("test.jpg")
+        self.assertTrue(is_image_file(path))
+    
+    def test_jpeg_file(self):
+        """Test that JPEG files are recognized as images."""
+        path = Path("test.jpeg")
+        self.assertTrue(is_image_file(path))
+    
+    def test_gif_file(self):
+        """Test that GIF files are recognized as images."""
+        path = Path("test.gif")
+        self.assertTrue(is_image_file(path))
+    
+    def test_bmp_file(self):
+        """Test that BMP files are recognized as images."""
+        path = Path("test.bmp")
+        self.assertTrue(is_image_file(path))
+    
+    def test_uppercase_extension(self):
+        """Test that uppercase extensions are recognized."""
+        path = Path("test.PNG")
+        self.assertTrue(is_image_file(path))
+    
+    def test_mixed_case_extension(self):
+        """Test that mixed case extensions are recognized."""
+        path = Path("test.JpEg")
+        self.assertTrue(is_image_file(path))
+    
+    def test_non_image_file(self):
+        """Test that non-image files are not recognized."""
+        path = Path("test.txt")
+        self.assertFalse(is_image_file(path))
+    
+    def test_3mf_file(self):
+        """Test that 3MF files are not recognized as images."""
+        path = Path("test.3mf")
+        self.assertFalse(is_image_file(path))
+    
+    def test_no_extension(self):
+        """Test that files without extensions are not recognized."""
+        path = Path("test")
+        self.assertFalse(is_image_file(path))
+
+
+class TestProcessBatch(unittest.TestCase):
+    """Test the process_batch function."""
+    
+    def setUp(self):
+        """Set up temporary directories for testing."""
+        self.test_files = []
+        self.temp_dirs = []
+        
+        # Create temporary input and output directories
+        self.input_dir = Path(tempfile.mkdtemp())
+        self.output_dir = Path(tempfile.mkdtemp())
+        self.temp_dirs.extend([self.input_dir, self.output_dir])
+    
+    def tearDown(self):
+        """Clean up test files and directories."""
+        for filepath in self.test_files:
+            cleanup_test_file(filepath)
+        
+        for temp_dir in self.temp_dirs:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+    
+    def test_process_empty_folder(self):
+        """Test batch processing with empty input folder."""
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        self.assertEqual(len(results['success']), 0)
+        self.assertEqual(len(results['skipped']), 0)
+        self.assertEqual(len(results['failed']), 0)
+    
+    def test_process_single_image(self):
+        """Test batch processing with a single image."""
+        # Create a test image in input folder
+        img_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        dest_path = self.input_dir / "test.png"
+        shutil.move(img_path, dest_path)
+        
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Should have 1 successful conversion
+        self.assertEqual(len(results['success']), 1)
+        self.assertEqual(len(results['skipped']), 0)
+        self.assertEqual(len(results['failed']), 0)
+        
+        # Check that output file was created
+        self.assertTrue((self.output_dir / "test_model.3mf").exists())
+        
+        # Check success result structure
+        success_item = results['success'][0]
+        self.assertEqual(success_item['input_file'], 'test.png')
+        self.assertEqual(success_item['output_file'], 'test_model.3mf')
+        self.assertIn('num_regions', success_item)
+        self.assertIn('num_colors', success_item)
+        self.assertIn('file_size', success_item)
+    
+    def test_process_multiple_images(self):
+        """Test batch processing with multiple images."""
+        # Create multiple test images
+        img1_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        img2_path = create_two_region_image()
+        
+        shutil.move(img1_path, self.input_dir / "image1.png")
+        shutil.move(img2_path, self.input_dir / "image2.png")
+        
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Should have 2 successful conversions
+        self.assertEqual(len(results['success']), 2)
+        self.assertEqual(len(results['skipped']), 0)
+        self.assertEqual(len(results['failed']), 0)
+        
+        # Check output files exist
+        self.assertTrue((self.output_dir / "image1_model.3mf").exists())
+        self.assertTrue((self.output_dir / "image2_model.3mf").exists())
+    
+    def test_process_with_skip_checks(self):
+        """Test batch processing with skip_checks enabled."""
+        # Create a high-resolution image that would normally trigger a warning
+        # 500x500 image with default max_size_mm=200 and line_width_mm=0.42
+        # gives max_recommended_px = 200/0.42 = ~476, so 500 > 476
+        positions = [(x, y) for x in range(500) for y in range(500)]
+        colors = {(255, 0, 0, 255): positions}
+        img_path = create_test_image(500, 500, colors)
+        
+        dest_path = self.input_dir / "highres.png"
+        shutil.move(img_path, dest_path)
+        
+        # With skip_checks=True, should process successfully
+        config = ConversionConfig(skip_checks=True, batch_mode=True)
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Should succeed (not be skipped)
+        self.assertEqual(len(results['success']), 1)
+        self.assertEqual(len(results['skipped']), 0)
+        self.assertEqual(len(results['failed']), 0)
+    
+    def test_process_without_skip_checks_high_resolution(self):
+        """Test batch processing without skip_checks on high-resolution image."""
+        # Create a high-resolution image
+        positions = [(x, y) for x in range(500) for y in range(500)]
+        colors = {(255, 0, 0, 255): positions}
+        img_path = create_test_image(500, 500, colors)
+        
+        dest_path = self.input_dir / "highres.png"
+        shutil.move(img_path, dest_path)
+        
+        # With batch_mode=True but skip_checks=False, should skip due to resolution warning
+        config = ConversionConfig(skip_checks=False, batch_mode=True)
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Should be skipped (resolution warning)
+        self.assertEqual(len(results['success']), 0)
+        self.assertEqual(len(results['skipped']), 1)
+        self.assertEqual(len(results['failed']), 0)
+        
+        # Check skipped result structure
+        skipped_item = results['skipped'][0]
+        self.assertEqual(skipped_item['input_file'], 'highres.png')
+        self.assertIn('resolution too high', skipped_item['reason'].lower())
+    
+    def test_process_with_too_many_colors(self):
+        """Test batch processing with image having too many colors."""
+        # Create image with 3 colors but set max_colors=2
+        colors = {
+            (255, 0, 0, 255): [(0, 0)],
+            (0, 255, 0, 255): [(1, 0)],
+            (0, 0, 255, 255): [(0, 1)]
+        }
+        img_path = create_test_image(2, 2, colors)
+        dest_path = self.input_dir / "multicolor.png"
+        shutil.move(img_path, dest_path)
+        
+        config = ConversionConfig(max_colors=2)
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Should fail (too many colors)
+        self.assertEqual(len(results['success']), 0)
+        self.assertEqual(len(results['skipped']), 0)
+        self.assertEqual(len(results['failed']), 1)
+        
+        # Check failed result structure
+        failed_item = results['failed'][0]
+        self.assertEqual(failed_item['input_file'], 'multicolor.png')
+        self.assertIn('error', failed_item)
+    
+    def test_process_ignores_non_image_files(self):
+        """Test that batch processing ignores non-image files."""
+        # Create a test image and a non-image file
+        img_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        shutil.move(img_path, self.input_dir / "test.png")
+        
+        # Create a non-image file
+        (self.input_dir / "readme.txt").write_text("Not an image")
+        
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Should only process the image file
+        self.assertEqual(len(results['success']), 1)
+        self.assertEqual(results['success'][0]['input_file'], 'test.png')
+    
+    def test_process_creates_output_folder(self):
+        """Test that batch processing creates output folder if it doesn't exist."""
+        # Delete the output folder
+        shutil.rmtree(self.output_dir)
+        self.assertFalse(self.output_dir.exists())
+        
+        # Create a test image
+        img_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        shutil.move(img_path, self.input_dir / "test.png")
+        
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Output folder should now exist
+        self.assertTrue(self.output_dir.exists())
+        self.assertEqual(len(results['success']), 1)
+    
+    def test_process_mixed_results(self):
+        """Test batch processing with mix of successful, skipped, and failed conversions."""
+        # Create a successful image (low resolution)
+        img1_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        shutil.move(img1_path, self.input_dir / "good.png")
+        
+        # Create a high-resolution image (will be skipped)
+        positions = [(x, y) for x in range(500) for y in range(500)]
+        colors = {(255, 0, 0, 255): positions}
+        img2_path = create_test_image(500, 500, colors)
+        shutil.move(img2_path, self.input_dir / "highres.png")
+        
+        # Create an image with too many colors (will fail)
+        colors = {
+            (255, 0, 0, 255): [(0, 0)],
+            (0, 255, 0, 255): [(1, 0)],
+            (0, 0, 255, 255): [(0, 1)]
+        }
+        img3_path = create_test_image(2, 2, colors)
+        shutil.move(img3_path, self.input_dir / "multicolor.png")
+        
+        config = ConversionConfig(max_colors=2, batch_mode=True)
+        results = process_batch(self.input_dir, self.output_dir, config)
+        
+        # Should have 1 success, 1 skipped, 1 failed
+        self.assertEqual(len(results['success']), 1)
+        self.assertEqual(len(results['skipped']), 1)
+        self.assertEqual(len(results['failed']), 1)
+
+
+class TestGenerateBatchSummary(unittest.TestCase):
+    """Test the generate_batch_summary function."""
+    
+    def setUp(self):
+        """Set up temporary directories for testing."""
+        self.temp_dirs = []
+        self.output_dir = Path(tempfile.mkdtemp())
+        self.temp_dirs.append(self.output_dir)
+    
+    def tearDown(self):
+        """Clean up test directories."""
+        for temp_dir in self.temp_dirs:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+    
+    def test_generate_summary_empty_results(self):
+        """Test generating summary with no results."""
+        results = {
+            'success': [],
+            'skipped': [],
+            'failed': []
+        }
+        
+        start_time = datetime(2025, 1, 1, 12, 0, 0)
+        end_time = datetime(2025, 1, 1, 12, 0, 30)
+        
+        summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
+        
+        # Check file was created
+        self.assertTrue(Path(summary_path).exists())
+        
+        # Read and verify content
+        content = Path(summary_path).read_text()
+        self.assertIn("Batch Conversion Summary", content)
+        self.assertIn("2025-01-01", content)
+        self.assertIn("30.0 seconds", content)
+        self.assertIn("**Successful:** 0 files", content)
+        self.assertIn("**Skipped:** 0 files", content)
+        self.assertIn("**Failed:** 0 files", content)
+    
+    def test_generate_summary_with_success(self):
+        """Test generating summary with successful conversions."""
+        results = {
+            'success': [
+                {
+                    'input_file': 'test1.png',
+                    'output_file': 'test1_model.3mf',
+                    'num_regions': 5,
+                    'num_colors': 3,
+                    'model_width_mm': 100.0,
+                    'model_height_mm': 150.0,
+                    'file_size': '1.2 KB'
+                },
+                {
+                    'input_file': 'test2.png',
+                    'output_file': 'test2_model.3mf',
+                    'num_regions': 10,
+                    'num_colors': 4,
+                    'model_width_mm': 200.0,
+                    'model_height_mm': 200.0,
+                    'file_size': '2.5 KB'
+                }
+            ],
+            'skipped': [],
+            'failed': []
+        }
+        
+        start_time = datetime(2025, 1, 1, 12, 0, 0)
+        end_time = datetime(2025, 1, 1, 12, 1, 0)
+        
+        summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
+        
+        content = Path(summary_path).read_text()
+        self.assertIn("**Successful:** 2 files", content)
+        self.assertIn("test1.png", content)
+        self.assertIn("test2.png", content)
+        self.assertIn("100.0x150.0mm", content)
+        self.assertIn("200.0x200.0mm", content)
+        self.assertIn("1.2 KB", content)
+        self.assertIn("2.5 KB", content)
+    
+    def test_generate_summary_with_skipped(self):
+        """Test generating summary with skipped files."""
+        results = {
+            'success': [],
+            'skipped': [
+                {
+                    'input_file': 'highres.png',
+                    'reason': 'Image resolution too high for reliable printing.'
+                }
+            ],
+            'failed': []
+        }
+        
+        start_time = datetime(2025, 1, 1, 12, 0, 0)
+        end_time = datetime(2025, 1, 1, 12, 0, 10)
+        
+        summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
+        
+        content = Path(summary_path).read_text()
+        self.assertIn("**Skipped:** 1 files", content)
+        self.assertIn("highres.png", content)
+        self.assertIn("resolution too high", content)
+    
+    def test_generate_summary_with_failed(self):
+        """Test generating summary with failed conversions."""
+        results = {
+            'success': [],
+            'skipped': [],
+            'failed': [
+                {
+                    'input_file': 'bad.png',
+                    'error': 'Too many unique colors'
+                }
+            ]
+        }
+        
+        start_time = datetime(2025, 1, 1, 12, 0, 0)
+        end_time = datetime(2025, 1, 1, 12, 0, 5)
+        
+        summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
+        
+        content = Path(summary_path).read_text()
+        self.assertIn("**Failed:** 1 files", content)
+        self.assertIn("bad.png", content)
+        self.assertIn("Too many unique colors", content)
+    
+    def test_generate_summary_mixed_results(self):
+        """Test generating summary with mixed results."""
+        results = {
+            'success': [
+                {
+                    'input_file': 'good.png',
+                    'output_file': 'good_model.3mf',
+                    'num_regions': 5,
+                    'num_colors': 3,
+                    'model_width_mm': 100.0,
+                    'model_height_mm': 100.0,
+                    'file_size': '1.0 KB'
+                }
+            ],
+            'skipped': [
+                {
+                    'input_file': 'highres.png',
+                    'reason': 'Resolution warning'
+                }
+            ],
+            'failed': [
+                {
+                    'input_file': 'bad.png',
+                    'error': 'Some error'
+                }
+            ]
+        }
+        
+        start_time = datetime(2025, 1, 1, 12, 0, 0)
+        end_time = datetime(2025, 1, 1, 12, 0, 15)
+        
+        summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
+        
+        content = Path(summary_path).read_text()
+        self.assertIn("**Successful:** 1 files", content)
+        self.assertIn("**Skipped:** 1 files", content)
+        self.assertIn("**Failed:** 1 files", content)
+        self.assertIn("**Total processed:** 3 files", content)
+    
+    def test_summary_filename_format(self):
+        """Test that summary filename includes timestamp."""
+        results = {'success': [], 'skipped': [], 'failed': []}
+        start_time = datetime(2025, 1, 15, 14, 30, 45)
+        end_time = datetime(2025, 1, 15, 14, 30, 50)
+        
+        summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
+        
+        # Check filename format: batch_summary_YYYYMMDDHHMMSS.md
+        filename = Path(summary_path).name
+        self.assertTrue(filename.startswith("batch_summary_"))
+        self.assertTrue(filename.endswith(".md"))
+        self.assertIn("20250115143045", filename)
+
+
+class TestConversionConfigBatchFlags(unittest.TestCase):
+    """Test ConversionConfig with batch-related flags."""
+    
+    def test_default_skip_checks_is_false(self):
+        """Test that skip_checks defaults to False."""
+        config = ConversionConfig()
+        self.assertFalse(config.skip_checks)
+    
+    def test_default_batch_mode_is_false(self):
+        """Test that batch_mode defaults to False."""
+        config = ConversionConfig()
+        self.assertFalse(config.batch_mode)
+    
+    def test_set_skip_checks_true(self):
+        """Test setting skip_checks to True."""
+        config = ConversionConfig(skip_checks=True)
+        self.assertTrue(config.skip_checks)
+    
+    def test_set_batch_mode_true(self):
+        """Test setting batch_mode to True."""
+        config = ConversionConfig(batch_mode=True)
+        self.assertTrue(config.batch_mode)
+    
+    def test_both_flags_true(self):
+        """Test setting both flags to True."""
+        config = ConversionConfig(skip_checks=True, batch_mode=True)
+        self.assertTrue(config.skip_checks)
+        self.assertTrue(config.batch_mode)
+
+
+if __name__ == '__main__':
+    unittest.main()
