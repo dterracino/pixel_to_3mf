@@ -180,7 +180,7 @@ The program will:
     print(f"📊 Statistics:")
     print(f"   Image: {stats['image_width']} x {stats['image_height']} pixels")
     print(f"   Model: {stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
-    print(f"   Pixel size: {stats['pixel_size_mm']} mm")
+    print(f"   Pixel size: {round(stats['pixel_size_mm'], 3)} mm")
     print(f"   Regions: {stats['num_regions']} ({stats['num_colors']} unique colors)")
     print(f"   Output: {stats['output_path']} ({stats['file_size']})")
     print()
