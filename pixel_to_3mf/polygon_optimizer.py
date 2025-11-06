@@ -17,12 +17,12 @@ import triangle as tr
 import warnings
 
 from .region_merger import Region
-from .mesh_generator import Mesh
 from .image_processor import PixelData
 
 # Import for type checking only (avoids circular imports)
 if TYPE_CHECKING:
     from .config import ConversionConfig
+    from .mesh_generator import Mesh
 
 
 def pixels_to_polygon(
@@ -132,11 +132,12 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     if hole_points:
         triangle_input['holes'] = hole_points
     
-    # Triangulate with quality constraints
+    # Triangulate with constraints
     # 'p' = Planar Straight Line Graph (CRITICAL - respects boundary edges and holes)
-    # 'q30' = Quality mesh with minimum angle 30° (avoids sliver triangles)
+    # 'Q' = Quiet mode (suppress all output)
+    # Note: Avoid 'q' quality constraints as they can cause crashes with certain geometries
     try:
-        result = tr.triangulate(triangle_input, 'pq30')
+        result = tr.triangulate(triangle_input, 'pQ')
     except Exception as e:
         raise RuntimeError(f"Triangulation failed: {e}")
     
@@ -153,7 +154,7 @@ def extrude_polygon_to_mesh(
     vertices_2d: List[Tuple[float, float]],
     z_bottom: float,
     z_top: float
-) -> Mesh:
+) -> 'Mesh':
     """
     Extrude 2D triangulated polygon to 3D mesh with top, bottom, and wall faces.
     
@@ -174,6 +175,9 @@ def extrude_polygon_to_mesh(
     Returns:
         Mesh object with complete 3D geometry
     """
+    # Import at runtime to avoid circular dependency
+    from .mesh_generator import Mesh
+    
     vertices_3d: List[Tuple[float, float, float]] = []
     triangles_3d: List[Tuple[int, int, int]] = []
     
@@ -296,7 +300,7 @@ def generate_region_mesh_optimized(
     region: Region,
     pixel_data: PixelData,
     config: 'ConversionConfig'
-) -> Mesh:
+) -> 'Mesh':
     """
     Optimized mesh generation using polygon merging and triangulation.
     
@@ -356,7 +360,7 @@ def generate_region_mesh_optimized(
 def generate_backing_plate_optimized(
     pixel_data: PixelData,
     config: 'ConversionConfig'
-) -> Mesh:
+) -> 'Mesh':
     """
     Optimized backing plate generation using polygon approach.
     
