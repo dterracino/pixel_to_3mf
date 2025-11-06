@@ -28,6 +28,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
 - **Batch Processing**: Process entire folders of pixel art in one command with automatic summaries
+- **Experimental Polygon Optimization**: Optional mesh optimization for 50-90% reduction in file size (use `--optimize-mesh`)
 
 ## Installation 📦
 
@@ -163,6 +164,34 @@ python run_converter.py --batch \
 | `--skip-checks` | Skip resolution warnings | Off |
 
 > **Note:** All single file options apply to batch mode
+
+### Experimental: Optimized Mesh Generation 🚀
+
+The converter includes an experimental polygon-based mesh optimization that can significantly reduce file sizes and triangle counts.
+
+**Enable with:**
+
+```bash
+python run_converter.py image.png --optimize-mesh
+```
+
+**Benefits:**
+- 📉 **50-90% reduction** in vertices and triangles for large uniform regions
+- 📦 **Smaller 3MF files** (proportional to mesh reduction)
+- ⚡ **Faster slicing** (fewer triangles = faster processing)
+- ✅ **Same visual results** (both paths produce manifold meshes)
+
+**How it works:**
+- Merges pixel squares into larger polygons using shapely
+- Triangulates complex polygons using constrained Delaunay triangulation
+- Maintains all manifold properties (shared vertices, CCW winding, edge connectivity)
+
+**When to use:**
+- Large images with many pixels per region (>20 pixels/region)
+- Images with large solid-color areas
+- When you want smaller file sizes
+
+**Note:** This feature is experimental and disabled by default. The triangle library may crash on certain complex polygon configurations. If you encounter issues, simply omit the `--optimize-mesh` flag to use the stable per-pixel mesh generation.
 
 ### Using as a Python Library
 
