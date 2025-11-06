@@ -6,7 +6,6 @@ used across multiple test files.
 """
 
 from PIL import Image
-import numpy as np
 from typing import Tuple, Dict
 import tempfile
 import os
