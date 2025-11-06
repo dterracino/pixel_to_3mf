@@ -16,7 +16,7 @@ It's like making a little self-contained package that slicers can open! 📦
 import zipfile
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING, Optional, Callable
 from pathlib import Path
 import uuid
 
@@ -434,36 +434,45 @@ def write_3mf(
     output_path: str,
     meshes: List[Tuple[Mesh, str]],
     region_colors: List[Tuple[int, int, int]],
-    pixel_data: 'PixelData'  # We need this to calculate positions
+    pixel_data: 'PixelData',  # We need this to calculate positions
+    progress_callback: Optional[Callable[[str, str], None]] = None
 ) -> None:
     """
     Write all meshes to a 3MF file.
-    
+
     This is the main export function! It takes all our generated meshes,
     figures out color names, and packages everything into a proper 3MF file.
-    
+
     The 3MF structure:
     - [Content_Types].xml (required metadata)
     - _rels/.rels (required relationships)
     - 3D/3dmodel.model (main assembly)
     - 3D/Objects/object_1.model (all the mesh geometry)
     - Metadata/model_settings.config (object names/colors)
-    
+
     Args:
         output_path: Path where to write the .3mf file
         meshes: List of (Mesh, color_name) tuples (regions + backing plate)
         region_colors: List of RGB colors for each region (for naming)
         pixel_data: PixelData object with model dimensions
+        progress_callback: Optional function to call with progress updates
     """
+    # Helper to send progress updates
+    def _progress(message: str):
+        if progress_callback:
+            progress_callback("export", message)
+
     # Generate color names for regions
     # The last mesh is the backing plate, so we skip it for color naming
     num_regions = len(region_colors)
-    
+
+    _progress(f"Assigning names to {num_regions} color regions...")
+
     # Calculate the center of our model for positioning
     # The model spans from (0, 0) to (model_width, model_height)
     model_center_x = pixel_data.model_width_mm / 2.0
     model_center_y = pixel_data.model_height_mm / 2.0
-    
+
     # Create a list of (mesh_index, rgb, color_name) for sorting
     # mesh_index is 0-based index into the meshes list
     region_data = []
@@ -502,7 +511,9 @@ def write_3mf(
     # Reorder meshes to match the sorted color order
     sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
     sorted_meshes.append(meshes[-1])  # Add backing plate at the end
-    
+
+    _progress("Generating 3MF XML structure...")
+
     # Generate XML content for all files
     object_model_xml = generate_object_model_xml(sorted_meshes)
     main_model_xml = generate_main_model_xml(len(sorted_meshes), mesh_transforms)
@@ -510,7 +521,9 @@ def write_3mf(
     content_types_xml = generate_content_types_xml()
     rels_xml = generate_rels_xml()
     model_rels_xml = generate_3dmodel_rels_xml()
-    
+
+    _progress(f"Writing {len(sorted_meshes)} objects to 3MF archive...")
+
     # Create the 3MF file (which is just a ZIP with specific structure)
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         # Write all the XML files

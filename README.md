@@ -72,6 +72,7 @@ python run_converter.py image.png \
 - `--color-height`: Height of colored layer in mm (default: 1.0)
 - `--base-height`: Height of backing plate in mm (default: 1.0)
 - `--max-colors`: Maximum unique colors allowed (default: 16)
+- `--backing-color`: Backing plate color as R,G,B (default: 255,255,255 for white) - if this color is not in the image, 1 color slot is reserved for it
 
 ## How It Works 🔧
 
@@ -140,6 +141,7 @@ python run_converter.py complex_art.png --max-colors 32
 pixel_to_3mf/
 ├── __init__.py              # Package initialization
 ├── constants.py             # All configurable defaults
+├── config.py                # ConversionConfig dataclass for clean API
 ├── cli.py                   # Command-line interface
 ├── pixel_to_3mf.py         # Core conversion logic
 ├── image_processor.py       # Image loading, Y-flip, scaling, color validation
@@ -162,14 +164,29 @@ python run_converter.py image.png
 
 ```python
 from pixel_to_3mf import convert_image_to_3mf
+from pixel_to_3mf.config import ConversionConfig
+
+# Option 1: Use default config
+stats = convert_image_to_3mf(
+    input_path="sprite.png",
+    output_path="sprite.3mf"
+)
+
+# Option 2: Customize with config object
+config = ConversionConfig(
+    max_size_mm=150,
+    color_height_mm=2.0,
+    base_height_mm=2.0,
+    max_colors=16,
+    backing_color=(255, 255, 255)  # RGB tuple for white
+)
 
 stats = convert_image_to_3mf(
     input_path="sprite.png",
     output_path="sprite.3mf",
-    max_size_mm=150,
-    color_height_mm=2.0,
-    max_colors=16
+    config=config
 )
+
 print(f"Created {stats['model_width_mm']:.1f}x{stats['model_height_mm']:.1f}mm model")
 print(f"Pixel size: {stats['pixel_size_mm']:.3f}mm")
 print(f"Regions: {stats['num_regions']}")
@@ -189,6 +206,9 @@ BASE_LAYER_HEIGHT_MM = 1.0
 
 # Color limit (most slicers support 16 filaments max)
 MAX_COLORS = 16
+
+# Default backing plate color (RGB tuple)
+BACKING_COLOR = (255, 255, 255)  # White
 ```
 
 ## Tips & Tricks 💡
@@ -276,6 +296,10 @@ The backing plate has the exact same footprint as the colored regions (with hole
 
 **Recent Improvements:**
 
+- ✅ **Added ConversionConfig dataclass** - Clean API with no more function signature changes!
+- ✅ **Added backing color reservation** - Reserves a color slot if backing color isn't in image
+- ✅ **Added progress output for 3MF writing** - Better feedback during file creation
+- ✅ **Added --backing-color CLI option** - Customize backing plate color (default: white)
 - ✅ **Removed pixel rounding** - Scaling is now exact and predictable!
 - ✅ Fixed manifold geometry (no more repair needed!)
 - ✅ Fixed triangle winding for correct normals

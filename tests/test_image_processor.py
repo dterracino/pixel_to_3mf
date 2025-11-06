@@ -18,6 +18,7 @@ from pixel_to_3mf.image_processor import (
     load_image,
     get_pixel_bounds_mm
 )
+from pixel_to_3mf.config import ConversionConfig
 from tests.test_helpers import (
     create_simple_square_image,
     create_two_region_image,
@@ -130,64 +131,72 @@ class TestLoadImage(unittest.TestCase):
         """Test loading a simple solid color image."""
         filepath = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(filepath)
-        
-        pixel_data = load_image(filepath, max_size_mm=200.0)
-        
+
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+
         self.assertEqual(pixel_data.width, 4)
         self.assertEqual(pixel_data.height, 4)
         self.assertEqual(len(pixel_data.pixels), 16)  # 4x4 filled
-    
+
     def test_load_image_with_transparency(self):
         """Test loading image with transparent areas."""
         filepath = create_transparent_image()
         self.test_files.append(filepath)
-        
-        pixel_data = load_image(filepath, max_size_mm=200.0)
-        
+
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+
         self.assertEqual(pixel_data.width, 4)
         self.assertEqual(pixel_data.height, 4)
         self.assertEqual(len(pixel_data.pixels), 4)  # Only 2x2 center is opaque
-    
+
     def test_load_image_y_flip(self):
         """Test that Y coordinates are flipped correctly."""
         # Create image with pixel at top-left in image coordinates (0, 0)
         filepath = create_simple_square_image(size=2, color=(255, 0, 0))
         self.test_files.append(filepath)
-        
-        pixel_data = load_image(filepath, max_size_mm=200.0)
-        
+
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+
         # In 3D coordinates, top-left should be at (0, height-1)
         self.assertIn((0, 1), pixel_data.pixels)
         self.assertIn((1, 1), pixel_data.pixels)
         self.assertIn((0, 0), pixel_data.pixels)
         self.assertIn((1, 0), pixel_data.pixels)
-    
+
     def test_color_limit_enforcement(self):
         """Test that color limit is enforced."""
         filepath = create_two_region_image()
         self.test_files.append(filepath)
-        
+
         # This should succeed (2 colors, limit 2)
-        pixel_data = load_image(filepath, max_size_mm=200.0, max_colors=2)
+        config = ConversionConfig(max_size_mm=200.0, max_colors=2)
+        pixel_data = load_image(filepath, config)
         self.assertEqual(len(pixel_data.get_unique_colors()), 2)
-        
-        # This should fail (2 colors, limit 1)
+
+        # This should fail (2 colors, limit 1) - but backing color reserves one slot
+        # So we need 0 effective slots, which should fail
+        config_fail = ConversionConfig(max_size_mm=200.0, max_colors=1)
         with self.assertRaises(ValueError) as context:
-            load_image(filepath, max_size_mm=200.0, max_colors=1)
+            load_image(filepath, config_fail)
         self.assertIn("unique colors", str(context.exception))
-    
+
     def test_nonexistent_file(self):
         """Test that loading nonexistent file raises error."""
+        config = ConversionConfig(max_size_mm=200.0)
         with self.assertRaises(FileNotFoundError):
-            load_image("/nonexistent/file.png", max_size_mm=200.0)
-    
+            load_image("/nonexistent/file.png", config)
+
     def test_pixel_size_calculation(self):
         """Test that pixel size is calculated correctly."""
         filepath = create_simple_square_image(size=100, color=(255, 0, 0))
         self.test_files.append(filepath)
-        
-        pixel_data = load_image(filepath, max_size_mm=200.0)
-        
+
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+
         self.assertEqual(pixel_data.pixel_size_mm, 2.0)  # 200 / 100
 
 

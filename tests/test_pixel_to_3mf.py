@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf
+from pixel_to_3mf.config import ConversionConfig
 from tests.test_helpers import (
     create_simple_square_image,
     create_two_region_image,
@@ -102,12 +103,13 @@ class TestConvertImageTo3MF(unittest.TestCase):
         """Test conversion with custom max_size_mm."""
         input_path = create_simple_square_image(size=100, color=(255, 0, 0))
         self.test_files.append(input_path)
-        
+
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
         self.test_files.append(output_path)
-        
-        stats = convert_image_to_3mf(input_path, output_path, max_size_mm=150.0)
+
+        config = ConversionConfig(max_size_mm=150.0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
         
         # Check dimensions
         self.assertEqual(stats['model_width_mm'], 150.0)
@@ -124,12 +126,8 @@ class TestConvertImageTo3MF(unittest.TestCase):
         self.test_files.append(output_path)
         
         # Test with custom heights (should not raise error)
-        stats = convert_image_to_3mf(
-            input_path,
-            output_path,
-            color_height_mm=2.0,
-            base_height_mm=3.0
-        )
+        config = ConversionConfig(color_height_mm=2.0, base_height_mm=3.0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
         
         self.assertTrue(os.path.exists(output_path))
     
@@ -146,13 +144,14 @@ class TestConvertImageTo3MF(unittest.TestCase):
         os.close(fd)
         self.test_files.append(output_path)
         
-        stats = convert_image_to_3mf(input_path, output_path, max_size_mm=200.0)
-        
+        # max_size_mm=200.0 is the default, no need to specify config
+        stats = convert_image_to_3mf(input_path, output_path)
+
         # Width is larger, so it should be 200mm
         self.assertEqual(stats['model_width_mm'], 200.0)
         self.assertEqual(stats['model_height_mm'], 100.0)  # 4 * 25
         self.assertEqual(stats['pixel_size_mm'], 25.0)  # 200 / 8
-    
+
     def test_convert_portrait_image(self):
         """Test conversion of portrait image."""
         # Create 4x8 image
@@ -161,12 +160,13 @@ class TestConvertImageTo3MF(unittest.TestCase):
         colors = {(255, 0, 0, 255): positions}
         input_path = create_test_image(4, 8, colors)
         self.test_files.append(input_path)
-        
+
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
         self.test_files.append(output_path)
-        
-        stats = convert_image_to_3mf(input_path, output_path, max_size_mm=200.0)
+
+        # max_size_mm=200.0 is the default, no need to specify config
+        stats = convert_image_to_3mf(input_path, output_path)
         
         # Height is larger, so it should be 200mm
         self.assertEqual(stats['model_width_mm'], 100.0)  # 4 * 25
@@ -222,28 +222,32 @@ class TestConvertImageTo3MFErrors(unittest.TestCase):
         """Test error with invalid max_size_mm."""
         input_path = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(input_path)
-        
+
         with self.assertRaises(ValueError):
-            convert_image_to_3mf(input_path, "/tmp/output.3mf", max_size_mm=0)
-        
+            config = ConversionConfig(max_size_mm=0)
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", config=config)
+
         with self.assertRaises(ValueError):
-            convert_image_to_3mf(input_path, "/tmp/output.3mf", max_size_mm=-10)
-    
+            config = ConversionConfig(max_size_mm=-10)
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", config=config)
+
     def test_invalid_color_height(self):
         """Test error with invalid color_height_mm."""
         input_path = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(input_path)
-        
+
         with self.assertRaises(ValueError):
-            convert_image_to_3mf(input_path, "/tmp/output.3mf", color_height_mm=0)
-    
+            config = ConversionConfig(color_height_mm=0)
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", config=config)
+
     def test_invalid_base_height(self):
         """Test error with invalid base_height_mm."""
         input_path = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(input_path)
-        
+
         with self.assertRaises(ValueError):
-            convert_image_to_3mf(input_path, "/tmp/output.3mf", base_height_mm=-1)
+            config = ConversionConfig(base_height_mm=-1)
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", config=config)
     
     def test_too_many_colors(self):
         """Test error when image has too many colors."""
@@ -261,10 +265,11 @@ class TestConvertImageTo3MFErrors(unittest.TestCase):
         os.close(fd)
         self.test_files.append(output_path)
         
-        # Should fail with max_colors=2
+        # Should fail with max_colors=2 (3 colors in image, but backing reserves 1 slot)
         with self.assertRaises(ValueError) as context:
-            convert_image_to_3mf(input_path, output_path, max_colors=2)
-        
+            config = ConversionConfig(max_colors=2)
+            convert_image_to_3mf(input_path, output_path, config=config)
+
         self.assertIn("unique colors", str(context.exception))
 
 
@@ -300,7 +305,8 @@ class TestConvertImageTo3MFWithRealSamples(unittest.TestCase):
         self.test_files.append(output_path)
         
         # Convert (may need to increase color limit for real images)
-        stats = convert_image_to_3mf(input_path, output_path, max_colors=50)
+        config = ConversionConfig(max_colors=50)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
         
         # Verify output
         self.assertTrue(os.path.exists(output_path))

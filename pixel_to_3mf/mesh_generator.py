@@ -10,10 +10,13 @@ indices each). This is the universal format for 3D meshes - STL, OBJ,
 3MF all use this approach! 🎲
 """
 
-from typing import List, Tuple, Set
+from typing import List, Tuple, Set, TYPE_CHECKING
 from .region_merger import Region
 from .image_processor import PixelData
-from .constants import COLOR_LAYER_HEIGHT_MM, BASE_LAYER_HEIGHT_MM
+
+# Import for type checking only (avoids circular imports)
+if TYPE_CHECKING:
+    from .config import ConversionConfig
 
 
 class Mesh:
@@ -50,25 +53,25 @@ class Mesh:
 def generate_region_mesh(
     region: Region,
     pixel_data: PixelData,
-    layer_height: float = COLOR_LAYER_HEIGHT_MM
+    config: 'ConversionConfig'
 ) -> Mesh:
     """
     Generate a 3D mesh for a colored region by extruding pixels upward.
-    
+
     This is where the magic happens! We take a flat region (set of (x,y) pixels)
     and turn it into a 3D object by:
     1. Creating the top face (at z = layer_height)
     2. Creating the bottom face (at z = 0)
     3. Creating walls around the perimeter
-    
+
     The tricky part is the perimeter detection - we need to find which pixels
     are on the edge (have at least one neighbor that's NOT in the region).
-    
+
     Args:
         region: The region to extrude
         pixel_data: Pixel scaling info
-        layer_height: How high to extrude (default: COLOR_LAYER_HEIGHT_MM)
-    
+        config: ConversionConfig object with layer height and other parameters
+
     Returns:
         A Mesh object ready for export to 3MF
     """
@@ -102,13 +105,13 @@ def generate_region_mesh(
                 break
     
     # ========================================================================
-    # Pass 2: Generate top face (z = layer_height)
+    # Pass 2: Generate top face (z = config.color_height_mm)
     # ========================================================================
     # For each pixel, create 2 triangles to form a square
-    
+
     # Map from (x, y) pixel coords to vertex index for top face
     top_vertex_map: dict[Tuple[int, int], int] = {}
-    
+
     for x, y in region.pixels:
         # Each pixel square has 4 corners
         # We label them: "bl" (bottom-left), "br", "tl", "tr"
@@ -117,14 +120,14 @@ def generate_region_mesh(
         #   - bottom-right = (x+1, y)
         #   - top-left     = (x, y+1)
         #   - top-right    = (x+1, y+1)
-        
+
         corners = [
             (x, y, "bl"),       # bottom-left
             (x+1, y, "br"),     # bottom-right
             (x, y+1, "tl"),     # top-left
             (x+1, y+1, "tr"),   # top-right
         ]
-        
+
         # Create vertices for each corner (if not already created)
         corner_indices = []
         for cx, cy, label in corners:
@@ -132,9 +135,9 @@ def generate_region_mesh(
             # Adjacent pixels call the same corner different names (e.g. one pixel's "tr" is another's "tl")
             key = (cx, cy)
             if key not in top_vertex_map:
-                # Create new vertex at (cx * ps, cy * ps, layer_height)
+                # Create new vertex at (cx * ps, cy * ps, config.color_height_mm)
                 top_vertex_map[key] = len(vertices)
-                vertices.append((cx * ps, cy * ps, layer_height))
+                vertices.append((cx * ps, cy * ps, config.color_height_mm))
             corner_indices.append(top_vertex_map[key])
         
         # Create 2 triangles for the top face
@@ -237,28 +240,28 @@ def generate_region_mesh(
 
 def generate_backing_plate(
     pixel_data: PixelData,
-    base_height: float = BASE_LAYER_HEIGHT_MM
+    config: 'ConversionConfig'
 ) -> Mesh:
     """
     Generate the backing plate that goes under everything.
-    
+
     The backing plate should match the EXACT footprint of the non-transparent pixels,
-    with holes where transparent pixels are. It goes from z=-base_height to z=0.
-    
+    with holes where transparent pixels are. It goes from z=-config.base_height_mm to z=0.
+
     Args:
         pixel_data: Pixel data (includes which pixels are non-transparent)
-        base_height: Thickness of the backing plate (default: BASE_LAYER_HEIGHT_MM)
-    
+        config: ConversionConfig object with base height and other parameters
+
     Returns:
         A Mesh object for the backing plate
     """
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
-    
+
     ps = pixel_data.pixel_size_mm
-    
+
     # Similar to region generation, but simpler - we create a slab for each pixel
-    # Top face (z = 0) and bottom face (z = -base_height)
+    # Top face (z = 0) and bottom face (z = -config.base_height_mm)
     
     top_vertex_map: dict[Tuple[int, int], int] = {}
     bottom_vertex_map: dict[Tuple[int, int], int] = {}
@@ -290,21 +293,21 @@ def generate_backing_plate(
         triangles.append((bl, br, tl))
         triangles.append((br, tr, tl))
         
-        # Bottom face vertices (z = -base_height)
+        # Bottom face vertices (z = -config.base_height_mm)
         bottom_corners = [
             (x, y, "bl"),
             (x+1, y, "br"),
             (x, y+1, "tl"),
             (x+1, y+1, "tr"),
         ]
-        
+
         bottom_indices = []
         for cx, cy, label in bottom_corners:
             # KEY FIX: Remove label from key!
             key = (cx, cy)
             if key not in bottom_vertex_map:
                 bottom_vertex_map[key] = len(vertices)
-                vertices.append((cx * ps, cy * ps, -base_height))
+                vertices.append((cx * ps, cy * ps, -config.base_height_mm))
             bottom_indices.append(bottom_vertex_map[key])
         
         # Bottom face triangles (facing down - reversed winding)

@@ -18,6 +18,7 @@ from pixel_to_3mf.mesh_generator import (
 )
 from pixel_to_3mf.region_merger import Region
 from pixel_to_3mf.image_processor import PixelData
+from pixel_to_3mf.config import ConversionConfig
 
 
 class TestMesh(unittest.TestCase):
@@ -51,8 +52,8 @@ class TestGenerateRegionMesh(unittest.TestCase):
         """Test mesh generation for single pixel region."""
         region = Region(color=(255, 0, 0), pixels={(0, 0)})
         pixel_data = PixelData(width=4, height=4, pixel_size_mm=2.0, pixels={(0, 0): (255, 0, 0, 255)})
-        
-        mesh = generate_region_mesh(region, pixel_data, layer_height=1.0)
+
+        mesh = generate_region_mesh(region, pixel_data, ConversionConfig(color_height_mm=1.0))
         
         # Single pixel should create a box with 8 vertices and 12 triangles
         self.assertGreater(len(mesh.vertices), 0)
@@ -72,7 +73,7 @@ class TestGenerateRegionMesh(unittest.TestCase):
         pixel_dict = {pos: (255, 0, 0, 255) for pos in pixels}
         pixel_data = PixelData(width=4, height=4, pixel_size_mm=2.0, pixels=pixel_dict)
         
-        mesh = generate_region_mesh(region, pixel_data, layer_height=1.0)
+        mesh = generate_region_mesh(region, pixel_data, ConversionConfig(color_height_mm=1.0)
         
         # Should have vertices and triangles
         self.assertGreater(len(mesh.vertices), 0)
@@ -91,7 +92,7 @@ class TestGenerateRegionMesh(unittest.TestCase):
         pixel_dict = {pos: (255, 0, 0, 255) for pos in pixels}
         pixel_data = PixelData(width=4, height=4, pixel_size_mm=1.0, pixels=pixel_dict)
         
-        mesh = generate_region_mesh(region, pixel_data, layer_height=1.5)
+        mesh = generate_region_mesh(region, pixel_data, ConversionConfig(color_height_mm=1.5)
         
         # Complex shape should generate mesh
         self.assertGreater(len(mesh.vertices), 0)
@@ -102,7 +103,7 @@ class TestGenerateRegionMesh(unittest.TestCase):
         region = Region(color=(255, 0, 0), pixels={(0, 0)})
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels={(0, 0): (255, 0, 0, 255)})
         
-        mesh = generate_region_mesh(region, pixel_data, layer_height=2.5)
+        mesh = generate_region_mesh(region, pixel_data, ConversionConfig(color_height_mm=2.5)
         
         # Check that some vertices have z-coordinate of layer_height
         z_coords = [v[2] for v in mesh.vertices]
@@ -114,7 +115,7 @@ class TestGenerateRegionMesh(unittest.TestCase):
         region = Region(color=(255, 0, 0), pixels={(2, 3)})
         pixel_data = PixelData(width=5, height=5, pixel_size_mm=2.0, pixels={(2, 3): (255, 0, 0, 255)})
         
-        mesh = generate_region_mesh(region, pixel_data, layer_height=1.0)
+        mesh = generate_region_mesh(region, pixel_data, ConversionConfig(color_height_mm=1.0)
         
         # Pixel (2, 3) should have vertices around x=4-6, y=6-8
         x_coords = [v[0] for v in mesh.vertices]
@@ -135,7 +136,7 @@ class TestGenerateBackingPlate(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
-        mesh = generate_backing_plate(pixel_data, base_height=1.0)
+        mesh = generate_backing_plate(pixel_data, ConversionConfig(base_height_mm=1.0)
         
         self.assertGreater(len(mesh.vertices), 0)
         self.assertGreater(len(mesh.triangles), 0)
@@ -155,7 +156,7 @@ class TestGenerateBackingPlate(unittest.TestCase):
         }
         pixel_data = PixelData(width=4, height=4, pixel_size_mm=2.0, pixels=pixels)
         
-        mesh = generate_backing_plate(pixel_data, base_height=1.5)
+        mesh = generate_backing_plate(pixel_data, ConversionConfig(base_height_mm=1.5)
         
         self.assertGreater(len(mesh.vertices), 0)
         self.assertGreater(len(mesh.triangles), 0)
@@ -165,7 +166,7 @@ class TestGenerateBackingPlate(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
         
-        mesh = generate_backing_plate(pixel_data, base_height=3.0)
+        mesh = generate_backing_plate(pixel_data, ConversionConfig(base_height_mm=3.0)
         
         # Check z-coordinates
         z_coords = [v[2] for v in mesh.vertices]
@@ -185,7 +186,7 @@ class TestGenerateBackingPlate(unittest.TestCase):
         }
         pixel_data = PixelData(width=3, height=3, pixel_size_mm=1.0, pixels=pixels)
         
-        mesh = generate_backing_plate(pixel_data, base_height=1.0)
+        mesh = generate_backing_plate(pixel_data, ConversionConfig(base_height_mm=1.0)
         
         # Should still generate valid mesh
         self.assertGreater(len(mesh.vertices), 0)
@@ -196,7 +197,7 @@ class TestGenerateBackingPlate(unittest.TestCase):
         pixels = {(0, 0): (255, 0, 0, 255), (3, 4): (0, 255, 0, 255)}
         pixel_data = PixelData(width=5, height=5, pixel_size_mm=2.0, pixels=pixels)
         
-        mesh = generate_backing_plate(pixel_data, base_height=1.0)
+        mesh = generate_backing_plate(pixel_data, ConversionConfig(base_height_mm=1.0)
         
         # Get X and Y bounds of vertices
         x_coords = [v[0] for v in mesh.vertices]
@@ -216,7 +217,7 @@ class TestMeshValidity(unittest.TestCase):
         pixel_dict = {(0, 0): (255, 0, 0, 255), (1, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixel_dict)
         
-        mesh = generate_region_mesh(region, pixel_data, layer_height=1.0)
+        mesh = generate_region_mesh(region, pixel_data, ConversionConfig(color_height_mm=1.0)
         
         # Check no triangle has duplicate vertices
         for tri in mesh.triangles:
@@ -227,7 +228,7 @@ class TestMeshValidity(unittest.TestCase):
         region = Region(color=(255, 0, 0), pixels={(0, 0)})
         pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels={(0, 0): (255, 0, 0, 255)})
         
-        mesh = generate_region_mesh(region, pixel_data, layer_height=1.0)
+        mesh = generate_region_mesh(region, pixel_data, ConversionConfig(color_height_mm=1.0)
         
         # Collect all vertex indices used in triangles
         used_indices = set()
