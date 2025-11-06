@@ -178,14 +178,17 @@ def triangulate_polygon(poly: Polygon) -> Tuple[List[Vertex], List[Triangle]]:
         # ... concatenate hole vertices to main vertex list ...
     
     # Triangulate with quality constraint
-    result = tr.triangulate(triangle_input, 'pq30')  # q30 = min angle 30°
+    # Options: 'p' = PSLG (REQUIRED for constrained edges and holes)
+    #          'q30' = quality mesh with minimum angle 30° (avoids slivers)
+    #          'D' = Delaunay (default, but explicit here for clarity)
+    result = tr.triangulate(triangle_input, 'pq30')
     
     return result['vertices'], result['triangles']
 ```
 
-**Triangle Library Options:**
-- `'p'` - Planar Straight Line Graph (required for holes)
-- `'q'` - Quality mesh with minimum angle constraint
+**Triangle Library Options Explained:**
+- `'p'` - **Planar Straight Line Graph (CRITICAL)**: Required for respecting boundary edges and holes. Without this, triangle library may add vertices outside your polygon or ignore holes.
+- `'q'` - Quality mesh with minimum angle constraint (e.g., 'q30' = 30° minimum)
 - `'a'` - Maximum triangle area constraint
 - `'D'` - Delaunay triangulation (default)
 
@@ -755,8 +758,8 @@ if __name__ == '__main__':
 - Very complex shapes: 50-70% reduction
 
 **Conversion Speed:**
-- May be slightly slower for very small regions (overhead)
-- Should be faster for medium-large regions
+- May be slightly slower for very small regions (<10 pixels, optimization overhead not worth it)
+- Should be faster for medium-large regions (10-100 pixels)
 - Significantly faster for very large regions (100+ pixels)
 
 **File Size:**
@@ -938,9 +941,17 @@ def generate_region_mesh_optimized(region, pixel_data, config):
 
 ### 9.1 Quantitative Metrics
 
-- **Vertex reduction**: >50% for typical pixel art
-- **Triangle reduction**: >50% for typical pixel art
-- **File size reduction**: >50% for typical images
+**Minimum Acceptable Performance:**
+- **Vertex reduction**: >50% for typical pixel art (minimum threshold)
+- **Triangle reduction**: >50% for typical pixel art (minimum threshold)
+- **File size reduction**: >50% for typical images (minimum threshold)
+
+**Expected Performance (based on theoretical analysis):**
+- Simple shapes: 80-90% reduction
+- Complex shapes: 60-80% reduction  
+- Very complex shapes: 50-70% reduction
+
+**Quality Metrics:**
 - **Manifold validation**: 100% of generated meshes pass
 - **Test coverage**: >90% code coverage for new module
 - **Regression tests**: 0 failures in existing test suite
@@ -1035,7 +1046,7 @@ def generate_region_mesh_optimized(region: Region,
     
     # Validate
     if not merged_polygon.is_valid:
-        raise ValueError(f"Invalid polygon: {merged_polygon.is_valid_reason}")
+        raise ValueError(f"Invalid polygon: {merged_polygon.explain_validity()}")
     
     # Step 2: Triangulate 2D polygon
     # Extract exterior coordinates
