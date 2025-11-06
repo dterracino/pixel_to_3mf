@@ -97,7 +97,9 @@ class TestMyFeature(unittest.TestCase):
     
     def test_something(self):
         # Create test image programmatically
-        img_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        test_size = 4
+        red_color = (255, 0, 0)
+        img_path = create_simple_square_image(size=test_size, color=red_color)
         self.test_files.append(img_path)
         # Test your feature...
 ```
@@ -228,8 +230,11 @@ def scale_image(width, height):
 ```python
 from .constants import MAX_MODEL_SIZE_MM
 
-def scale_image(width: int, height: int) -> float:
-    """Calculate pixel size for exact scaling."""
+def calculate_pixel_size(width: int, height: int) -> float:
+    """Calculate pixel size in mm for exact scaling.
+    
+    The largest dimension scales to exactly MAX_MODEL_SIZE_MM.
+    """
     return MAX_MODEL_SIZE_MM / max(width, height)
 ```
 
@@ -242,7 +247,7 @@ def process_image(path):
 
 ### After - Separation of Concerns
 ```python
-def process_image(path: str, callback: Optional[Callable] = None):
+def process_image(path: str, callback: Optional[Callable[[str, str], None]] = None):
     """Load and process image with optional progress callback."""
     if callback:
         callback("Loading", "Reading image file")
