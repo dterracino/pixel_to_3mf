@@ -242,22 +242,24 @@ class TestWrite3MFIntegration(unittest.TestCase):
         """Test creating 3MF from single pixel."""
         from pixel_to_3mf.region_merger import Region, merge_regions
         from pixel_to_3mf.mesh_generator import generate_region_mesh, generate_backing_plate
-        
+        from pixel_to_3mf.config import ConversionConfig
+
         # Create pixel data
         pixels = {(0, 0): (255, 0, 0, 255)}
         pixel_data = PixelData(width=1, height=1, pixel_size_mm=1.0, pixels=pixels)
-        
+        config = ConversionConfig()
+
         # Create region and mesh
         regions = merge_regions(pixel_data)
         meshes = []
         region_colors = []
-        
+
         for region in regions:
-            mesh = generate_region_mesh(region, pixel_data)
+            mesh = generate_region_mesh(region, pixel_data, config)
             meshes.append((mesh, "region_1"))
             region_colors.append(region.color)
-        
-        backing_mesh = generate_backing_plate(pixel_data)
+
+        backing_mesh = generate_backing_plate(pixel_data, config)
         meshes.append((backing_mesh, "backing_plate"))
         
         # Write 3MF

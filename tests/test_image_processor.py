@@ -171,14 +171,14 @@ class TestLoadImage(unittest.TestCase):
         filepath = create_two_region_image()
         self.test_files.append(filepath)
 
-        # This should succeed (2 colors, limit 2)
-        config = ConversionConfig(max_size_mm=200.0, max_colors=2)
+        # This should succeed (2 colors in image, limit 3 allows 2 colors + 1 backing)
+        config = ConversionConfig(max_size_mm=200.0, max_colors=3)
         pixel_data = load_image(filepath, config)
         self.assertEqual(len(pixel_data.get_unique_colors()), 2)
 
-        # This should fail (2 colors, limit 1) - but backing color reserves one slot
-        # So we need 0 effective slots, which should fail
-        config_fail = ConversionConfig(max_size_mm=200.0, max_colors=1)
+        # This should fail (2 colors in image, but with backing color reservation,
+        # max_colors=2 means only 1 effective slot for image colors)
+        config_fail = ConversionConfig(max_size_mm=200.0, max_colors=2)
         with self.assertRaises(ValueError) as context:
             load_image(filepath, config_fail)
         self.assertIn("unique colors", str(context.exception))

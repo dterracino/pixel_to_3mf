@@ -19,6 +19,7 @@ from pixel_to_3mf.region_merger import (
     get_region_bounds
 )
 from pixel_to_3mf.image_processor import load_image, PixelData
+from pixel_to_3mf.config import ConversionConfig
 from tests.test_helpers import (
     create_simple_square_image,
     create_two_region_image,
@@ -161,7 +162,7 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, max_size_mm=200.0)
+        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
         regions = merge_regions(pixel_data)
         
         # Should get exactly 1 region for the entire image
@@ -174,7 +175,7 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_two_region_image()
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, max_size_mm=200.0)
+        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
         regions = merge_regions(pixel_data)
         
         # Should get 2 regions (red and blue)
@@ -194,7 +195,7 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_transparent_image()
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, max_size_mm=200.0)
+        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
         regions = merge_regions(pixel_data)
         
         # Should get 1 region for the red center
@@ -207,7 +208,7 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_diagonal_pattern_image()
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, max_size_mm=200.0)
+        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
         regions = merge_regions(pixel_data)
         
         # All diagonal pixels should merge into 1 region due to diagonal connectivity
