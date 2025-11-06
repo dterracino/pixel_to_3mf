@@ -18,7 +18,8 @@ from tests import (
     test_region_merger,
     test_mesh_generator,
     test_threemf_writer,
-    test_pixel_to_3mf
+    test_pixel_to_3mf,
+    test_cli
 )
 
 
@@ -33,6 +34,7 @@ def run_tests():
     suite.addTests(loader.loadTestsFromModule(test_mesh_generator))
     suite.addTests(loader.loadTestsFromModule(test_threemf_writer))
     suite.addTests(loader.loadTestsFromModule(test_pixel_to_3mf))
+    suite.addTests(loader.loadTestsFromModule(test_cli))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
