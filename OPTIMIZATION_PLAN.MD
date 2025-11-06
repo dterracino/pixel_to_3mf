@@ -167,7 +167,11 @@ def triangulate_polygon(poly: Polygon) -> Tuple[List[Vertex], List[Triangle]]:
     # Add holes if present
     if holes:
         # Triangle library needs a point inside each hole
-        hole_points = [find_hole_point(h) for h in holes]
+        hole_points = []
+        for hole_coords in holes:
+            hole_poly = Polygon(hole_coords)
+            hole_point = hole_poly.representative_point().coords[0]
+            hole_points.append(hole_point)
         triangle_input['holes'] = hole_points
         
         # Add hole vertices and segments
