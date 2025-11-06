@@ -1,0 +1,317 @@
+"""
+Integration tests for the main pixel_to_3mf conversion function.
+
+Tests the complete conversion pipeline from image to 3MF.
+"""
+
+import unittest
+import sys
+import os
+import tempfile
+import zipfile
+from pathlib import Path
+
+# Add parent directory to path to import the package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf
+from tests.test_helpers import (
+    create_simple_square_image,
+    create_two_region_image,
+    create_transparent_image,
+    cleanup_test_file
+)
+
+
+class TestConvertImageTo3MF(unittest.TestCase):
+    """Test the main conversion function."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.test_files = []
+    
+    def tearDown(self):
+        """Clean up test files."""
+        for filepath in self.test_files:
+            cleanup_test_file(filepath)
+    
+    def test_convert_simple_image(self):
+        """Test converting a simple single-color image."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        stats = convert_image_to_3mf(input_path, output_path)
+        
+        # Verify output file exists
+        self.assertTrue(os.path.exists(output_path))
+        self.assertGreater(os.path.getsize(output_path), 0)
+        
+        # Check stats
+        self.assertEqual(stats['image_width'], 4)
+        self.assertEqual(stats['image_height'], 4)
+        self.assertEqual(stats['num_pixels'], 16)
+        self.assertEqual(stats['num_colors'], 1)
+        self.assertEqual(stats['num_regions'], 1)
+        self.assertEqual(stats['output_path'], output_path)
+        
+        # Verify it's a valid 3MF
+        self.assertTrue(zipfile.is_zipfile(output_path))
+    
+    def test_convert_two_region_image(self):
+        """Test converting image with two separate regions."""
+        input_path = create_two_region_image()
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        stats = convert_image_to_3mf(input_path, output_path)
+        
+        # Should have 2 colors and 2 regions
+        self.assertEqual(stats['num_colors'], 2)
+        self.assertEqual(stats['num_regions'], 2)
+        
+        # Verify output
+        self.assertTrue(os.path.exists(output_path))
+        self.assertTrue(zipfile.is_zipfile(output_path))
+    
+    def test_convert_transparent_image(self):
+        """Test converting image with transparent areas."""
+        input_path = create_transparent_image()
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        stats = convert_image_to_3mf(input_path, output_path)
+        
+        # Only 4 pixels (2x2 center) are non-transparent
+        self.assertEqual(stats['num_pixels'], 4)
+        self.assertEqual(stats['num_regions'], 1)
+        
+        # Verify output
+        self.assertTrue(os.path.exists(output_path))
+    
+    def test_convert_with_custom_size(self):
+        """Test conversion with custom max_size_mm."""
+        input_path = create_simple_square_image(size=100, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        stats = convert_image_to_3mf(input_path, output_path, max_size_mm=150.0)
+        
+        # Check dimensions
+        self.assertEqual(stats['model_width_mm'], 150.0)
+        self.assertEqual(stats['model_height_mm'], 150.0)
+        self.assertEqual(stats['pixel_size_mm'], 1.5)  # 150 / 100
+    
+    def test_convert_with_custom_heights(self):
+        """Test conversion with custom layer heights."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        # Test with custom heights (should not raise error)
+        stats = convert_image_to_3mf(
+            input_path,
+            output_path,
+            color_height_mm=2.0,
+            base_height_mm=3.0
+        )
+        
+        self.assertTrue(os.path.exists(output_path))
+    
+    def test_convert_landscape_image(self):
+        """Test conversion of landscape image."""
+        # Create 8x4 image
+        positions = [(x, y) for x in range(8) for y in range(4)]
+        from tests.test_helpers import create_test_image
+        colors = {(255, 0, 0, 255): positions}
+        input_path = create_test_image(8, 4, colors)
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        stats = convert_image_to_3mf(input_path, output_path, max_size_mm=200.0)
+        
+        # Width is larger, so it should be 200mm
+        self.assertEqual(stats['model_width_mm'], 200.0)
+        self.assertEqual(stats['model_height_mm'], 100.0)  # 4 * 25
+        self.assertEqual(stats['pixel_size_mm'], 25.0)  # 200 / 8
+    
+    def test_convert_portrait_image(self):
+        """Test conversion of portrait image."""
+        # Create 4x8 image
+        positions = [(x, y) for x in range(4) for y in range(8)]
+        from tests.test_helpers import create_test_image
+        colors = {(255, 0, 0, 255): positions}
+        input_path = create_test_image(4, 8, colors)
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        stats = convert_image_to_3mf(input_path, output_path, max_size_mm=200.0)
+        
+        # Height is larger, so it should be 200mm
+        self.assertEqual(stats['model_width_mm'], 100.0)  # 4 * 25
+        self.assertEqual(stats['model_height_mm'], 200.0)
+        self.assertEqual(stats['pixel_size_mm'], 25.0)  # 200 / 8
+    
+    def test_progress_callback(self):
+        """Test that progress callback is called during conversion."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        # Track progress calls
+        progress_calls = []
+        
+        def callback(stage, message):
+            progress_calls.append((stage, message))
+        
+        stats = convert_image_to_3mf(input_path, output_path, progress_callback=callback)
+        
+        # Should have received progress updates
+        self.assertGreater(len(progress_calls), 0)
+        
+        # Check that different stages were reported
+        stages = [stage for stage, msg in progress_calls]
+        self.assertIn("load", stages)
+        self.assertIn("merge", stages)
+        self.assertIn("mesh", stages)
+        self.assertIn("export", stages)
+
+
+class TestConvertImageTo3MFErrors(unittest.TestCase):
+    """Test error handling in conversion function."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.test_files = []
+    
+    def tearDown(self):
+        """Clean up test files."""
+        for filepath in self.test_files:
+            cleanup_test_file(filepath)
+    
+    def test_nonexistent_input_file(self):
+        """Test error when input file doesn't exist."""
+        with self.assertRaises(FileNotFoundError):
+            convert_image_to_3mf("/nonexistent/file.png", "/tmp/output.3mf")
+    
+    def test_invalid_max_size(self):
+        """Test error with invalid max_size_mm."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        with self.assertRaises(ValueError):
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", max_size_mm=0)
+        
+        with self.assertRaises(ValueError):
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", max_size_mm=-10)
+    
+    def test_invalid_color_height(self):
+        """Test error with invalid color_height_mm."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        with self.assertRaises(ValueError):
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", color_height_mm=0)
+    
+    def test_invalid_base_height(self):
+        """Test error with invalid base_height_mm."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        with self.assertRaises(ValueError):
+            convert_image_to_3mf(input_path, "/tmp/output.3mf", base_height_mm=-1)
+    
+    def test_too_many_colors(self):
+        """Test error when image has too many colors."""
+        # Create image with 3 colors
+        from tests.test_helpers import create_test_image
+        colors = {
+            (255, 0, 0, 255): [(0, 0)],
+            (0, 255, 0, 255): [(1, 0)],
+            (0, 0, 255, 255): [(0, 1)]
+        }
+        input_path = create_test_image(2, 2, colors)
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        # Should fail with max_colors=2
+        with self.assertRaises(ValueError) as context:
+            convert_image_to_3mf(input_path, output_path, max_colors=2)
+        
+        self.assertIn("unique colors", str(context.exception))
+
+
+class TestConvertImageTo3MFWithRealSamples(unittest.TestCase):
+    """Test conversion with real sample images if available."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.test_files = []
+        # Path from tests/ to samples/input
+        self.samples_dir = Path(__file__).parent.parent / "samples" / "input"
+    
+    def tearDown(self):
+        """Clean up test files."""
+        for filepath in self.test_files:
+            cleanup_test_file(filepath)
+    
+    def test_convert_sample_image(self):
+        """Test converting a real sample image if available."""
+        # Check if samples exist
+        if not self.samples_dir.exists():
+            self.skipTest("Sample images not available")
+        
+        # Find any PNG file
+        sample_files = list(self.samples_dir.glob("*.png"))
+        if not sample_files:
+            self.skipTest("No PNG sample images found")
+        
+        input_path = str(sample_files[0])
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        # Convert (may need to increase color limit for real images)
+        stats = convert_image_to_3mf(input_path, output_path, max_colors=50)
+        
+        # Verify output
+        self.assertTrue(os.path.exists(output_path))
+        self.assertGreater(os.path.getsize(output_path), 0)
+        self.assertTrue(zipfile.is_zipfile(output_path))
+        
+        # Verify stats make sense
+        self.assertGreater(stats['image_width'], 0)
+        self.assertGreater(stats['image_height'], 0)
+        self.assertGreater(stats['num_regions'], 0)
+
+
+if __name__ == '__main__':
+    unittest.main()
