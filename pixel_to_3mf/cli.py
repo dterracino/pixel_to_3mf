@@ -20,8 +20,10 @@ from .constants import (
     BASE_LAYER_HEIGHT_MM,
     DEFAULT_OUTPUT_SUFFIX,
     MAX_COLORS,
+    BACKING_COLOR,
     COORDINATE_PRECISION
 )
+from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
 
 
@@ -97,16 +99,53 @@ The program will:
         default=MAX_COLORS,
         help=f"Maximum unique colors allowed (default: {MAX_COLORS})"
     )
-    
+
+    parser.add_argument(
+        "--backing-color",
+        type=str,
+        default=None,
+        help=f"Backing plate color as R,G,B (e.g., '255,255,255' for white). "
+             f"If not in image, reserves 1 color slot. Default: {BACKING_COLOR}"
+    )
+
     # Parse arguments
     args = parser.parse_args()
-    
+
+    # Parse backing color if provided
+    backing_color = BACKING_COLOR
+    if args.backing_color:
+        try:
+            parts = args.backing_color.split(',')
+            if len(parts) != 3:
+                raise ValueError("Must have exactly 3 values (R,G,B)")
+            backing_color = tuple(int(p.strip()) for p in parts)
+            if not all(0 <= c <= 255 for c in backing_color):
+                raise ValueError("RGB values must be 0-255")
+        except Exception as e:
+            print(f"❌ Error: Invalid backing color '{args.backing_color}': {e}", file=sys.stderr)
+            print("   Format: R,G,B (e.g., '255,255,255' for white)", file=sys.stderr)
+            sys.exit(1)
+
+    # Build config object from CLI arguments
+    try:
+        config = ConversionConfig(
+            max_size_mm=args.max_size,
+            line_width_mm=args.line_width,
+            color_height_mm=args.color_height,
+            base_height_mm=args.base_height,
+            max_colors=args.max_colors,
+            backing_color=backing_color
+        )
+    except ValueError as e:
+        print(f"❌ Error: Invalid configuration: {e}", file=sys.stderr)
+        sys.exit(1)
+
     # Validate input file exists
     input_path = Path(args.image_file)
     if not input_path.exists():
         print(f"❌ Error: Input file not found: {args.image_file}", file=sys.stderr)
         sys.exit(1)
-    
+
     # Determine output path
     if args.output:
         output_path = args.output
@@ -154,11 +193,7 @@ The program will:
         stats = convert_image_to_3mf(
             input_path=str(input_path),
             output_path=output_path,
-            max_size_mm=args.max_size,
-            line_width_mm=args.line_width,
-            color_height_mm=args.color_height,
-            base_height_mm=args.base_height,
-            max_colors=args.max_colors,
+            config=config,
             progress_callback=progress_callback
         )
     except FileNotFoundError as e:

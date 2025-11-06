@@ -41,6 +41,11 @@ BASE_LAYER_HEIGHT_MM = 1.0
 # This prevents accidentally converting huge photos with thousands of colors
 MAX_COLORS = 16
 
+# Default backing plate color (RGB tuple)
+# If the image doesn't contain this color, we reserve one color slot for it
+# This is typically white, but users can customize it via CLI
+BACKING_COLOR = (255, 255, 255)  # White
+
 # ============================================================================
 # 3MF File Generation
 # ============================================================================

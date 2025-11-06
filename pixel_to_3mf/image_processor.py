@@ -8,9 +8,13 @@ This module handles:
 """
 
 from PIL import Image
-from typing import Tuple, Dict, Set, Optional
+from typing import Tuple, Dict, Set, TYPE_CHECKING
 import numpy as np
 from .constants import MAX_MODEL_SIZE_MM
+
+# Import for type checking only (avoids circular imports)
+if TYPE_CHECKING:
+    from .config import ConversionConfig
 
 
 class PixelData:
@@ -108,23 +112,21 @@ def calculate_pixel_size(
 
 def load_image(
     image_path: str,
-    max_size_mm: float = MAX_MODEL_SIZE_MM,
-    max_colors: Optional[int] = None
+    config: 'ConversionConfig'
 ) -> PixelData:
     """
     Load an image file and extract pixel data with automatic scaling.
-    
+
     This is the main entry point for image processing. It loads the image,
     calculates exact scaling to fit the print bed, and packages everything up nicely.
-    
+
     Args:
         image_path: Path to the image file (PNG, JPG, etc.)
-        max_size_mm: Maximum dimension for scaling (default from constants)
-        max_colors: Maximum allowed unique colors (None = no limit)
-    
+        config: ConversionConfig object with all conversion parameters
+
     Returns:
         PixelData object containing all the goodies
-    
+
     Raises:
         FileNotFoundError: If image doesn't exist
         IOError: If image can't be loaded
@@ -132,16 +134,16 @@ def load_image(
     """
     # Load image with PIL
     img = Image.open(image_path)
-    
+
     # Convert to RGBA to ensure we have alpha channel
     # (some formats like JPG don't have transparency, so we add it)
     img = img.convert('RGBA')
-    
+
     # Get image dimensions
     width, height = img.size
-    
+
     # Calculate appropriate pixel size
-    pixel_size_mm = calculate_pixel_size(width, height, max_size_mm)
+    pixel_size_mm = calculate_pixel_size(width, height, config.max_size_mm)
     
     # Extract pixel data as numpy array for fast processing
     # Shape will be (height, width, 4) where 4 = RGBA
@@ -165,16 +167,29 @@ def load_image(
                 flipped_y = height - 1 - y
                 pixels[(x, flipped_y)] = (int(r), int(g), int(b), int(a))
     
-    # Check color count if max_colors is specified
-    if max_colors is not None:
-        unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
-        num_colors = len(unique_colors)
-        
-        if num_colors > max_colors:
-            raise ValueError(
-                f"Image has {num_colors} unique colors, but maximum is {max_colors}.\n"
-                f"Try reducing colors in your image editor or increase --max-colors."
-            )
+    # Check color count with backing color reservation
+    unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
+    num_colors = len(unique_colors)
+
+    # Check if we need to reserve a color slot for the backing plate
+    backing_in_image = config.backing_color in unique_colors
+
+    if backing_in_image:
+        # Backing color is already in the image, no reservation needed
+        effective_max_colors = config.max_colors
+        color_status_msg = f"(including backing color)"
+    else:
+        # Need to reserve one slot for the backing color
+        effective_max_colors = config.max_colors - 1
+        color_status_msg = f"(backing color not in image - reserving 1 slot)"
+
+    if num_colors > effective_max_colors:
+        backing_name = f"RGB{config.backing_color}"
+        raise ValueError(
+            f"Image has {num_colors} unique colors, but maximum allowed is {effective_max_colors} {color_status_msg}.\n"
+            f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
+            f"Try reducing colors in your image editor or increase --max-colors."
+        )
     
     return PixelData(
         width=width,
