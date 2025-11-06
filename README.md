@@ -12,6 +12,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
+- **Batch Processing**: Process entire folders of pixel art in one command with automatic summaries
 
 ## Requirements 📋
 
