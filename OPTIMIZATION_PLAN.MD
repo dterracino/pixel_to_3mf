@@ -263,13 +263,44 @@ from .image_processor import PixelData
 
 def pixels_to_polygon(pixels: Set[Tuple[int, int]], 
                       pixel_size_mm: float) -> Polygon:
-    """Convert set of pixels to shapely Polygon."""
+    """
+    Convert set of pixels to shapely Polygon.
+    
+    Merges individual pixel squares into a single polygon using union.
+    Validates the resulting polygon and handles holes automatically.
+    
+    Args:
+        pixels: Set of (x, y) pixel coordinates
+        pixel_size_mm: Size of each pixel in millimeters
+    
+    Returns:
+        shapely.geometry.Polygon representing the merged region
+    
+    Raises:
+        ValueError: If the resulting polygon is invalid
+    """
     pass
 
 
 def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], 
                                                      List[Tuple[int, int, int]]]:
-    """Triangulate 2D polygon using triangle library."""
+    """
+    Triangulate 2D polygon using triangle library.
+    
+    Uses constrained Delaunay triangulation with quality constraints.
+    Handles holes (interior rings) in the polygon.
+    
+    Args:
+        poly: shapely.geometry.Polygon to triangulate
+    
+    Returns:
+        Tuple of (vertices, triangles) where:
+        - vertices: List of (x, y) coordinates
+        - triangles: List of (v0, v1, v2) vertex index triples
+    
+    Raises:
+        RuntimeError: If triangulation fails
+    """
     pass
 
 
@@ -289,6 +320,25 @@ def generate_region_mesh_optimized(region: Region,
     Optimized mesh generation using polygon merging.
     
     This is the drop-in replacement for generate_region_mesh() in mesh_generator.py
+    
+    Pipeline:
+    1. Convert region pixels to shapely Polygon
+    2. Validate polygon (must be valid, non-self-intersecting)
+    3. Triangulate using triangle library with quality constraints
+    4. Extrude to 3D mesh (top face, bottom face, walls)
+    5. Validate manifold properties
+    6. Fallback to original implementation on any error
+    
+    Args:
+        region: Region object with pixels to mesh
+        pixel_data: PixelData with scaling information
+        config: ConversionConfig with layer heights and other parameters
+    
+    Returns:
+        Mesh object with optimized geometry
+    
+    Raises:
+        Falls back to original implementation instead of raising exceptions
     """
     pass
 
@@ -692,10 +742,12 @@ if __name__ == '__main__':
 
 ### 5.2 Expected Performance Improvements
 
+**Note:** These are preliminary estimates based on theoretical analysis. Actual results will be validated through benchmarking in Phase 5.1.
+
 **Vertex Count:**
-- Simple shapes (squares, rectangles): 80-90% reduction
-- Complex shapes (L-shapes, rings): 60-80% reduction
-- Very complex shapes (sprites): 50-70% reduction
+- Simple shapes (squares, rectangles): 80-90% reduction (estimated)
+- Complex shapes (L-shapes, rings): 60-80% reduction (estimated)
+- Very complex shapes (sprites): 50-70% reduction (estimated)
 
 **Triangle Count:**
 - Simple shapes: 80-90% reduction
@@ -856,7 +908,7 @@ def generate_region_mesh_optimized(region, pixel_data, config):
         
         # Validate polygon
         if not poly.is_valid:
-            raise ValueError(f"Invalid polygon for region: {poly.is_valid_reason}")
+            raise ValueError(f"Invalid polygon for region: {poly.explain_validity()}")
         
         # Triangulate
         vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
@@ -1094,9 +1146,9 @@ def generate_region_mesh_optimized(region: Region,
         tl = top_vertex_map[idx1]
         tr = top_vertex_map[idx2]
         
-        # Two triangles forming the wall quad
+        # Two triangles forming the wall quad (CCW winding from outside)
         triangles_3d.append((bl, br, tl))
-        triangles_3d.append((br, tr, tl))
+        triangles_3d.append((tl, br, tr))
     
     # Handle holes - need walls for each hole
     for interior in merged_polygon.interiors:
