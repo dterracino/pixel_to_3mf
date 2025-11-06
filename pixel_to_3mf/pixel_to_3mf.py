@@ -173,10 +173,13 @@ def convert_image_to_3mf(
         meshes.append((mesh, f"region_{i}"))
         region_colors.append(region.color)
 
-    # Generate backing plate
-    _progress("mesh", "Generating backing plate...")
-    backing_mesh = generate_backing_plate(pixel_data, config)
-    meshes.append((backing_mesh, "backing_plate"))
+    # Generate backing plate (if base_height > 0)
+    if config.base_height_mm > 0:
+        _progress("mesh", "Generating backing plate...")
+        backing_mesh = generate_backing_plate(pixel_data, config)
+        meshes.append((backing_mesh, "backing_plate"))
+    else:
+        _progress("mesh", "Skipping backing plate (base height is 0)")
     
     # Step 4: Write 3MF
     _progress("export", "Writing 3MF file...")

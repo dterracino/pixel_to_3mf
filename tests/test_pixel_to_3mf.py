@@ -241,13 +241,30 @@ class TestConvertImageTo3MFErrors(unittest.TestCase):
             convert_image_to_3mf(input_path, "/tmp/output.3mf", config=config)
 
     def test_invalid_base_height(self):
-        """Test error with invalid base_height_mm."""
+        """Test error with invalid base_height_mm (negative values)."""
         input_path = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(input_path)
 
         with self.assertRaises(ValueError):
             config = ConversionConfig(base_height_mm=-1)
             convert_image_to_3mf(input_path, "/tmp/output.3mf", config=config)
+    
+    def test_zero_base_height(self):
+        """Test that base_height_mm=0 is allowed (disables backing plate)."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+        
+        # Should not raise an error
+        config = ConversionConfig(base_height_mm=0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
+        
+        # Verify output file exists
+        self.assertTrue(os.path.exists(output_path))
+        self.assertGreater(os.path.getsize(output_path), 0)
     
     def test_too_many_colors(self):
         """Test error when image has too many colors."""

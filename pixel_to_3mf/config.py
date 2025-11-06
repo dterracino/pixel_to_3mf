@@ -54,8 +54,8 @@ class ConversionConfig:
             raise ValueError(f"max_size_mm must be positive, got {self.max_size_mm}")
         if self.color_height_mm <= 0:
             raise ValueError(f"color_height_mm must be positive, got {self.color_height_mm}")
-        if self.base_height_mm <= 0:
-            raise ValueError(f"base_height_mm must be positive, got {self.base_height_mm}")
+        if self.base_height_mm < 0:
+            raise ValueError(f"base_height_mm must be non-negative, got {self.base_height_mm}")
         if self.line_width_mm <= 0:
             raise ValueError(f"line_width_mm must be positive, got {self.line_width_mm}")
         if self.max_colors <= 0:

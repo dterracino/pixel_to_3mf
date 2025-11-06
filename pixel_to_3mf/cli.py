@@ -307,7 +307,7 @@ The program will:
         "--base-height",
         type=float,
         default=BASE_LAYER_HEIGHT_MM,
-        help=f"Height of backing plate in mm (default: {BASE_LAYER_HEIGHT_MM})"
+        help=f"Height of backing plate in mm (default: {BASE_LAYER_HEIGHT_MM}). Set to 0 to disable backing plate."
     )
     
     parser.add_argument(

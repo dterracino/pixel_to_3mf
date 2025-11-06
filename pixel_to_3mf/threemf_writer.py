@@ -454,7 +454,7 @@ def write_3mf(
 
     Args:
         output_path: Path where to write the .3mf file
-        meshes: List of (Mesh, color_name) tuples (regions + backing plate)
+        meshes: List of (Mesh, name) tuples (regions + optional backing plate)
         region_colors: List of RGB colors for each region (for naming)
         pixel_data: PixelData object with model dimensions
         config: ConversionConfig object with conversion parameters
@@ -465,8 +465,12 @@ def write_3mf(
         if progress_callback:
             progress_callback("export", message)
 
+    # Determine if we have a backing plate (check if config.base_height_mm > 0)
+    has_backing_plate = config.base_height_mm > 0
+    
     # Generate color names for regions
-    # The last mesh is the backing plate, so we skip it for color naming
+    # If we have a backing plate, the last mesh is the backing plate, so we skip it
+    # Otherwise, all meshes are regions
     num_regions = len(region_colors)
 
     _progress(f"Assigning names to {num_regions} color regions...")
@@ -500,12 +504,13 @@ def write_3mf(
         # Fix: Use POSITIVE offsets - we were backwards!
         mesh_transforms.append((model_center_x, model_center_y, 0.0))
     
-    # Add the backing plate (last mesh object)
-    backing_plate_id = len(meshes)
-    object_names.append((backing_plate_id, "Backing"))
-    # Backing plate mesh is already at correct z coords (-base_height to 0)
-    # Transform should be z=0, not z=-base_height (that would double the offset!)
-    mesh_transforms.append((model_center_x, model_center_y, 0.0))
+    # Add the backing plate if it exists (last mesh object)
+    if has_backing_plate:
+        backing_plate_id = len(meshes)
+        object_names.append((backing_plate_id, "Backing"))
+        # Backing plate mesh is already at correct z coords (-base_height to 0)
+        # Transform should be z=0, not z=-base_height (that would double the offset!)
+        mesh_transforms.append((model_center_x, model_center_y, 0.0))
     
     # Add the container object (one more than the last mesh)
     container_id = len(meshes) + 1
@@ -513,7 +518,8 @@ def write_3mf(
     
     # Reorder meshes to match the sorted color order
     sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
-    sorted_meshes.append(meshes[-1])  # Add backing plate at the end
+    if has_backing_plate:
+        sorted_meshes.append(meshes[-1])  # Add backing plate at the end
 
     _progress("Generating 3MF XML structure...")
 
@@ -538,5 +544,8 @@ def write_3mf(
         zf.writestr("Metadata/model_settings.config", settings_xml)
     
     print(f"✨ 3MF file written to: {output_path}")
-    print(f"   {len(region_colors)} colored regions + 1 backing plate")
+    if has_backing_plate:
+        print(f"   {len(region_colors)} colored regions + 1 backing plate")
+    else:
+        print(f"   {len(region_colors)} colored regions (no backing plate)")
     print(f"   Total objects: {len(meshes)}")
