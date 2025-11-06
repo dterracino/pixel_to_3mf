@@ -65,15 +65,59 @@ python run_converter.py image.png \
   --max-colors 20
 ```
 
+### Batch Processing
+
+Process an entire folder of pixel art images in one go:
+
+```bash
+python run_converter.py --batch
+```
+
+By default, this looks for images in `batch/input/` and outputs to `batch/output/`. Customize the folders:
+
+```bash
+python run_converter.py --batch --batch-input my_sprites --batch-output my_models
+```
+
+Batch mode features:
+
+- Processes all PNG, JPG, JPEG, BMP, GIF, and TIFF images in the input folder
+- Creates individual 3MF files in the output folder
+- Generates a timestamped Markdown summary with conversion statistics
+- Automatically skips files with errors (continues processing remaining files)
+- Use `--skip-checks` to bypass resolution warnings and process all files
+
+Example with custom settings:
+
+```bash
+python run_converter.py --batch \
+  --batch-input sprites \
+  --batch-output models \
+  --max-size 150 \
+  --max-colors 20 \
+  --skip-checks
+```
+
 ### All Options
+
+#### Single File Mode
 
 - `image_file` (required): Input pixel art image (PNG, JPG, etc.)
 - `-o, --output`: Output 3MF file path (default: `{input_name}_model.3mf`)
 - `--max-size`: Maximum model dimension in mm (default: 200) - the largest dimension will scale to exactly this size
+- `--line-width`: Nozzle line width in mm for printability checks (default: 0.42)
 - `--color-height`: Height of colored layer in mm (default: 1.0)
 - `--base-height`: Height of backing plate in mm (default: 1.0)
 - `--max-colors`: Maximum unique colors allowed (default: 16)
 - `--backing-color`: Backing plate color as R,G,B (default: 255,255,255 for white) - if this color is not in the image, 1 color slot is reserved for it
+
+#### Batch Mode
+
+- `--batch`: Enable batch processing mode
+- `--batch-input`: Input folder containing images to process (default: batch/input)
+- `--batch-output`: Output folder for generated 3MF files (default: batch/output)
+- `--skip-checks`: Skip resolution warnings and process all files regardless of pixel size
+- All single file options above apply to batch mode (max-size, color-height, etc.)
 
 ## How It Works 🔧
 
@@ -87,7 +131,9 @@ python run_converter.py image.png \
 
 ## Examples 📸
 
-### Simple 8-bit Sprite
+### Single File Examples
+
+#### Simple 8-bit Sprite
 
 ```bash
 python run_converter.py mario.png
@@ -135,6 +181,43 @@ python run_converter.py complex_art.png --max-colors 32
 
 - Raises the color limit from 16 to 32
 - Useful for more detailed artwork (but longer print times!)
+
+### Batch Processing Examples
+
+#### Convert All Sprites in a Folder
+
+```bash
+python run_converter.py --batch --batch-input game_sprites --batch-output models
+```
+
+- Processes all images in `game_sprites/` folder
+- Outputs 3MF files to `models/` folder
+- Generates `batch_summary_YYYYMMDDHHMMSS.md` with results
+
+#### Batch with Custom Settings
+
+```bash
+python run_converter.py --batch --max-size 100 --color-height 0.5 --skip-checks
+```
+
+- Uses smaller 100mm max size for all files
+- Thinner 0.5mm color layers
+- Skips resolution warnings to process everything
+
+#### Process and Review
+
+After batch processing, check the summary file:
+
+```bash
+cat batch/output/batch_summary_20251106143022.md
+```
+
+The summary shows:
+
+- ✅ Successfully converted files with stats (regions, colors, model size)
+- ⚠️ Skipped files due to warnings (high resolution)
+- ❌ Failed files with error messages
+- Total processing time and file count
 
 ## Project Structure 📁
 
@@ -297,6 +380,9 @@ The backing plate has the exact same footprint as the colored regions (with hole
 
 **Recent Improvements:**
 
+- ✅ **Added batch processing mode** - Convert entire folders with one command!
+- ✅ **Added batch summary reports** - Timestamped Markdown summaries with detailed stats
+- ✅ **Added --skip-checks flag** - Bypass resolution warnings in batch mode
 - ✅ **Added ConversionConfig dataclass** - Clean API with no more function signature changes!
 - ✅ **Added backing color reservation** - Reserves a color slot if backing color isn't in image
 - ✅ **Added progress output for 3MF writing** - Better feedback during file creation
