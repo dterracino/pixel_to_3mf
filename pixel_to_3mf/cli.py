@@ -35,8 +35,9 @@ from .constants import (
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
 
-# Create a global Rich console for all output
+# Create Rich consoles for output and errors
 console = Console()
+error_console = Console(stderr=True)
 
 
 def is_image_file(filepath: Path) -> bool:
@@ -210,7 +211,7 @@ def process_batch(
                     'input_file': input_path.name,
                     'error': error_msg
                 })
-                console.print(f"[red]   ❌ Failed: {error_msg}[/red]")
+                error_console.print(f"[red]   ❌ Failed: {error_msg}[/red]")
                 
         except Exception as e:
             # Any other error = failure
@@ -218,7 +219,7 @@ def process_batch(
                 'input_file': input_path.name,
                 'error': str(e)
             })
-            console.print(f"[red]   ❌ Failed: {e}[/red]")
+            error_console.print(f"[red]   ❌ Failed: {e}[/red]")
         
         console.print()
     
@@ -348,13 +349,13 @@ The program will:
     if args.batch:
         # Batch mode - image_file should not be provided
         if args.image_file:
-            console.print("[red]❌ Error: Don't specify an image file when using --batch mode[/red]", file=sys.stderr)
-            console.print("[red]   Use --batch-input to specify the input folder instead[/red]", file=sys.stderr)
+            error_console.print("[red]❌ Error: Don't specify an image file when using --batch mode[/red]")
+            error_console.print("[red]   Use --batch-input to specify the input folder instead[/red]")
             sys.exit(1)
     else:
         # Single-file mode - image_file is required
         if not args.image_file:
-            console.print("[red]❌ Error: Image file is required (or use --batch mode)[/red]", file=sys.stderr)
+            error_console.print("[red]❌ Error: Image file is required (or use --batch mode)[/red]")
             parser.print_help()
             sys.exit(1)
 
@@ -370,8 +371,8 @@ The program will:
             if not all(0 <= c <= 255 for c in backing_color):
                 raise ValueError("RGB values must be 0-255")
         except Exception as e:
-            console.print(f"[red]❌ Error: Invalid backing color '{args.backing_color}': {e}[/red]", file=sys.stderr)
-            console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]", file=sys.stderr)
+            error_console.print(f"[red]❌ Error: Invalid backing color '{args.backing_color}': {e}[/red]")
+            error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
             sys.exit(1)
 
     # Build config object from CLI arguments
@@ -387,7 +388,7 @@ The program will:
             batch_mode=args.batch
         )
     except ValueError as e:
-        console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]", file=sys.stderr)
+        error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
         sys.exit(1)
     
     # =========================================================================
@@ -426,11 +427,11 @@ The program will:
         
         # Validate input folder exists
         if not input_folder.exists():
-            console.print(f"[red]❌ Error: Input folder not found: {input_folder}[/red]", file=sys.stderr)
+            console.print(f"[red]❌ Error: Input folder not found: {input_folder}[/red]")
             sys.exit(1)
         
         if not input_folder.is_dir():
-            console.print(f"[red]❌ Error: Input path is not a directory: {input_folder}[/red]", file=sys.stderr)
+            console.print(f"[red]❌ Error: Input path is not a directory: {input_folder}[/red]")
             sys.exit(1)
         
         console.print(f"[cyan]📂 Input folder:  {input_folder}[/cyan]")
@@ -472,7 +473,7 @@ The program will:
     # Validate input file exists
     input_path = Path(args.image_file)
     if not input_path.exists():
-        console.print(f"[red]❌ Error: Input file not found: {args.image_file}[/red]", file=sys.stderr)
+        console.print(f"[red]❌ Error: Input file not found: {args.image_file}[/red]")
         sys.exit(1)
 
     # Determine output path
@@ -516,7 +517,7 @@ The program will:
             
             if response not in ['y', 'yes']:
                 console.print()
-                console.print("[red]Conversion cancelled.[/red]")
+                error_console.print("[red]Conversion cancelled.[/red]")
                 console.print()
                 console.print("[bold cyan]💡 Suggestions:[/bold cyan]")
                 console.print(f"   • Resize your image to max {data['max_recommended_px']}px in an image editor")
@@ -614,13 +615,13 @@ The program will:
             if export_task is not None:
                 progress.update(export_task, completed=True)
         except FileNotFoundError as e:
-            console.print(f"\n[red]❌ Error: {e}[/red]", file=sys.stderr)
+            error_console.print(f"\n[red]❌ Error: {e}[/red]")
             sys.exit(1)
         except ValueError as e:
-            console.print(f"\n[red]❌ Invalid parameter: {e}[/red]", file=sys.stderr)
+            error_console.print(f"\n[red]❌ Invalid parameter: {e}[/red]")
             sys.exit(1)
         except Exception as e:
-            console.print(f"\n[red]❌ Unexpected error: {e}[/red]", file=sys.stderr)
+            error_console.print(f"\n[red]❌ Unexpected error: {e}[/red]")
             import traceback
             traceback.print_exc()
             sys.exit(1)
