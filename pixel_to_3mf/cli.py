@@ -386,6 +386,16 @@ The program will:
     # =========================================================================
     if args.optimize_mesh:
         import pixel_to_3mf.mesh_generator as mg
+        import logging
+        
+        # Configure logging for polygon optimizer module
+        logging.basicConfig(
+            level=logging.INFO,
+            format='   [OPTIMIZE] %(message)s',
+            force=True
+        )
+        
+        # Enable optimized mesh generation
         mg.USE_OPTIMIZED_MESH_GENERATION = True
 
     # =========================================================================
