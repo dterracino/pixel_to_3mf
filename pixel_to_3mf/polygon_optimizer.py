@@ -102,7 +102,7 @@ def pixels_to_polygon(
                 f"holes={num_holes}, area={merged.area:.2f}mm²")
     
     # Additional check: if the polygon has many holes, it might be problematic
-    if num_holes > 10:
+    if num_holes > 5:
         logger.warning(f"Polygon has {num_holes} holes, which may cause triangulation issues")
         raise ValueError(f"Polygon has too many holes ({num_holes}). This geometry is not suitable for optimization.")
     
@@ -135,6 +135,10 @@ def _validate_polygon_for_triangulation(poly: Polygon) -> None:
     if len(exterior_coords) < 3:
         raise ValueError(f"Polygon exterior has fewer than 3 vertices: {len(exterior_coords)}")
     
+    # Check for too many vertices (complex geometries more likely to segfault)
+    if len(exterior_coords) > 100:
+        raise ValueError(f"Polygon exterior has too many vertices ({len(exterior_coords)}). This geometry is not suitable for optimization.")
+    
     # Check for collinear points in exterior (can cause triangulation issues)
     # Simple heuristic: if all points have very similar coordinates, it might be degenerate
     if len(exterior_coords) > 2:
@@ -148,13 +152,27 @@ def _validate_polygon_for_triangulation(poly: Polygon) -> None:
             raise ValueError(f"Polygon is degenerate (too thin): x_range={x_range}, y_range={y_range}")
     
     # Check holes
+    num_holes = len(list(poly.interiors))
     for i, interior in enumerate(poly.interiors):
         hole_coords = list(interior.coords[:-1])
         if len(hole_coords) < 3:
             raise ValueError(f"Hole {i} has fewer than 3 vertices: {len(hole_coords)}")
+        # Check hole complexity
+        if len(hole_coords) > 50:
+            raise ValueError(f"Hole {i} has too many vertices ({len(hole_coords)}). This geometry is not suitable for optimization.")
+    
+    # Stricter check: if the polygon has holes AND complex exterior, reject it
+    # Empirical observation: polygons with holes and > 20 exterior vertices often segfault
+    if num_holes > 0 and len(exterior_coords) > 20:
+        raise ValueError(f"Polygon has {num_holes} holes and complex exterior ({len(exterior_coords)} vertices). This geometry is not suitable for optimization.")
+    
+    # Additional check: if the polygon has many holes, it might be problematic
+    if num_holes > 5:
+        logger.warning(f"Polygon has {num_holes} holes, which may cause triangulation issues")
+        raise ValueError(f"Polygon has too many holes ({num_holes}). This geometry is not suitable for optimization.")
     
     logger.debug(f"Polygon validation passed: exterior={len(exterior_coords)} vertices, "
-                f"holes={len(list(poly.interiors))}")
+                f"holes={num_holes}")
 
 
 def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], List[Tuple[int, int, int]]]:
