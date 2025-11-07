@@ -22,7 +22,7 @@ import uuid
 
 from .mesh_generator import Mesh
 from .constants import COORDINATE_PRECISION
-from .color_tools import Palette, rgb_to_lab
+from .color_tools import Palette, FilamentPalette, rgb_to_lab, rgb_to_hex
 
 # Import for type checking only (avoids circular imports)
 if TYPE_CHECKING:
@@ -406,29 +406,55 @@ def generate_3dmodel_rels_xml() -> str:
     return prettify_xml(root)
 
 
-def get_color_name(rgb: Tuple[int, int, int]) -> str:
+def get_color_name(rgb: Tuple[int, int, int], config: 'ConversionConfig') -> str:
     """
-    Get the nearest named color for an RGB value.
+    Get the name for an RGB color based on the configured naming mode.
     
-    Uses the color_tools library to find the closest CSS color name
-    using Delta E 2000 (perceptually accurate color distance).
+    Supports three modes:
+    - "color": Find nearest CSS color name using Delta E 2000
+    - "filament": Find nearest filament based on maker/type/finish filters
+    - "hex": Use hex color code as the name
     
     Args:
         rgb: RGB tuple (0-255 for each channel)
+        config: ConversionConfig with color_naming_mode and filament filters
     
     Returns:
-        Color name string (e.g., "red", "coral", "skyblue")
+        Color name string (e.g., "red", "Bambu PLA Basic Red", "#FF5733")
     """
-    # Load the default CSS color palette
-    palette = Palette.load_default()
+    if config.color_naming_mode == "hex":
+        # Hex mode: just return the hex code
+        return rgb_to_hex(rgb)
     
-    # Convert RGB to LAB color space for accurate comparison
-    lab = rgb_to_lab(rgb)
+    elif config.color_naming_mode == "filament":
+        # Filament mode: search for nearest filament based on filters
+        palette = FilamentPalette.load_default()
+        
+        try:
+            nearest_filament, distance = palette.nearest_filament(
+                target_rgb=rgb,
+                metric="de2000",
+                maker=config.filament_maker,
+                type_name=config.filament_type,
+                finish=config.filament_finish
+            )
+            # Use the filament's color name
+            return nearest_filament.color
+        except ValueError as e:
+            # If no filaments match the filters, fall back to hex
+            return rgb_to_hex(rgb)
     
-    # Find nearest color using Delta E 2000
-    nearest_color, distance = palette.nearest_color(lab, space="lab", metric="de2000")
-    
-    return nearest_color.name
+    else:  # "color" mode (default)
+        # CSS color mode: find nearest named color
+        palette = Palette.load_default()
+        
+        # Convert RGB to LAB color space for accurate comparison
+        lab = rgb_to_lab(rgb)
+        
+        # Find nearest color using Delta E 2000
+        nearest_color, distance = palette.nearest_color(lab, space="lab", metric="de2000")
+        
+        return nearest_color.name
 
 
 def write_3mf(
@@ -484,7 +510,7 @@ def write_3mf(
     # mesh_index is 0-based index into the meshes list
     region_data = []
     for i, rgb in enumerate(region_colors):
-        color_name = get_color_name(rgb)
+        color_name = get_color_name(rgb, config)
         region_data.append((i, rgb, color_name))
     
     # Sort alphabetically by color name for easier slicer workflow

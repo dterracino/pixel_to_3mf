@@ -30,7 +30,11 @@ from .constants import (
     MAX_COLORS,
     BACKING_COLOR,
     COORDINATE_PRECISION,
-    SUPPORTED_IMAGE_EXTENSIONS
+    SUPPORTED_IMAGE_EXTENSIONS,
+    COLOR_NAMING_MODE,
+    DEFAULT_FILAMENT_MAKER,
+    DEFAULT_FILAMENT_TYPE,
+    DEFAULT_FILAMENT_FINISH
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
@@ -336,6 +340,35 @@ The program will:
     )
     
     parser.add_argument(
+        "--color-mode",
+        type=str,
+        choices=["color", "filament", "hex"],
+        default=COLOR_NAMING_MODE,
+        help=f"Color naming mode: 'color' for CSS names, 'filament' for filament colors, 'hex' for hex codes (default: {COLOR_NAMING_MODE})"
+    )
+    
+    parser.add_argument(
+        "--filament-maker",
+        type=str,
+        default=DEFAULT_FILAMENT_MAKER,
+        help=f"Filament maker filter for 'filament' mode (default: {DEFAULT_FILAMENT_MAKER})"
+    )
+    
+    parser.add_argument(
+        "--filament-type",
+        type=str,
+        default=DEFAULT_FILAMENT_TYPE,
+        help=f"Filament type filter for 'filament' mode (default: {DEFAULT_FILAMENT_TYPE})"
+    )
+    
+    parser.add_argument(
+        "--filament-finish",
+        type=str,
+        default=None,
+        help=f"Filament finish filter(s) for 'filament' mode. Comma-separated for multiple (default: {', '.join(DEFAULT_FILAMENT_FINISH)})"
+    )
+    
+    parser.add_argument(
         "--optimize-mesh",
         action="store_true",
         help="Use optimized polygon-based mesh generation (50-90%% reduction in vertices/triangles). "
@@ -375,6 +408,11 @@ The program will:
             error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
             sys.exit(1)
 
+    # Parse filament finish if provided (can be comma-separated)
+    filament_finish = DEFAULT_FILAMENT_FINISH
+    if args.filament_finish:
+        filament_finish = [f.strip() for f in args.filament_finish.split(',')]
+
     # Build config object from CLI arguments
     try:
         config = ConversionConfig(
@@ -385,7 +423,11 @@ The program will:
             max_colors=args.max_colors,
             backing_color=backing_color,
             skip_checks=args.skip_checks,
-            batch_mode=args.batch
+            batch_mode=args.batch,
+            color_naming_mode=args.color_mode,
+            filament_maker=args.filament_maker,
+            filament_type=args.filament_type,
+            filament_finish=filament_finish
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")

@@ -8,14 +8,18 @@ breaking the API.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, List, Union
 from .constants import (
     MAX_MODEL_SIZE_MM,
     LINE_WIDTH_MM,
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
     MAX_COLORS,
-    BACKING_COLOR
+    BACKING_COLOR,
+    COLOR_NAMING_MODE,
+    DEFAULT_FILAMENT_MAKER,
+    DEFAULT_FILAMENT_TYPE,
+    DEFAULT_FILAMENT_FINISH
 )
 
 
@@ -37,6 +41,10 @@ class ConversionConfig:
         backing_color: RGB color for the backing plate (reserved if not in image)
         skip_checks: If True, skip resolution warnings entirely
         batch_mode: If True, raise errors immediately instead of prompting user
+        color_naming_mode: How to name objects - "color", "filament", or "hex"
+        filament_maker: Filament maker filter (for filament mode)
+        filament_type: Filament type filter (for filament mode)
+        filament_finish: Filament finish filter(s) (for filament mode) - can be str or list
     """
 
     max_size_mm: float = MAX_MODEL_SIZE_MM
@@ -47,6 +55,10 @@ class ConversionConfig:
     backing_color: Tuple[int, int, int] = BACKING_COLOR
     skip_checks: bool = False
     batch_mode: bool = False
+    color_naming_mode: str = COLOR_NAMING_MODE
+    filament_maker: str = DEFAULT_FILAMENT_MAKER
+    filament_type: str = DEFAULT_FILAMENT_TYPE
+    filament_finish: Union[str, List[str]] = None  # Will be set in __post_init__
 
     def __post_init__(self):
         """Validate configuration parameters."""
@@ -64,3 +76,12 @@ class ConversionConfig:
             raise ValueError(f"backing_color must be an RGB tuple, got {self.backing_color}")
         if not all(0 <= c <= 255 for c in self.backing_color):
             raise ValueError(f"backing_color RGB values must be 0-255, got {self.backing_color}")
+        
+        # Validate color naming mode
+        valid_modes = {"color", "filament", "hex"}
+        if self.color_naming_mode not in valid_modes:
+            raise ValueError(f"color_naming_mode must be one of {valid_modes}, got {self.color_naming_mode}")
+        
+        # Set default filament_finish if None
+        if self.filament_finish is None:
+            self.filament_finish = DEFAULT_FILAMENT_FINISH
