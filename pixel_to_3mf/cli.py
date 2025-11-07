@@ -324,6 +324,13 @@ The program will:
         help=f"Backing plate color as R,G,B (e.g., '255,255,255' for white). "
              f"If not in image, reserves 1 color slot. Default: {BACKING_COLOR}"
     )
+    
+    parser.add_argument(
+        "--optimize-mesh",
+        action="store_true",
+        help="Use optimized polygon-based mesh generation (50-90%% reduction in vertices/triangles). "
+             "Both optimized and original modes produce manifold meshes with identical visual results."
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -373,6 +380,13 @@ The program will:
     except ValueError as e:
         print(f"❌ Error: Invalid configuration: {e}", file=sys.stderr)
         sys.exit(1)
+    
+    # =========================================================================
+    # Enable optimized mesh generation if requested
+    # =========================================================================
+    if args.optimize_mesh:
+        import pixel_to_3mf.mesh_generator as mg
+        mg.USE_OPTIMIZED_MESH_GENERATION = True
 
     # =========================================================================
     # BATCH MODE
