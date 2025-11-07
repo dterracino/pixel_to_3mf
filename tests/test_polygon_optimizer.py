@@ -50,16 +50,14 @@ class TestPixelsToPolygon(unittest.TestCase):
         self.assertTrue(poly.is_valid)
     
     def test_diagonal_connection(self):
-        """Diagonally connected pixels should create valid polygon."""
+        """Diagonally connected pixels should raise ValueError (disconnected parts)."""
         # Two pixels touching at a corner
-        # Note: They may merge into one polygon or stay as MultiPolygon
-        # depending on shapely's union behavior
+        # After union, they remain as separate polygons (MultiPolygon)
+        # This is not suitable for optimization, so should raise ValueError
         pixels = {(0, 0), (1, 1)}
-        poly = pixels_to_polygon(pixels, pixel_size_mm=1.0)
-        # Area could be 2.0 if merged or less if not perfectly merged
-        # The important thing is it's valid
-        self.assertGreater(poly.area, 0.0)
-        self.assertTrue(poly.is_valid)
+        with self.assertRaises(ValueError) as context:
+            pixels_to_polygon(pixels, pixel_size_mm=1.0)
+        self.assertIn("disconnected polygon parts", str(context.exception).lower())
     
     def test_with_hole(self):
         """Donut shape (outer ring with hole) should create polygon with interior."""
