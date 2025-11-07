@@ -82,17 +82,15 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     Triangulate 2D polygon using constrained Delaunay triangulation.
     
     Uses the triangle library to create a quality triangulation of the polygon.
+    Properly handles holes (interior rings) in the polygon.
     
-    CRITICAL: The triangle library has issues with holes in certain configurations.
-    To ensure 100% reliability, we triangulate only the exterior and fill holes.
-    This is acceptable because:
-    1. In pixel art, holes are rare (created by unary_union in complex shapes)
-    2. Filled holes still produce manifold, printable geometry
-    3. Visual result is identical for most cases
-    4. This approach NEVER crashes
+    CRITICAL: Triangle library requires:
+    - CCW (counter-clockwise) winding for exterior
+    - CW (clockwise) winding for holes
+    - Hole points must be inside the hole region (but not on boundary)
     
-    Triangle library requires CCW (counter-clockwise) winding for exterior.
-    Shapely's unary_union may produce either orientation, so we check and fix.
+    Shapely's unary_union may produce polygons with either winding orientation,
+    so we check and fix as needed.
     
     Args:
         poly: shapely.geometry.Polygon to triangulate
@@ -105,6 +103,8 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     Raises:
         RuntimeError: If triangulation fails
     """
+    import numpy as np
+    
     def is_ccw(coords):
         """Check if coordinates are counter-clockwise using shoelace formula."""
         area = 0
@@ -122,20 +122,67 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     if not is_ccw(exterior_coords):
         exterior_coords = list(reversed(exterior_coords))
     
-    # For 100% reliability, we triangulate only the exterior
-    # Holes (if any) will be filled in, which is acceptable for pixel art
+    # Convert to numpy arrays for triangle library (more reliable)
+    all_vertices = np.array(exterior_coords, dtype=np.float64)
+    exterior_segments = np.array(
+        [[i, (i + 1) % len(exterior_coords)] for i in range(len(exterior_coords))],
+        dtype=np.int32
+    )
+    
+    # Handle holes if present
+    hole_points_list = []
+    all_segments = [exterior_segments]
+    
+    for interior in poly.interiors:
+        hole_coords = list(interior.coords[:-1])
+        
+        # Triangle library REQUIRES CW winding for holes (opposite of exterior)
+        if is_ccw(hole_coords):
+            hole_coords = list(reversed(hole_coords))
+        
+        # Add hole vertices
+        hole_vertices = np.array(hole_coords, dtype=np.float64)
+        offset = len(all_vertices)
+        all_vertices = np.vstack([all_vertices, hole_vertices])
+        
+        # Add hole segments
+        hole_segments = np.array(
+            [[offset + i, offset + (i + 1) % len(hole_coords)] for i in range(len(hole_coords))],
+            dtype=np.int32
+        )
+        all_segments.append(hole_segments)
+        
+        # Calculate hole point - must be inside the hole area
+        # Use simple centroid calculation
+        hole_center_x = sum(p[0] for p in hole_coords) / len(hole_coords)
+        hole_center_y = sum(p[1] for p in hole_coords) / len(hole_coords)
+        hole_points_list.append([hole_center_x, hole_center_y])
+    
+    # Combine all segments
+    all_segments_combined = np.vstack(all_segments)
+    
+    # Prepare input for triangle library
     triangle_input = {
-        'vertices': exterior_coords,
-        'segments': [[i, (i + 1) % len(exterior_coords)] for i in range(len(exterior_coords))]
+        'vertices': all_vertices,
+        'segments': all_segments_combined
     }
     
+    # Add hole points if we have holes
+    if hole_points_list:
+        triangle_input['holes'] = np.array(hole_points_list, dtype=np.float64)
+    
     # Triangulate with basic PSLG
-    # 'p' = Planar Straight Line Graph (respects boundary edges)
+    # 'p' = Planar Straight Line Graph (respects boundary edges and holes)
     # 'Q' = Quiet mode (suppress output)
+    # 'Y' = Prohibit Steiner points on boundaries (more reliable with holes)
     try:
-        result = tr.triangulate(triangle_input, 'pQ')
+        result = tr.triangulate(triangle_input, 'pQY')
     except Exception as e:
-        raise RuntimeError(f"Triangulation failed: {e}")
+        # If triangulation with holes fails, try without the Y flag
+        try:
+            result = tr.triangulate(triangle_input, 'pQ')
+        except Exception as e2:
+            raise RuntimeError(f"Triangulation failed: {e}, retry also failed: {e2}")
     
     # Extract results
     vertices_2d = [tuple(v) for v in result['vertices']]
