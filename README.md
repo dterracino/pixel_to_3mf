@@ -176,6 +176,7 @@ python run_converter.py image.png --optimize-mesh
 ```
 
 **Benefits:**
+
 - 📉 **20-77% reduction** in vertices and triangles for typical pixel art
 - 📦 **Smaller 3MF files** (proportional to mesh reduction)
 - ⚡ **Faster slicing** (fewer triangles = faster processing)
@@ -183,11 +184,13 @@ python run_converter.py image.png --optimize-mesh
 - ✅ **100% reliable** (never crashes, works on all images)
 
 **How it works:**
+
 - Merges pixel squares into larger polygons using shapely
 - Triangulates polygons using constrained Delaunay triangulation (triangle library)
 - Maintains all manifold properties (shared vertices, CCW winding, edge connectivity)
 
 **When to use:**
+
 - Any image where you want smaller file sizes
 - Large images with many pixels per region (>20 pixels/region)
 - Images with large solid-color areas
