@@ -10,8 +10,12 @@ Think of it like the paint bucket tool in Photoshop - we're finding all
 the connected areas of the same color! 🎨
 """
 
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, TYPE_CHECKING
 from .image_processor import PixelData
+
+# Import for type checking only (avoids circular imports)
+if TYPE_CHECKING:
+    from .config import ConversionConfig
 
 
 class Region:
@@ -43,15 +47,16 @@ def flood_fill(
     start_y: int,
     target_color: Tuple[int, int, int],
     pixels: Dict[Tuple[int, int], Tuple[int, int, int, int]],
-    visited: Set[Tuple[int, int]]
+    visited: Set[Tuple[int, int]],
+    connectivity: int = 8
 ) -> Set[Tuple[int, int]]:
     """
     Perform flood fill to find all connected pixels of the same color.
     
     This is a classic computer science algorithm! We start at one pixel and
     "flood" outward to all adjacent pixels of the same color, marking them
-    as we go. We use 8-connectivity (includes diagonals) so pixels touching
-    at corners are merged into the same region.
+    as we go. We use 8-connectivity by default (includes diagonals) so pixels 
+    touching at corners are merged into the same region.
     
     We use an iterative approach with a queue rather than recursion to avoid
     stack overflow on large regions. Python's recursion limit is only ~1000,
@@ -62,6 +67,7 @@ def flood_fill(
         target_color: RGB color we're looking for
         pixels: Dict of all non-transparent pixels (x,y) -> (r,g,b,a)
         visited: Set of already-processed pixels (we'll add to this)
+        connectivity: 0 (no merge), 4 (edge-connected), or 8 (includes diagonals)
     
     Returns:
         Set of (x, y) coordinates in this connected region
@@ -82,18 +88,32 @@ def flood_fill(
         # Add it to our region
         region_pixels.add((x, y))
         
-        # Check all 8 adjacent pixels (including diagonals!)
-        # This creates much fewer objects for diagonal patterns
-        neighbors = [
-            (x + 1, y),      # right
-            (x - 1, y),      # left
-            (x, y + 1),      # down
-            (x, y - 1),      # up
-            (x + 1, y + 1),  # diagonal: down-right
-            (x - 1, y - 1),  # diagonal: up-left
-            (x + 1, y - 1),  # diagonal: up-right
-            (x - 1, y + 1),  # diagonal: down-left
-        ]
+        # Connectivity 0 means no merging - just return this single pixel
+        if connectivity == 0:
+            continue
+        
+        # Build neighbor list based on connectivity mode
+        if connectivity == 8:
+            # 8-connectivity: includes diagonals
+            # This creates much fewer objects for diagonal patterns
+            neighbors = [
+                (x + 1, y),      # right
+                (x - 1, y),      # left
+                (x, y + 1),      # down
+                (x, y - 1),      # up
+                (x + 1, y + 1),  # diagonal: down-right
+                (x - 1, y - 1),  # diagonal: up-left
+                (x + 1, y - 1),  # diagonal: up-right
+                (x - 1, y + 1),  # diagonal: down-left
+            ]
+        else:  # connectivity == 4
+            # 4-connectivity: edge-connected only
+            neighbors = [
+                (x + 1, y),  # right
+                (x - 1, y),  # left
+                (x, y + 1),  # down
+                (x, y - 1),  # up
+            ]
         
         for nx, ny in neighbors:
             # Skip if already visited
@@ -119,7 +139,7 @@ def flood_fill(
     return region_pixels
 
 
-def merge_regions(pixel_data: PixelData) -> List[Region]:
+def merge_regions(pixel_data: PixelData, config: 'ConversionConfig') -> List[Region]:
     """
     Group all pixels into connected regions by color.
     
@@ -141,6 +161,7 @@ def merge_regions(pixel_data: PixelData) -> List[Region]:
     
     Args:
         pixel_data: Processed pixel data from image_processor
+        config: ConversionConfig object with connectivity setting
     
     Returns:
         List of Region objects, one per connected same-color area
@@ -158,7 +179,7 @@ def merge_regions(pixel_data: PixelData) -> List[Region]:
         color = (rgba[0], rgba[1], rgba[2])
         
         # Flood fill to get all connected pixels of this color
-        region_pixels = flood_fill(x, y, color, pixel_data.pixels, visited)
+        region_pixels = flood_fill(x, y, color, pixel_data.pixels, visited, connectivity=config.connectivity)
         
         # Create a region for this blob
         regions.append(Region(color=color, pixels=region_pixels))

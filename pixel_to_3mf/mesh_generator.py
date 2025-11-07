@@ -372,6 +372,93 @@ def _generate_backing_plate_original(
     return Mesh(vertices=vertices, triangles=triangles)
 
 
+def _is_simple_rectangle(pixel_data: PixelData) -> bool:
+    """
+    Check if all pixels form a complete rectangle (no transparency).
+    
+    This is perfect for full-frame images like screenshots or large pixel art.
+    A simple rectangle allows us to use a much more efficient backing plate.
+    
+    Args:
+        pixel_data: The pixel data to check
+    
+    Returns:
+        True if the image is a complete rectangle with no transparent pixels
+    """
+    total_expected = pixel_data.width * pixel_data.height
+    total_actual = len(pixel_data.pixels)
+    return total_expected == total_actual
+
+
+def _create_simple_rectangle_backing_plate(pixel_data: PixelData, base_height_mm: float) -> Mesh:
+    """
+    Create a simple rectangular backing plate - just 12 triangles!
+    
+    Perfect for images with no transparency or holes.
+    Way more efficient than tracing complex outlines.
+    
+    Args:
+        pixel_data: The pixel data (used for dimensions)
+        base_height_mm: Height of the backing plate
+    
+    Returns:
+        A Mesh object with 8 vertices and 12 triangles (rectangular prism)
+    """
+    width_mm = pixel_data.width * pixel_data.pixel_size_mm
+    height_mm = pixel_data.height * pixel_data.pixel_size_mm
+    
+    # 8 vertices (rectangular prism)
+    # Bottom 4 corners at z=-base_height_mm
+    # Top 4 corners at z=0
+    vertices = [
+        (0, 0, -base_height_mm),              # 0: bottom-left-front
+        (width_mm, 0, -base_height_mm),       # 1: bottom-right-front
+        (width_mm, height_mm, -base_height_mm),  # 2: bottom-right-back
+        (0, height_mm, -base_height_mm),      # 3: bottom-left-back
+        (0, 0, 0),                            # 4: top-left-front
+        (width_mm, 0, 0),                     # 5: top-right-front
+        (width_mm, height_mm, 0),             # 6: top-right-back
+        (0, height_mm, 0),                    # 7: top-left-back
+    ]
+    
+    # 12 triangles (2 per face, 6 faces)
+    # Use counter-clockwise winding for outward-facing normals
+    triangles = [
+        # Bottom face (z=-base_height_mm) - looking up from below
+        (0, 2, 1), (0, 3, 2),
+        # Top face (z=0) - looking down from above
+        (4, 5, 6), (4, 6, 7),
+        # Front face (y=0)
+        (0, 1, 5), (0, 5, 4),
+        # Back face (y=height_mm)
+        (2, 3, 7), (2, 7, 6),
+        # Left face (x=0)
+        (0, 4, 7), (0, 7, 3),
+        # Right face (x=width_mm)
+        (1, 2, 6), (1, 6, 5),
+    ]
+    
+    return Mesh(vertices=vertices, triangles=triangles)
+
+
+def _create_complex_backing_plate(pixel_data: PixelData, config: 'ConversionConfig') -> Mesh:
+    """
+    Create backing plate using the current union approach.
+    
+    This is the existing implementation - handles sprites with holes,
+    irregular shapes, etc.
+    
+    Args:
+        pixel_data: The pixel data
+        config: ConversionConfig object with base height and other parameters
+    
+    Returns:
+        A Mesh object for the backing plate
+    """
+    # This is just the original implementation
+    return _generate_backing_plate_original(pixel_data, config)
+
+
 # Public API functions with dispatch logic
 def generate_region_mesh(
     region: Region,
@@ -420,6 +507,7 @@ def generate_backing_plate(
     The backing plate should match the EXACT footprint of the non-transparent pixels,
     with holes where transparent pixels are. It goes from z=-config.base_height_mm to z=0.
     
+    Automatically uses optimized path for simple rectangles (no transparency)!
     When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
     optimization for reduced vertex/triangle counts. Falls back to original
     implementation if optimization fails.
@@ -431,6 +519,11 @@ def generate_backing_plate(
     Returns:
         A Mesh object for the backing plate
     """
+    # Fast path: check if it's just a simple rectangle
+    if _is_simple_rectangle(pixel_data):
+        return _create_simple_rectangle_backing_plate(pixel_data, config.base_height_mm)
+    
+    # Complex path: use the current union approach for sprites with holes
     # Dispatch to optimized version if enabled and available
     if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
         return generate_backing_plate_optimized(pixel_data, config)
