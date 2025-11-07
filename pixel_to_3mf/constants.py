@@ -47,6 +47,21 @@ MAX_COLORS = 16
 BACKING_COLOR = (255, 255, 255)  # White
 
 # ============================================================================
+# Color Naming
+# ============================================================================
+
+# Color naming mode - how to name objects in the 3MF file
+# - "color": Use nearest CSS color name (e.g., "red", "coral")
+# - "filament": Use nearest filament name based on filters (e.g., "Bambu Lab PLA Basic Red")
+# - "hex": Use hex color code (e.g., "#FF5733")
+COLOR_NAMING_MODE = "color"
+
+# Default filament filters when using filament mode
+DEFAULT_FILAMENT_MAKER = "Bambu Lab"
+DEFAULT_FILAMENT_TYPE = "PLA"
+DEFAULT_FILAMENT_FINISH = ["Basic", "Matte"]  # Multiple finishes allowed
+
+# ============================================================================
 # Batch Processing
 # ============================================================================
 
