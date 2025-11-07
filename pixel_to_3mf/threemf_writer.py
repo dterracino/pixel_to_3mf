@@ -543,9 +543,10 @@ def write_3mf(
         zf.writestr("3D/Objects/object_1.model", object_model_xml)
         zf.writestr("Metadata/model_settings.config", settings_xml)
     
-    print(f"✨ 3MF file written to: {output_path}")
+    # Report completion through progress callback
+    _progress(f"✨ 3MF file written to: {output_path}")
     if has_backing_plate:
-        print(f"   {len(region_colors)} colored regions + 1 backing plate")
+        _progress(f"{len(region_colors)} colored regions + 1 backing plate")
     else:
-        print(f"   {len(region_colors)} colored regions (no backing plate)")
-    print(f"   Total objects: {len(meshes)}")
+        _progress(f"{len(region_colors)} colored regions (no backing plate)")
+    _progress(f"Total objects: {len(meshes)}")

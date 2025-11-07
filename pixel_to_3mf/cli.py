@@ -15,6 +15,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any
 
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.panel import Panel
+from rich.table import Table
+from rich import box
+
 from .constants import (
     MAX_MODEL_SIZE_MM,
     LINE_WIDTH_MM,
@@ -28,6 +34,9 @@ from .constants import (
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
+
+# Create a global Rich console for all output
+console = Console()
 
 
 def is_image_file(filepath: Path) -> bool:
@@ -148,15 +157,15 @@ def process_batch(
     image_files = [f for f in input_folder.iterdir() if f.is_file() and is_image_file(f)]
     
     if not image_files:
-        print(f"⚠️  No image files found in {input_folder}")
+        console.print(f"[yellow]⚠️  No image files found in {input_folder}[/yellow]")
         return results
     
-    print(f"📁 Found {len(image_files)} image(s) to process")
-    print()
+    console.print(f"[cyan]📁 Found {len(image_files)} image(s) to process[/cyan]")
+    console.print()
     
     # Process each file
     for i, input_path in enumerate(sorted(image_files), start=1):
-        print(f"[{i}/{len(image_files)}] Processing: {input_path.name}")
+        console.print(f"[cyan][{i}/{len(image_files)}] Processing: {input_path.name}[/cyan]")
         
         # Determine output path
         output_filename = input_path.stem + DEFAULT_OUTPUT_SUFFIX + '.3mf'
@@ -182,7 +191,7 @@ def process_batch(
                 'model_height_mm': stats['model_height_mm'],
                 'file_size': stats['file_size']
             })
-            print(f"   ✅ Success: {stats['num_regions']} regions, {stats['file_size']}")
+            console.print(f"[green]   ✅ Success: {stats['num_regions']} regions, {stats['file_size']}[/green]")
             
         except ValueError as e:
             error_msg = str(e)
@@ -194,14 +203,14 @@ def process_batch(
                     'input_file': input_path.name,
                     'reason': error_msg
                 })
-                print(f"   ⚠️  Skipped: Resolution warning")
+                console.print(f"[yellow]   ⚠️  Skipped: Resolution warning[/yellow]")
             else:
                 # Other ValueError = actual failure (e.g., too many colors)
                 results['failed'].append({
                     'input_file': input_path.name,
                     'error': error_msg
                 })
-                print(f"   ❌ Failed: {error_msg}")
+                console.print(f"[red]   ❌ Failed: {error_msg}[/red]")
                 
         except Exception as e:
             # Any other error = failure
@@ -209,9 +218,9 @@ def process_batch(
                 'input_file': input_path.name,
                 'error': str(e)
             })
-            print(f"   ❌ Failed: {e}")
+            console.print(f"[red]   ❌ Failed: {e}[/red]")
         
-        print()
+        console.print()
     
     return results
 
@@ -339,13 +348,13 @@ The program will:
     if args.batch:
         # Batch mode - image_file should not be provided
         if args.image_file:
-            print("❌ Error: Don't specify an image file when using --batch mode", file=sys.stderr)
-            print("   Use --batch-input to specify the input folder instead", file=sys.stderr)
+            console.print("[red]❌ Error: Don't specify an image file when using --batch mode[/red]", file=sys.stderr)
+            console.print("[red]   Use --batch-input to specify the input folder instead[/red]", file=sys.stderr)
             sys.exit(1)
     else:
         # Single-file mode - image_file is required
         if not args.image_file:
-            print("❌ Error: Image file is required (or use --batch mode)", file=sys.stderr)
+            console.print("[red]❌ Error: Image file is required (or use --batch mode)[/red]", file=sys.stderr)
             parser.print_help()
             sys.exit(1)
 
@@ -361,8 +370,8 @@ The program will:
             if not all(0 <= c <= 255 for c in backing_color):
                 raise ValueError("RGB values must be 0-255")
         except Exception as e:
-            print(f"❌ Error: Invalid backing color '{args.backing_color}': {e}", file=sys.stderr)
-            print("   Format: R,G,B (e.g., '255,255,255' for white)", file=sys.stderr)
+            console.print(f"[red]❌ Error: Invalid backing color '{args.backing_color}': {e}[/red]", file=sys.stderr)
+            console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]", file=sys.stderr)
             sys.exit(1)
 
     # Build config object from CLI arguments
@@ -378,7 +387,7 @@ The program will:
             batch_mode=args.batch
         )
     except ValueError as e:
-        print(f"❌ Error: Invalid configuration: {e}", file=sys.stderr)
+        console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]", file=sys.stderr)
         sys.exit(1)
     
     # =========================================================================
@@ -406,27 +415,28 @@ The program will:
     # BATCH MODE
     # =========================================================================
     if args.batch:
-        print("=" * 70)
-        print("🎨 Pixel Art to 3MF Converter - BATCH MODE")
-        print("=" * 70)
-        print()
+        console.print(Panel.fit(
+            "[bold cyan]🎨 Pixel Art to 3MF Converter - BATCH MODE[/bold cyan]",
+            border_style="cyan"
+        ))
+        console.print()
         
         input_folder = Path(args.batch_input)
         output_folder = Path(args.batch_output)
         
         # Validate input folder exists
         if not input_folder.exists():
-            print(f"❌ Error: Input folder not found: {input_folder}", file=sys.stderr)
+            console.print(f"[red]❌ Error: Input folder not found: {input_folder}[/red]", file=sys.stderr)
             sys.exit(1)
         
         if not input_folder.is_dir():
-            print(f"❌ Error: Input path is not a directory: {input_folder}", file=sys.stderr)
+            console.print(f"[red]❌ Error: Input path is not a directory: {input_folder}[/red]", file=sys.stderr)
             sys.exit(1)
         
-        print(f"📂 Input folder:  {input_folder}")
-        print(f"📂 Output folder: {output_folder}")
-        print(f"⚙️  Skip checks:   {args.skip_checks}")
-        print()
+        console.print(f"[cyan]📂 Input folder:  {input_folder}[/cyan]")
+        console.print(f"[cyan]📂 Output folder: {output_folder}[/cyan]")
+        console.print(f"[cyan]⚙️  Skip checks:   {args.skip_checks}[/cyan]")
+        console.print()
         
         # Process the batch
         start_time = datetime.now()
@@ -437,16 +447,17 @@ The program will:
         summary_path = generate_batch_summary(results, output_folder, start_time, end_time)
         
         # Print final results
-        print("=" * 70)
-        print("✅ Batch processing complete!")
-        print("=" * 70)
-        print(f"📊 Results:")
-        print(f"   ✅ Successful: {len(results['success'])} files")
-        print(f"   ⚠️  Skipped:    {len(results['skipped'])} files")
-        print(f"   ❌ Failed:     {len(results['failed'])} files")
-        print()
-        print(f"📄 Summary: {summary_path}")
-        print()
+        console.print(Panel.fit(
+            "[bold green]✅ Batch processing complete![/bold green]",
+            border_style="green"
+        ))
+        console.print(f"[bold]📊 Results:[/bold]")
+        console.print(f"   [green]✅ Successful: {len(results['success'])} files[/green]")
+        console.print(f"   [yellow]⚠️  Skipped:    {len(results['skipped'])} files[/yellow]")
+        console.print(f"   [red]❌ Failed:     {len(results['failed'])} files[/red]")
+        console.print()
+        console.print(f"[cyan]📄 Summary: {summary_path}[/cyan]")
+        console.print()
         
         # Exit with error code if there were failures
         if results['failed']:
@@ -461,7 +472,7 @@ The program will:
     # Validate input file exists
     input_path = Path(args.image_file)
     if not input_path.exists():
-        print(f"❌ Error: Input file not found: {args.image_file}", file=sys.stderr)
+        console.print(f"[red]❌ Error: Input file not found: {args.image_file}[/red]", file=sys.stderr)
         sys.exit(1)
 
     # Determine output path
@@ -472,77 +483,173 @@ The program will:
         output_path = str(input_path.with_suffix('')) + DEFAULT_OUTPUT_SUFFIX + '.3mf'
     
     # Print header
-    print("=" * 70)
-    print("🎨 Pixel Art to 3MF Converter")
-    print("=" * 70)
-    print()
+    console.print(Panel.fit(
+        "[bold cyan]🎨 Pixel Art to 3MF Converter[/bold cyan]",
+        border_style="cyan"
+    ))
+    console.print()
     
-    # Progress callback to print nice updates
-    current_stage = None
-    
-    def progress_callback(stage: str, message: str):
-        nonlocal current_stage
-        
-        # Print stage header if it changed
-        if stage != current_stage:
-            current_stage = stage
-            stage_icons = {
-                'load': '📁',
-                'merge': '🧩',
-                'mesh': '🎲',
-                'export': '📦'
-            }
-            icon = stage_icons.get(stage, '▶️')
+    # Warning callback for resolution issues
+    def warning_callback(warning_type: str, data: Dict[str, Any]) -> bool:
+        """Handle warnings during conversion, ask user for confirmation."""
+        if warning_type == 'resolution_warning':
+            # Display warning panel
+            console.print()
+            warning_panel = Panel(
+                "[bold yellow]⚠️  WARNING: Image resolution may be too high for reliable printing![/bold yellow]\n\n"
+                f"[cyan]Image dimensions:[/cyan] {data['image_width']} x {data['image_height']} pixels "
+                f"({data['max_dimension_px']}px largest)\n"
+                f"[cyan]Your line width:[/cyan]  {data['line_width_mm']}mm\n"
+                f"[cyan]Max recommended:[/cyan]  {data['max_recommended_px']} pixels "
+                f"({data['max_size_mm']}mm ÷ {data['line_width_mm']}mm)\n\n"
+                f"[yellow]Your pixels will be: {data['pixel_size_mm']:.3f}mm each[/yellow]\n"
+                f"[yellow]This is SMALLER than your line width ({data['line_width_mm']}mm)![/yellow]\n\n"
+                "[dim]The printer may struggle with details this fine.[/dim]",
+                title="[bold yellow]Resolution Warning[/bold yellow]",
+                border_style="yellow"
+            )
+            console.print(warning_panel)
+            console.print()
             
-            if stage == 'load':
-                print(f"{icon} Loading image...")
-            elif stage == 'merge':
-                print(f"{icon} Merging regions...")
-            elif stage == 'mesh':
-                print(f"{icon} Generating 3D geometry...")
-            elif stage == 'export':
-                print(f"{icon} Writing 3MF file...")
+            # Ask user
+            response = console.input("[yellow]Do you want to continue anyway? [y/N]:[/yellow] ").strip().lower()
+            
+            if response not in ['y', 'yes']:
+                console.print()
+                console.print("[red]Conversion cancelled.[/red]")
+                console.print()
+                console.print("[bold cyan]💡 Suggestions:[/bold cyan]")
+                console.print(f"   • Resize your image to max {data['max_recommended_px']}px in an image editor")
+                console.print(f"   • Increase --max-size (e.g., --max-size {int(data['max_dimension_px'] * data['line_width_mm'])})")
+                console.print(f"   • Use a smaller nozzle and adjust --line-width accordingly")
+                console.print()
+                return False
+            
+            console.print()
+            console.print("[green]Continuing with conversion...[/green]")
+            console.print()
+            return True
         
-        # Print the message with indentation
-        print(f"   {message}")
+        return True
     
-    # Run the conversion!
-    try:
-        stats = convert_image_to_3mf(
-            input_path=str(input_path),
-            output_path=output_path,
-            config=config,
-            progress_callback=progress_callback
-        )
-    except FileNotFoundError as e:
-        print(f"\n❌ Error: {e}", file=sys.stderr)
-        sys.exit(1)
-    except ValueError as e:
-        print(f"\n❌ Invalid parameter: {e}", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n❌ Unexpected error: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    # Progress tracking with Rich
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
+        transient=False
+    ) as progress:
+        
+        # Create tasks for each stage
+        load_task = progress.add_task("[cyan]📁 Loading image...", total=None)
+        merge_task = None
+        mesh_task = None
+        export_task = None
+        
+        # Track current stage and regions
+        current_stage = None
+        total_regions = 0
+        
+        def progress_callback(stage: str, message: str):
+            nonlocal current_stage, merge_task, mesh_task, export_task, total_regions
+            
+            # Update stage if it changed
+            if stage != current_stage:
+                current_stage = stage
+                
+                if stage == 'load':
+                    progress.update(load_task, description=f"[cyan]📁 Loading image... {message}")
+                elif stage == 'merge':
+                    progress.update(load_task, completed=True)
+                    merge_task = progress.add_task("[magenta]🧩 Merging regions...", total=None)
+                elif stage == 'mesh':
+                    if merge_task is not None:
+                        progress.update(merge_task, completed=True)
+                    # Extract number of regions from message if available
+                    if "Found" in message and "regions" in message:
+                        try:
+                            total_regions = int(message.split()[1])
+                            mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=total_regions)
+                        except:
+                            mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=None)
+                    else:
+                        mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=None)
+                elif stage == 'export':
+                    if mesh_task is not None:
+                        progress.update(mesh_task, completed=True)
+                    export_task = progress.add_task("[green]📦 Writing 3MF file...", total=None)
+            else:
+                # Update existing task
+                if stage == 'load' and load_task is not None:
+                    progress.update(load_task, description=f"[cyan]📁 Loading image... {message}")
+                elif stage == 'merge' and merge_task is not None:
+                    progress.update(merge_task, description=f"[magenta]🧩 Merging regions... {message}")
+                elif stage == 'mesh' and mesh_task is not None:
+                    # Check if this is a region progress update
+                    if "Region" in message and "/" in message:
+                        try:
+                            parts = message.split()
+                            region_info = parts[1].split("/")
+                            current_region = int(region_info[0])
+                            progress.update(mesh_task, completed=current_region, description=f"[blue]🎲 Generating 3D geometry... {message}")
+                        except:
+                            progress.update(mesh_task, description=f"[blue]🎲 Generating 3D geometry... {message}")
+                    else:
+                        progress.update(mesh_task, description=f"[blue]🎲 Generating 3D geometry... {message}")
+                elif stage == 'export' and export_task is not None:
+                    progress.update(export_task, description=f"[green]📦 Writing 3MF file... {message}")
+        
+        # Run the conversion!
+        try:
+            stats = convert_image_to_3mf(
+                input_path=str(input_path),
+                output_path=output_path,
+                config=config,
+                progress_callback=progress_callback,
+                warning_callback=warning_callback
+            )
+            # Mark final task as complete
+            if export_task is not None:
+                progress.update(export_task, completed=True)
+        except FileNotFoundError as e:
+            console.print(f"\n[red]❌ Error: {e}[/red]", file=sys.stderr)
+            sys.exit(1)
+        except ValueError as e:
+            console.print(f"\n[red]❌ Invalid parameter: {e}[/red]", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            console.print(f"\n[red]❌ Unexpected error: {e}[/red]", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
     
     # Print summary
-    print()
-    print("=" * 70)
-    print("✅ Conversion complete!")
-    print("=" * 70)
-    print(f"📊 Statistics:")
-    print(f"   Image: {stats['image_width']} x {stats['image_height']} pixels")
-    print(f"   Model: {stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
-    print(f"   Pixel size: {round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
-    print(f"   Regions: {stats['num_regions']} ({stats['num_colors']} unique colors)")
-    print(f"   Output: {stats['output_path']} ({stats['file_size']})")
-    print()
-    print("🎯 Next steps:")
-    print("  1. Open the 3MF file in your slicer (Bambu Studio, PrusaSlicer, etc.)")
-    print("  2. Assign filament colors to each named object")
-    print("  3. Slice and print!")
-    print()
+    console.print()
+    console.print(Panel.fit(
+        "[bold green]✅ Conversion complete![/bold green]",
+        border_style="green"
+    ))
+    
+    # Create a table for statistics
+    stats_table = Table(show_header=False, box=box.SIMPLE, padding=(0, 1))
+    stats_table.add_column("Label", style="bold cyan")
+    stats_table.add_column("Value", style="white")
+    
+    stats_table.add_row("Image:", f"{stats['image_width']} x {stats['image_height']} pixels")
+    stats_table.add_row("Model:", f"{stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
+    stats_table.add_row("Pixel size:", f"{round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
+    stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
+    stats_table.add_row("Output:", f"{stats['output_path']} ({stats['file_size']})")
+    
+    console.print(stats_table)
+    console.print()
+    console.print("[bold yellow]🎯 Next steps:[/bold yellow]")
+    console.print("  [cyan]1.[/cyan] Open the 3MF file in your slicer (Bambu Studio, PrusaSlicer, etc.)")
+    console.print("  [cyan]2.[/cyan] Assign filament colors to each named object")
+    console.print("  [cyan]3.[/cyan] Slice and print!")
+    console.print()
 
 
 if __name__ == "__main__":

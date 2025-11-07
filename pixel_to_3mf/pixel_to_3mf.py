@@ -39,7 +39,8 @@ def convert_image_to_3mf(
     input_path: str,
     output_path: str,
     config: Optional[ConversionConfig] = None,
-    progress_callback: Optional[Callable[[str, str], None]] = None
+    progress_callback: Optional[Callable[[str, str], None]] = None,
+    warning_callback: Optional[Callable[[str, Dict[str, Any]], bool]] = None
 ) -> Dict[str, Any]:
     """
     Convert a pixel art image to a 3MF file.
@@ -60,6 +61,9 @@ def convert_image_to_3mf(
         config: ConversionConfig object with all conversion parameters (uses defaults if None)
         progress_callback: Optional function to call with progress updates
                           Signature: callback(stage: str, message: str)
+        warning_callback: Optional function to call for warnings that need user decision
+                         Signature: callback(warning_type: str, data: Dict) -> bool
+                         Should return True to continue, False to cancel
 
     Returns:
         Dictionary with conversion statistics:
@@ -124,38 +128,31 @@ def convert_image_to_3mf(
                 f"Pixel size would be {pixel_data.pixel_size_mm:.3f}mm (smaller than line width)."
             )
         else:
-            # Interactive mode - warn user and ask if they want to continue
-            print()
-            print("⚠️  " + "=" * 68)
-            print("⚠️  WARNING: Image resolution may be too high for reliable printing!")
-            print("=" * 72)
-            print()
-            print(f"   Image dimensions: {pixel_data.width} x {pixel_data.height} pixels ({max_dimension_px}px largest)")
-            print(f"   Your line width:  {config.line_width_mm}mm")
-            print(f"   Max recommended:  {max_recommended_px} pixels ({config.max_size_mm}mm ÷ {config.line_width_mm}mm)")
-            print()
-            print(f"   Your pixels will be: {pixel_data.pixel_size_mm:.3f}mm each")
-            print(f"   This is SMALLER than your line width ({config.line_width_mm}mm)!")
-            print()
-            print("   The printer may struggle with details this fine.")
-            print()
-
-            # Interactive prompt
-            response = input("Do you want to continue anyway? [y/N]: ").strip().lower()
-            if response not in ['y', 'yes']:
-                print()
-                print("Conversion cancelled.")
-                print()
-                print("💡 Suggestions:")
-                print(f"   • Resize your image to max {max_recommended_px}px in an image editor")
-                print(f"   • Increase --max-size (e.g., --max-size {int(max_dimension_px * config.line_width_mm)})")
-                print(f"   • Use a smaller nozzle and adjust --line-width accordingly")
-                print()
-                raise ValueError("Image resolution too high for specified line width")
-
-            print()
-            print("Continuing with conversion...")
-            print()
+            # Interactive mode - use callback to warn user
+            if warning_callback:
+                # Provide warning data to callback
+                warning_data = {
+                    'image_width': pixel_data.width,
+                    'image_height': pixel_data.height,
+                    'max_dimension_px': max_dimension_px,
+                    'line_width_mm': config.line_width_mm,
+                    'max_recommended_px': max_recommended_px,
+                    'max_size_mm': config.max_size_mm,
+                    'pixel_size_mm': pixel_data.pixel_size_mm
+                }
+                
+                # Ask callback if we should continue
+                should_continue = warning_callback('resolution_warning', warning_data)
+                if not should_continue:
+                    raise ValueError("Image resolution too high for specified line width")
+            else:
+                # No callback provided - raise error
+                raise ValueError(
+                    f"Image resolution too high for reliable printing. "
+                    f"Image: {pixel_data.width}x{pixel_data.height}px ({max_dimension_px}px max), "
+                    f"Recommended max: {max_recommended_px}px for {config.line_width_mm}mm line width. "
+                    f"Pixel size would be {pixel_data.pixel_size_mm:.3f}mm (smaller than line width)."
+                )
     
     # Step 2: Merge regions
     _progress("merge", "Merging connected pixels into regions...")
