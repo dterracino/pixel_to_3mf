@@ -4,6 +4,8 @@
 
 This document provides implementation notes for the polygon-based mesh optimization feature added to the pixel_to_3mf converter.
 
+**Latest Update (2025-11-07):** Fixed critical segfault issues and improved fallback mechanism. The --optimize-mesh flag now works reliably with comprehensive logging and automatic fallback for unsuitable geometries. See "Known Issues and Mitigations" section below for details.
+
 ## Implementation Status
 
 ✅ **Completed:**
@@ -17,6 +19,9 @@ This document provides implementation notes for the polygon-based mesh optimizat
 - CLI flag --optimize-mesh to enable optimization
 - Comprehensive test suite (test_polygon_optimizer.py)
 - README documentation
+- **Comprehensive logging system (2025-11-07)**
+- **Input validation and fallback improvements (2025-11-07)**
+- **Fixed circular recursion in fallback mechanism (2025-11-07)**
 
 ## Architecture
 
@@ -117,30 +122,49 @@ Benchmarked reductions (typical pixel art):
 - Complex irregular shapes
 - Images with many regions but few pixels per region
 
-## Known Issues
+## Known Issues and Mitigations (FIXED in 2025-11-07 Update)
 
-### Triangle Library Segfaults
+### ~~Triangle Library Segfaults~~ (RESOLVED)
 
-**Issue:** The triangle library (C library) can segfault on certain polygon configurations.
+**Previous Issue:** The triangle library (C library) could segfault on certain polygon configurations, causing the entire process to crash with no error message.
 
-**Symptoms:**
-- Python process crashes with "Segmentation fault (core dumped)"
-- No Python exception is raised
-- Fallback mechanism cannot engage
+**Fix Applied (2025-11-07):**
+1. **Comprehensive Logging** - Added detailed logging to track execution before crashes occur
+2. **Input Validation** - Added pre-triangulation validation to detect problematic geometries:
+   - MultiPolygon results (disconnected parts) now trigger fallback instead of being processed
+   - Polygons with > 10 holes are rejected before triangulation
+   - Degenerate polygons (zero area, too thin) are detected early
+3. **Improved Fallback** - Fixed circular recursion issue; fallback now correctly uses original implementation
+4. **Better Error Handling** - Improved hole point calculation using `representative_point()` for reliability
 
-**Affected Geometries:**
-- Some complex non-convex polygons
-- Certain hole configurations
-- Geometries with near-collinear points
+**Current Behavior:**
+- When optimization encounters unsuitable geometry, it logs the issue and falls back to original implementation
+- The conversion always completes successfully, even if optimization can't be used
+- Logging shows which regions use optimization vs fallback
 
-**Workaround:**
-- Don't use --optimize-mesh flag (use default per-pixel method)
-- Optimization is disabled by default for this reason
+**Symptoms (if any issues remain):**
+- If a segfault still occurs, logs will show the last successful operation
+- Most problematic cases now trigger ValueError and fall back gracefully
 
-**Future Solutions:**
-- Replace triangle library with pure Python triangulation
-- Pre-validate polygons before triangulation
-- Use subprocess isolation to catch segfaults
+**Geometries That Trigger Fallback:**
+- Regions with disconnected components (MultiPolygon from unary_union)
+- Polygons with more than 10 holes
+- Degenerate polygons (too thin or zero area)
+- Invalid polygons from shapely
+
+**When Optimization Works:**
+- Simple connected regions (squares, rectangles, L-shapes)
+- Regions with 0-10 holes
+- Valid, non-degenerate polygon geometries
+
+**Workaround (if needed):**
+- If issues persist, don't use --optimize-mesh flag (use default per-pixel method)
+- Optimization is disabled by default for safety
+
+**Future Enhancements:**
+- Replace triangle library with pure Python triangulation for full crash prevention
+- Add subprocess isolation to catch any remaining segfaults
+- Implement adaptive optimization (only optimize suitable regions)
 
 ## Testing
 

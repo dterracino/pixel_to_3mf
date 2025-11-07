@@ -15,6 +15,7 @@ from shapely.geometry import Polygon, box, MultiPolygon
 from shapely.ops import unary_union
 import triangle as tr
 import warnings
+import logging
 
 from .region_merger import Region
 from .image_processor import PixelData
@@ -23,6 +24,10 @@ from .image_processor import PixelData
 if TYPE_CHECKING:
     from .config import ConversionConfig
     from .mesh_generator import Mesh
+
+# Set up logging for this module
+# Note: Level will be configured by the application (see cli.py)
+logger = logging.getLogger(__name__)
 
 
 def pixels_to_polygon(
@@ -45,8 +50,11 @@ def pixels_to_polygon(
         shapely.geometry.Polygon representing the merged region
     
     Raises:
-        ValueError: If the resulting polygon is invalid or if pixels set is empty
+        ValueError: If the resulting polygon is invalid, if pixels set is empty,
+                   or if the union produces multiple disconnected parts
     """
+    logger.debug(f"Converting {len(pixels)} pixels to polygon (pixel_size={pixel_size_mm}mm)")
+    
     if not pixels:
         raise ValueError("Cannot create polygon from empty pixel set")
     
@@ -62,19 +70,107 @@ def pixels_to_polygon(
         )
         pixel_squares.append(square)
     
+    logger.debug(f"Created {len(pixel_squares)} pixel squares, performing union...")
+    
     # Union all squares into a single polygon (or MultiPolygon)
     merged = unary_union(pixel_squares)
     
-    # Handle MultiPolygon case (shouldn't happen with flood-filled regions, but defensive)
+    logger.debug(f"Union result type: {type(merged).__name__}")
+    
+    # Handle MultiPolygon case - this indicates disconnected components
     if isinstance(merged, MultiPolygon):
-        # Take the largest polygon by area
-        merged = max(merged.geoms, key=lambda p: p.area)
+        num_parts = len(merged.geoms)
+        logger.warning(f"Got MultiPolygon with {num_parts} disconnected parts")
+        
+        # CRITICAL FIX: Do not discard parts! A MultiPolygon means the region
+        # has disconnected components, which happens when flood-fill found pixels
+        # that appear connected but create separate polygons after union.
+        # This is a problematic geometry for optimization - fall back instead.
+        raise ValueError(
+            f"Region produced {num_parts} disconnected polygon parts. "
+            f"This geometry is not suitable for optimization."
+        )
     
     # Validate the polygon
     if not merged.is_valid:
-        raise ValueError(f"Invalid polygon created: {merged.explain_validity()}")
+        error_msg = merged.explain_validity() if hasattr(merged, 'explain_validity') else "unknown reason"
+        raise ValueError(f"Invalid polygon created: {error_msg}")
+    
+    # Log polygon characteristics
+    num_holes = len(list(merged.interiors))
+    logger.debug(f"Polygon created: exterior={len(merged.exterior.coords)} vertices, "
+                f"holes={num_holes}, area={merged.area:.2f}mm²")
+    
+    # Note: Additional validation of hole count happens in _validate_polygon_for_triangulation()
+    # to keep validation logic centralized
     
     return merged
+
+
+def _validate_polygon_for_triangulation(poly: Polygon) -> None:
+    """
+    Validate polygon geometry before passing to triangle library.
+    
+    This helps prevent segmentation faults by detecting problematic
+    configurations before they reach the C library.
+    
+    Args:
+        poly: Polygon to validate
+        
+    Raises:
+        ValueError: If polygon has known problematic characteristics
+    """
+    # Check basic validity
+    if not poly.is_valid:
+        raise ValueError(f"Invalid polygon: {poly.explain_validity()}")
+    
+    # Check for degenerate cases
+    if poly.area <= 0:
+        raise ValueError(f"Polygon has zero or negative area: {poly.area}")
+    
+    # Check exterior ring
+    exterior_coords = list(poly.exterior.coords[:-1])
+    if len(exterior_coords) < 3:
+        raise ValueError(f"Polygon exterior has fewer than 3 vertices: {len(exterior_coords)}")
+    
+    # Check for too many vertices (complex geometries more likely to segfault)
+    if len(exterior_coords) > 100:
+        raise ValueError(f"Polygon exterior has too many vertices ({len(exterior_coords)}). This geometry is not suitable for optimization.")
+    
+    # Check for collinear points in exterior (can cause triangulation issues)
+    # Simple heuristic: if all points have very similar coordinates, it might be degenerate
+    if len(exterior_coords) > 2:
+        xs = [c[0] for c in exterior_coords]
+        ys = [c[1] for c in exterior_coords]
+        x_range = max(xs) - min(xs)
+        y_range = max(ys) - min(ys)
+        
+        # If polygon is essentially a line (very thin), it's problematic
+        if x_range < 1e-6 or y_range < 1e-6:
+            raise ValueError(f"Polygon is degenerate (too thin): x_range={x_range}, y_range={y_range}")
+    
+    # Check holes
+    num_holes = len(list(poly.interiors))
+    for i, interior in enumerate(poly.interiors):
+        hole_coords = list(interior.coords[:-1])
+        if len(hole_coords) < 3:
+            raise ValueError(f"Hole {i} has fewer than 3 vertices: {len(hole_coords)}")
+        # Check hole complexity
+        if len(hole_coords) > 50:
+            raise ValueError(f"Hole {i} has too many vertices ({len(hole_coords)}). This geometry is not suitable for optimization.")
+    
+    # Stricter check: if the polygon has holes AND complex exterior, reject it
+    # Empirical observation: polygons with holes and > 20 exterior vertices often segfault
+    if num_holes > 0 and len(exterior_coords) > 20:
+        raise ValueError(f"Polygon has {num_holes} holes and complex exterior ({len(exterior_coords)} vertices). This geometry is not suitable for optimization.")
+    
+    # Additional check: if the polygon has many holes, it might be problematic
+    if num_holes > 5:
+        logger.warning(f"Polygon has {num_holes} holes, which may cause triangulation issues")
+        raise ValueError(f"Polygon has too many holes ({num_holes}). This geometry is not suitable for optimization.")
+    
+    logger.debug(f"Polygon validation passed: exterior={len(exterior_coords)} vertices, "
+                f"holes={num_holes}")
 
 
 def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], List[Tuple[int, int, int]]]:
@@ -102,8 +198,18 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     
     Raises:
         RuntimeError: If triangulation fails
+        ValueError: If polygon has problematic characteristics
     """
     import numpy as np
+    
+    logger.debug(f"Starting triangulation of polygon with {len(poly.exterior.coords)-1} exterior vertices")
+    
+    # Validate polygon before attempting triangulation
+    try:
+        _validate_polygon_for_triangulation(poly)
+    except ValueError as e:
+        logger.error(f"Polygon validation failed: {e}")
+        raise
     
     def is_ccw(coords):
         """Check if coordinates are counter-clockwise using shoelace formula."""
@@ -119,8 +225,12 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     exterior_coords = list(poly.exterior.coords[:-1])
     
     # Triangle library REQUIRES CCW winding for exterior
+    was_reversed = False
     if not is_ccw(exterior_coords):
         exterior_coords = list(reversed(exterior_coords))
+        was_reversed = True
+    
+    logger.debug(f"Exterior winding: {'CCW' if not was_reversed else 'CW->CCW (reversed)'}")
     
     # Convert to numpy arrays for triangle library (more reliable)
     all_vertices = np.array(exterior_coords, dtype=np.float64)
@@ -133,7 +243,8 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     hole_points_list = []
     all_segments = [exterior_segments]
     
-    for interior in poly.interiors:
+    for hole_idx, interior in enumerate(poly.interiors):
+        logger.debug(f"Processing hole {hole_idx+1}/{len(list(poly.interiors))}")
         hole_coords = list(interior.coords[:-1])
         
         # Triangle library REQUIRES CW winding for holes (opposite of exterior)
@@ -153,13 +264,32 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
         all_segments.append(hole_segments)
         
         # Calculate hole point - must be inside the hole area
-        # Use simple centroid calculation
-        hole_center_x = sum(p[0] for p in hole_coords) / len(hole_coords)
-        hole_center_y = sum(p[1] for p in hole_coords) / len(hole_coords)
+        # IMPROVED: Use representative_point() which is guaranteed to be inside
+        # the geometry, falling back to centroid if needed
+        from shapely.geometry import LinearRing
+        hole_ring = LinearRing(hole_coords)
+        hole_poly = Polygon(hole_ring)
+        
+        # Use representative_point for better reliability
+        hole_point = hole_poly.representative_point()
+        hole_center_x, hole_center_y = hole_point.x, hole_point.y
+        
+        # Validate that the point is actually inside
+        if not hole_poly.contains(hole_point):
+            # Fallback: use simple centroid
+            logger.warning(f"representative_point not inside hole {hole_idx+1}, using centroid")
+            hole_center_x = sum(p[0] for p in hole_coords) / len(hole_coords)
+            hole_center_y = sum(p[1] for p in hole_coords) / len(hole_coords)
+        
         hole_points_list.append([hole_center_x, hole_center_y])
+        
+        logger.debug(f"Hole {hole_idx+1} center: ({hole_center_x:.2f}, {hole_center_y:.2f})")
     
     # Combine all segments
     all_segments_combined = np.vstack(all_segments)
+    
+    logger.debug(f"Prepared triangulation input: {len(all_vertices)} vertices, "
+                f"{len(all_segments_combined)} segments, {len(hole_points_list)} holes")
     
     # Prepare input for triangle library
     triangle_input = {
@@ -175,18 +305,27 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     # 'p' = Planar Straight Line Graph (respects boundary edges and holes)
     # 'Q' = Quiet mode (suppress output)
     # 'Y' = Prohibit Steiner points on boundaries (more reliable with holes)
+    
+    logger.debug("Calling triangle library for triangulation...")
     try:
+        logger.debug("Attempting triangulation with 'pQY' flags...")
         result = tr.triangulate(triangle_input, 'pQY')
+        logger.debug("Triangulation with 'pQY' succeeded")
     except Exception as e:
+        logger.warning(f"Triangulation with 'pQY' failed: {e}, trying 'pQ'...")
         # If triangulation with holes fails, try without the Y flag
         try:
             result = tr.triangulate(triangle_input, 'pQ')
+            logger.debug("Triangulation with 'pQ' succeeded")
         except Exception as e2:
+            logger.error(f"Both triangulation attempts failed: primary={e}, fallback={e2}")
             raise RuntimeError(f"Triangulation failed: {e}, retry also failed: {e2}")
     
     # Extract results
     vertices_2d = [tuple(v) for v in result['vertices']]
     triangles_2d = [tuple(t) for t in result['triangles']]
+    
+    logger.debug(f"Triangulation complete: {len(vertices_2d)} vertices, {len(triangles_2d)} triangles")
     
     return vertices_2d, triangles_2d
 
@@ -370,14 +509,22 @@ def generate_region_mesh_optimized(
         Falls back to original implementation instead of raising exceptions.
         This ensures robustness even if edge cases occur.
     """
+    logger.info(f"Starting optimized mesh generation for region with {len(region.pixels)} pixels, "
+               f"color=RGB{region.color}")
+    
     try:
         # Step 1: Convert pixels to polygon
+        logger.debug("Step 1: Converting pixels to polygon...")
         poly = pixels_to_polygon(region.pixels, pixel_data.pixel_size_mm)
+        logger.debug(f"Polygon created successfully")
         
         # Step 2: Triangulate the polygon
+        logger.debug("Step 2: Triangulating polygon...")
         vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
+        logger.debug(f"Triangulation successful: {len(vertices_2d)} vertices, {len(triangles_2d)} triangles")
         
         # Step 3: Extrude to 3D mesh
+        logger.debug("Step 3: Extruding to 3D mesh...")
         mesh = extrude_polygon_to_mesh(
             poly, 
             triangles_2d, 
@@ -385,19 +532,26 @@ def generate_region_mesh_optimized(
             z_bottom=0.0,
             z_top=config.color_height_mm
         )
+        logger.debug(f"3D mesh created: {len(mesh.vertices)} vertices, {len(mesh.triangles)} triangles")
         
+        logger.info(f"Optimized mesh generation completed successfully for region")
         return mesh
         
     except Exception as e:
         # Log warning and fall back to original implementation
+        logger.warning(
+            f"Optimized mesh generation failed for region with {len(region.pixels)} pixels, "
+            f"falling back to original implementation. Error: {e}",
+            exc_info=True
+        )
         warnings.warn(
             f"Optimized mesh generation failed for region with {len(region.pixels)} pixels, "
             f"falling back to original: {e}"
         )
         
-        # Import here to avoid circular dependency
-        from .mesh_generator import generate_region_mesh
-        return generate_region_mesh(region, pixel_data, config)
+        # Import the original implementation to avoid circular dependency
+        from .mesh_generator import _generate_region_mesh_original
+        return _generate_region_mesh_original(region, pixel_data, config)
 
 
 def generate_backing_plate_optimized(
@@ -452,6 +606,6 @@ def generate_backing_plate_optimized(
             f"Optimized backing plate generation failed, falling back to original: {e}"
         )
         
-        # Import here to avoid circular dependency
-        from .mesh_generator import generate_backing_plate
-        return generate_backing_plate(pixel_data, config)
+        # Import the original implementation to avoid circular dependency
+        from .mesh_generator import _generate_backing_plate_original
+        return _generate_backing_plate_original(pixel_data, config)

@@ -69,38 +69,25 @@ class Mesh:
         return f"Mesh(vertices={len(self.vertices)}, triangles={len(self.triangles)})"
 
 
-def generate_region_mesh(
+def _generate_region_mesh_original(
     region: Region,
     pixel_data: PixelData,
     config: 'ConversionConfig'
 ) -> Mesh:
     """
-    Generate a 3D mesh for a colored region by extruding pixels upward.
-
-    This is where the magic happens! We take a flat region (set of (x,y) pixels)
-    and turn it into a 3D object by:
-    1. Creating the top face (at z = layer_height)
-    2. Creating the bottom face (at z = 0)
-    3. Creating walls around the perimeter
-
-    The tricky part is the perimeter detection - we need to find which pixels
-    are on the edge (have at least one neighbor that's NOT in the region).
+    Original per-pixel mesh generation implementation.
     
-    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
-    optimization for reduced vertex/triangle counts.
-
+    This is the fallback implementation that always works reliably.
+    It generates meshes by creating geometry for each pixel individually.
+    
     Args:
         region: The region to extrude
         pixel_data: Pixel scaling info
         config: ConversionConfig object with layer height and other parameters
-
+    
     Returns:
         A Mesh object ready for export to 3MF
     """
-    # Dispatch to optimized version if enabled and available
-    if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
-        return generate_region_mesh_optimized(region, pixel_data, config)
-    
     # Original per-pixel mesh generation
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
@@ -265,18 +252,15 @@ def generate_region_mesh(
     return Mesh(vertices=vertices, triangles=triangles)
 
 
-def generate_backing_plate(
+def _generate_backing_plate_original(
     pixel_data: PixelData,
     config: 'ConversionConfig'
 ) -> Mesh:
     """
-    Generate the backing plate that goes under everything.
-
-    The backing plate should match the EXACT footprint of the non-transparent pixels,
-    with holes where transparent pixels are. It goes from z=-config.base_height_mm to z=0.
+    Original per-pixel backing plate generation implementation.
     
-    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
-    optimization for reduced vertex/triangle counts.
+    This is the fallback implementation that always works reliably.
+    It generates the backing plate by creating geometry for each pixel individually.
 
     Args:
         pixel_data: Pixel data (includes which pixels are non-transparent)
@@ -285,10 +269,6 @@ def generate_backing_plate(
     Returns:
         A Mesh object for the backing plate
     """
-    # Dispatch to optimized version if enabled and available
-    if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
-        return generate_backing_plate_optimized(pixel_data, config)
-    
     # Original per-pixel mesh generation
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
@@ -390,3 +370,70 @@ def generate_backing_plate(
             triangles.append((idx_br, idx_tr, idx_tl))
     
     return Mesh(vertices=vertices, triangles=triangles)
+
+
+# Public API functions with dispatch logic
+def generate_region_mesh(
+    region: Region,
+    pixel_data: PixelData,
+    config: 'ConversionConfig'
+) -> Mesh:
+    """
+    Generate a 3D mesh for a colored region by extruding pixels upward.
+
+    This is where the magic happens! We take a flat region (set of (x,y) pixels)
+    and turn it into a 3D object by:
+    1. Creating the top face (at z = layer_height)
+    2. Creating the bottom face (at z = 0)
+    3. Creating walls around the perimeter
+
+    The tricky part is the perimeter detection - we need to find which pixels
+    are on the edge (have at least one neighbor that's NOT in the region).
+    
+    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
+    optimization for reduced vertex/triangle counts. Falls back to original
+    implementation if optimization fails.
+
+    Args:
+        region: The region to extrude
+        pixel_data: Pixel scaling info
+        config: ConversionConfig object with layer height and other parameters
+
+    Returns:
+        A Mesh object ready for export to 3MF
+    """
+    # Dispatch to optimized version if enabled and available
+    if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
+        return generate_region_mesh_optimized(region, pixel_data, config)
+    
+    # Use original implementation
+    return _generate_region_mesh_original(region, pixel_data, config)
+
+
+def generate_backing_plate(
+    pixel_data: PixelData,
+    config: 'ConversionConfig'
+) -> Mesh:
+    """
+    Generate the backing plate that goes under everything.
+
+    The backing plate should match the EXACT footprint of the non-transparent pixels,
+    with holes where transparent pixels are. It goes from z=-config.base_height_mm to z=0.
+    
+    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
+    optimization for reduced vertex/triangle counts. Falls back to original
+    implementation if optimization fails.
+
+    Args:
+        pixel_data: Pixel data (includes which pixels are non-transparent)
+        config: ConversionConfig object with base height and other parameters
+
+    Returns:
+        A Mesh object for the backing plate
+    """
+    # Dispatch to optimized version if enabled and available
+    if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
+        return generate_backing_plate_optimized(pixel_data, config)
+    
+    # Use original implementation
+    return _generate_backing_plate_original(pixel_data, config)
