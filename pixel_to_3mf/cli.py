@@ -388,12 +388,16 @@ The program will:
         import pixel_to_3mf.mesh_generator as mg
         import logging
         
-        # Configure logging for polygon optimizer module
-        logging.basicConfig(
-            level=logging.INFO,
-            format='   [OPTIMIZE] %(message)s',
-            force=True
-        )
+        # Configure logging for polygon optimizer module only
+        # This avoids interfering with other logging configurations
+        optimizer_logger = logging.getLogger('pixel_to_3mf.polygon_optimizer')
+        optimizer_logger.setLevel(logging.INFO)
+        
+        # Add handler only if one doesn't exist
+        if not optimizer_logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('   [OPTIMIZE] %(message)s'))
+            optimizer_logger.addHandler(handler)
         
         # Enable optimized mesh generation
         mg.USE_OPTIMIZED_MESH_GENERATION = True

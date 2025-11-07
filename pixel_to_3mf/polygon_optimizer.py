@@ -26,8 +26,8 @@ if TYPE_CHECKING:
     from .mesh_generator import Mesh
 
 # Set up logging for this module
+# Note: Level will be configured by the application (see cli.py)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def pixels_to_polygon(
@@ -101,10 +101,8 @@ def pixels_to_polygon(
     logger.debug(f"Polygon created: exterior={len(merged.exterior.coords)} vertices, "
                 f"holes={num_holes}, area={merged.area:.2f}mm²")
     
-    # Additional check: if the polygon has many holes, it might be problematic
-    if num_holes > 5:
-        logger.warning(f"Polygon has {num_holes} holes, which may cause triangulation issues")
-        raise ValueError(f"Polygon has too many holes ({num_holes}). This geometry is not suitable for optimization.")
+    # Note: Additional validation of hole count happens in _validate_polygon_for_triangulation()
+    # to keep validation logic centralized
     
     return merged
 
