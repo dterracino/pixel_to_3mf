@@ -158,8 +158,8 @@ python run_converter.py --batch \
 | `--auto-crop` | Automatically crop away fully transparent edges | Off |
 | `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
 | `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
-| `--filament-maker` | Filament maker filter (for `filament` mode) | `Bambu Lab` |
-| `--filament-type` | Filament type filter (for `filament` mode) | `PLA` |
+| `--filament-maker` | Filament maker filter(s), comma-separated (for `filament` mode) | `Bambu Lab` |
+| `--filament-type` | Filament type filter(s), comma-separated (for `filament` mode) | `PLA` |
 | `--filament-finish` | Filament finish filter(s), comma-separated (for `filament` mode) | `Basic, Matte` |
 | `--optimize-mesh` | Use polygon-based mesh optimization | Off |
 
@@ -228,9 +228,9 @@ config = ConversionConfig(
     auto_crop=True,                  # Crop transparent edges
     connectivity=8,                   # 0, 4, or 8
     color_mode="filament",            # "color", "filament", or "hex"
-    filament_maker="Bambu Lab",
-    filament_type="PLA",
-    filament_finish=["Basic", "Matte"],
+    filament_maker="Bambu Lab",       # Single maker or ["Bambu Lab", "Polymaker"]
+    filament_type="PLA",              # Single type or ["PLA", "PETG"]
+    filament_finish=["Basic", "Matte"],  # Single finish or list
     optimize_mesh=False
 )
 
@@ -384,12 +384,31 @@ python run_converter.py image.png \
   --filament-maker "Polymaker" \
   --filament-type "PLA"
 
+# Filter by multiple makers (comma-separated)
+python run_converter.py image.png \
+  --color-mode filament \
+  --filament-maker "Bambu Lab,Polymaker" \
+  --filament-type "PLA"
+
+# Filter by multiple types (comma-separated)
+python run_converter.py image.png \
+  --color-mode filament \
+  --filament-maker "Bambu Lab" \
+  --filament-type "PLA,PETG"
+
 # Filter by finish (comma-separated for multiple)
 python run_converter.py image.png \
   --color-mode filament \
   --filament-maker "Bambu Lab" \
   --filament-type "PLA" \
   --filament-finish "Silk,Matte"
+
+# Combine multiple filters
+python run_converter.py image.png \
+  --color-mode filament \
+  --filament-maker "Bambu Lab,Polymaker,eSun" \
+  --filament-type "PLA,PETG" \
+  --filament-finish "Silk,Matte,Basic"
 
 # Use hex color codes instead
 python run_converter.py image.png --color-mode hex
@@ -402,7 +421,7 @@ python run_converter.py image.png --color-mode hex
 **Filament mode benefits:**
 
 - See actual filament names in your slicer (e.g., "Bambu Lab PLA Basic Red")
-- Filter by your available filament inventory
+- Filter by your available filament inventory (supports multiple makers/types/finishes)
 - Plan multi-color prints with real products in mind
 
 ## How It Works 🔧
@@ -568,8 +587,8 @@ Uses perceptual color matching with Delta E 2000:
 
 Matches colors to real filament products with configurable filters:
 
-- **Maker filter**: e.g., "Bambu Lab", "Polymaker", "eSun"
-- **Type filter**: e.g., "PLA", "PETG", "ABS"
+- **Maker filter**: e.g., "Bambu Lab", "Polymaker", "eSun" (supports multiple, comma-separated)
+- **Type filter**: e.g., "PLA", "PETG", "ABS" (supports multiple, comma-separated)
 - **Finish filter**: e.g., "Basic", "Matte", "Silk" (supports multiple, comma-separated)
 
 Uses the same Delta E 2000 algorithm but compares against filtered filament database.
