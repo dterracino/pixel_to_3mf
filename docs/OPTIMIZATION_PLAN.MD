@@ -31,7 +31,7 @@ This document outlines a comprehensive plan to optimize mesh generation in the p
 
 **Current Architecture:**
 
-```
+```text
 Region (set of pixel coordinates)
   → generate_region_mesh()
     → For each pixel in region:
@@ -80,7 +80,7 @@ triangle
 
 **For Each Region:**
 
-```
+```text
 1. Region (pixel coordinates) → Pixel Boundary Extraction
    ↓
 2. Create shapely Polygon from boundary pixels
@@ -111,7 +111,7 @@ triangle
 
 **Implementation Options:**
 
-**Option A: Union of Pixel Squares (Simple but Slower)**
+##### Option A: Union of Pixel Squares (Simple but Slower)
 
 ```python
 from shapely.geometry import Polygon, box
@@ -132,7 +132,7 @@ def pixels_to_polygon(pixels: Set[Tuple[int, int]],
     return merged
 ```
 
-**Option B: Boundary Tracing (Faster, More Complex)**
+##### Option B: Boundary Tracing (Faster, More Complex)
 
 ```python
 def trace_boundary(pixels: Set[Tuple[int, int]]) -> List[Tuple[int, int]]:
@@ -837,8 +837,6 @@ The optimization uses:
 
 Both optimized and non-optimized modes produce identical visual results.
 
-```
-
 ### 6.2 Code Documentation
 
 Add docstrings to all new functions explaining:
@@ -1320,7 +1318,7 @@ Before merging to main:
 
 Required libraries (already in requirements.txt):
 
-```
+```text
 shapely>=2.0.0
 triangle
 ```
@@ -1355,31 +1353,31 @@ pip install shapely>=2.0.0 triangle
 
 ## Appendix D: Timeline Estimate
 
-**Week 1: Implementation**
+### Week 1: Implementation
 
 - Days 1-2: Implement polygon_optimizer.py skeleton and pixels_to_polygon()
 - Days 3-4: Implement triangulation functions
 - Day 5: Implement extrusion and mesh generation
 
-**Week 2: Testing**
+### Week 2: Testing
 
 - Days 1-2: Write unit tests
 - Days 3-4: Write integration tests
 - Day 5: Run benchmarks and document results
 
-**Week 3: Refinement**
+### Week 3: Refinement
 
 - Days 1-2: Fix edge cases and bugs
 - Days 3-4: Optimize performance
 - Day 5: Update documentation
 
-**Week 4: Validation**
+### Week 4: Validation
 
 - Days 1-2: Test with real-world images
 - Days 3-4: Validate in multiple slicers
 - Day 5: Final review and merge
 
-**Total: ~4 weeks** for full implementation and validation
+**Total:** ~4 weeks for full implementation and validation
 
 ---
 
