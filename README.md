@@ -136,7 +136,7 @@ python run_converter.py --batch \
 
 **Batch mode features:**
 
-- ✅ Processes all PNG, JPG, JPEG, BMP, GIF, and TIFF images
+- ✅ Processes all PNG, JPG, JPEG, GIF, BMP, and WEBP images.
 - ✅ Generates timestamped Markdown summary with statistics
 - ✅ Continues processing if individual files fail
 - ✅ Use `--skip-checks` to bypass resolution warnings
