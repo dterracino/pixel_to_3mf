@@ -58,9 +58,9 @@ class ConversionConfig:
     skip_checks: bool = False
     batch_mode: bool = False
     color_naming_mode: str = COLOR_NAMING_MODE
-    filament_maker: Union[str, List[str]] = None  # Will be set in __post_init__
-    filament_type: Union[str, List[str]] = None  # Will be set in __post_init__
-    filament_finish: Union[str, List[str]] = None  # Will be set in __post_init__
+    filament_maker: Union[str, List[str], None] = None  # Will be set in __post_init__
+    filament_type: Union[str, List[str], None] = None  # Will be set in __post_init__
+    filament_finish: Union[str, List[str], None] = None  # Will be set in __post_init__
     
     # Processing options
     auto_crop: bool = False
