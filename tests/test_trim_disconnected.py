@@ -252,6 +252,55 @@ class TestTrimDisconnectedPixels(unittest.TestCase):
         # (6,1) should also be removed after (7,0) or on its own (no edge neighbors)
         expected = region_pixels - {(7, 0), (6, 1)}
         self.assertEqual(result[0].pixels, expected)
+    
+    def test_isolated_single_pixel(self):
+        """Test that a single completely isolated pixel is removed."""
+        # Pattern:
+        # BBBXXX
+        # BBBXBX  <- isolated pixel at (4,1)
+        # BBBXXX
+        
+        region_pixels = {
+            # Main 3x3 block
+            (0, 0), (1, 0), (2, 0),
+            (0, 1), (1, 1), (2, 1),
+            (0, 2), (1, 2), (2, 2),
+            # Isolated pixel with no edge neighbors
+            (4, 1),
+        }
+        region = Region(color=(255, 0, 0), pixels=region_pixels)
+        
+        result = trim_disconnected_pixels([region])
+        
+        self.assertEqual(len(result), 1)
+        # Isolated pixel should be removed
+        expected = region_pixels - {(4, 1)}
+        self.assertEqual(result[0].pixels, expected)
+    
+    def test_stairstep_disconnected_pixels(self):
+        """Test that stair-step disconnected pixels are all removed."""
+        # Pattern:
+        # BBBXXXX
+        # BBBXBXX  <- disconnected at (4,1)
+        # BBBXXBX  <- disconnected at (5,2)
+        
+        region_pixels = {
+            # Main 3x3 block
+            (0, 0), (1, 0), (2, 0),
+            (0, 1), (1, 1), (2, 1),
+            (0, 2), (1, 2), (2, 2),
+            # Stair-step disconnected pixels
+            (4, 1),
+            (5, 2),
+        }
+        region = Region(color=(255, 0, 0), pixels=region_pixels)
+        
+        result = trim_disconnected_pixels([region])
+        
+        self.assertEqual(len(result), 1)
+        # Both stair-step pixels should be removed
+        expected = region_pixels - {(4, 1), (5, 2)}
+        self.assertEqual(result[0].pixels, expected)
 
 
 if __name__ == '__main__':
