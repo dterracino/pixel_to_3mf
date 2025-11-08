@@ -1,0 +1,47 @@
+name: Sync sample inputs to batch inputs
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SOURCE_DIR: pixel_to_3mf/samples/input
+  TARGET_DIR: pixel_to_3mf/batch/input
+
+jobs:
+  sync-folders:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync ${{ env.SOURCE_DIR }} → ${{ env.TARGET_DIR }}
+        run: |
+          mkdir -p "${TARGET_DIR}"
+          rsync -av --delete "${SOURCE_DIR}/" "${TARGET_DIR}/"
+
+      - name: Commit and push changes if any
+        run: |
+          if [[ -n "$(git status --porcelain "${TARGET_DIR}")" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add "${TARGET_DIR}"
+
+            # Build a diffstat summary for the commit body
+            summary="$(git diff --cached --stat)"
+
+            git commit -m "Sync sample inputs to batch inputs" -m "$summary"
+            git push
+          else
+            echo "No changes to commit."
+          fi
