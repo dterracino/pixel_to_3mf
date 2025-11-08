@@ -367,6 +367,7 @@ python run_converter.py image.png --connectivity 8
 - **8 (diagonals):** Includes diagonal connections - fewer objects, may create complex shapes
 
 **When to use each:**
+
 - **0:** Debugging region merging issues, or creating artistic "pixelated" effects
 - **4:** When you want cleaner geometry separation, or traditional flood-fill behavior
 - **8 (default):** Best for most pixel art - merges diagonal lines properly
@@ -399,6 +400,7 @@ python run_converter.py image.png --color-mode hex
 - **`hex` mode:** Uses hex codes (e.g., "#FF5733") - precise color identification
 
 **Filament mode benefits:**
+
 - See actual filament names in your slicer (e.g., "Bambu Lab PLA Basic Red")
 - Filter by your available filament inventory
 - Plan multi-color prints with real products in mind
@@ -474,6 +476,7 @@ Region Merging → Mesh Generation → Color Naming → 3MF Export
 The region merger supports three connectivity modes to control how pixels are grouped:
 
 #### 8-Connectivity (Default)
+
 Pixels are considered connected if they share an edge **or a diagonal corner**. This prevents diagonal lines from being split into separate objects.
 
 ```text
@@ -484,6 +487,7 @@ X . .
 ```
 
 #### 4-Connectivity (Edge-Only)
+
 Pixels are connected only if they share an edge (not diagonals). Results in simpler geometry but more separate regions.
 
 ```text
@@ -494,6 +498,7 @@ X . .
 ```
 
 #### 0-Connectivity (Per-Pixel)
+
 No merging - each pixel becomes a separate object. Useful for debugging or creating intentional "pixelated" effects.
 
 **Algorithm:** Iterative breadth-first search (BFS)
@@ -574,6 +579,7 @@ Uses the same Delta E 2000 algorithm but compares against filtered filament data
 #### Hex Code Mode
 
 Simply uses hex color codes for precise color identification:
+
 - RGB(255, 87, 51) → "#FF5733"
 - No perceptual matching, exact representation
 
@@ -651,16 +657,19 @@ The converter warns if pixel size < 0.42mm (typical nozzle width):
 ### Choosing the Right Connectivity Mode
 
 **Use 8-connectivity (default)** for:
+
 - Most pixel art with diagonal lines
 - Minimizing number of objects in slicer
 - Natural-looking merged regions
 
 **Use 4-connectivity** when:
+
 - You want cleaner geometry separation
 - Traditional flood-fill behavior is needed
 - Diagonal connections create unwanted merges
 
 **Use 0-connectivity (per-pixel)** for:
+
 - Debugging region merging issues
 - Creating intentional "pixelated/voxel" artistic effects
 - Testing individual pixel extrusion
@@ -668,6 +677,7 @@ The converter warns if pixel size < 0.42mm (typical nozzle width):
 ### When to Use Auto-Crop
 
 The `--auto-crop` feature is helpful when:
+
 - Your image has large transparent borders (from export padding)
 - You want to minimize model size and material usage
 - Processing screenshots with UI padding
@@ -678,17 +688,20 @@ The `--auto-crop` feature is helpful when:
 ### Choosing a Color Naming Mode
 
 **Use CSS mode (`--color-mode color`)** when:
+
 - You want simple, recognizable color names
 - General-purpose printing without specific filament planning
 - Quick identification of regions in slicer
 
 **Use Filament mode (`--color-mode filament`)** when:
+
 - Planning prints with specific filament brands/types
 - Matching to your actual filament inventory
 - You want slicer to show real product names
 - Working with specific maker's color palette
 
 **Use Hex mode (`--color-mode hex`)** when:
+
 - You need precise color identification
 - Doing color-accurate reproduction
 - Programmatic processing of output files
