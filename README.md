@@ -22,6 +22,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Exact Scaling**: Scales your pixel art so the largest dimension exactly matches your target size (default 200mm)
 - **Smart Region Merging**: Uses flood-fill algorithm with configurable connectivity (4-way, 8-way, or per-pixel) to merge connected same-color pixels into single manifold objects
 - **Auto-Crop**: Optional automatic cropping of fully transparent edges to optimize model size
+- **Smart Padding**: Add outlines around sprites to fill gaps between diagonally-connected pixels and improve printability
 - **Automatic Color Quantization**: Reduce image colors on-the-fly when exceeding limits - no external preprocessing needed!
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations
@@ -420,6 +421,31 @@ python run_converter.py sprite.png --auto-crop
 - **Effect:** Automatically removes fully transparent borders
 - **Result:** Tighter model bounds, smaller file size
 - **Use case:** Images with large transparent padding, optimizing material usage
+
+#### Add Padding Around Sprites
+
+```bash
+# Add 5px white padding (default color)
+python run_converter.py sprite.png --padding-size 5
+
+# Add 3px blue padding
+python run_converter.py sprite.png --padding-size 3 --padding-color "0,0,255"
+
+# Combine with auto-crop for best results
+python run_converter.py sprite.png --auto-crop --padding-size 5
+```
+
+- **Effect:** Adds an outline around non-transparent pixels, tracing both outer edges and internal holes
+- **Result:** Canvas expands to accommodate padding (e.g., 50x50 → 60x60 with 5px padding)
+- **Use case:** 
+  - Filling gaps between diagonally-connected pixels for better 3D printability
+  - Adding structural support around thin features
+  - Creating visible borders around sprites
+  - Improving adhesion with a surrounding rim
+- **Notes:**
+  - Padding uses circular distance (Euclidean) for smooth outlines
+  - Padding is disabled by default (`--padding-size 0`)
+  - Original pixels are always preserved (padding never overwrites existing colors)
 
 #### Custom Connectivity Modes
 
