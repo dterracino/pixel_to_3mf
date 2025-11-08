@@ -465,7 +465,7 @@ def write_3mf(
     pixel_data: 'PixelData',  # We need this to calculate positions
     config: 'ConversionConfig',
     progress_callback: Optional[Callable[[str, str], None]] = None
-) -> None:
+) -> Optional[str]:
     """
     Write all meshes to a 3MF file.
 
@@ -486,6 +486,9 @@ def write_3mf(
         pixel_data: PixelData object with model dimensions
         config: ConversionConfig object with conversion parameters
         progress_callback: Optional function to call with progress updates
+    
+    Returns:
+        Path to summary file if generated, None otherwise
     """
     # Helper to send progress updates
     def _progress(message: str):
@@ -577,3 +580,19 @@ def write_3mf(
     else:
         _progress(f"{len(region_colors)} colored regions (no backing plate)")
     _progress(f"Total objects: {len(meshes)}")
+    
+    # Generate summary file if requested
+    summary_path = None
+    if config.generate_summary:
+        from .summary_writer import write_summary_file
+        
+        _progress("Generating summary file...")
+        
+        # Extract RGB colors and names from region_data (already sorted)
+        summary_colors = [rgb for _, rgb, _ in region_data]
+        summary_names = [color_name for _, _, color_name in region_data]
+        
+        summary_path = write_summary_file(output_path, summary_colors, summary_names, config)
+        _progress(f"📄 Summary written to: {summary_path}")
+    
+    return summary_path

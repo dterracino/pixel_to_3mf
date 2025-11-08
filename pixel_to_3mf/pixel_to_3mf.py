@@ -208,11 +208,11 @@ def convert_image_to_3mf(
     
     # Step 4: Write 3MF
     _progress("export", "Writing 3MF file...")
-    write_3mf(output_path, meshes, region_colors, pixel_data, config, progress_callback)
+    summary_path = write_3mf(output_path, meshes, region_colors, pixel_data, config, progress_callback)
     _progress("export", f"3MF written to: {output_path}")
     
     # Return statistics
-    return {
+    stats = {
         'image_width': pixel_data.width,
         'image_height': pixel_data.height,
         'pixel_size_mm': pixel_data.pixel_size_mm,
@@ -224,3 +224,9 @@ def convert_image_to_3mf(
         'output_path': output_path,
         'file_size': format_filesize(os.path.getsize(output_path))
     }
+    
+    # Add summary path if generated
+    if summary_path:
+        stats['summary_path'] = summary_path
+    
+    return stats
