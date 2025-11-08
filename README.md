@@ -536,15 +536,14 @@ Color Naming → 3MF Export
 
 When using multiple processing options (`--auto-crop`, `--padding-size`, `--quantize`), the order of operations is critical for best results:
 
-**Correct Order:**
+**Operation Order:**
 1. **Auto-Crop** - Removes fully transparent edges from original image
 2. **Padding** - Adds outline around remaining content (expands canvas)
-3. **Pixel Extraction** - Converts to pixel coordinates with Y-axis flip
-4. **Quantization** - Reduces colors (includes padding color in palette)
+3. **Quantization** - Reduces colors if needed (includes padding color in palette)
 
 **Why This Order Matters:**
-- Auto-crop must happen first to remove wasted space
-- Padding must happen after cropping (we pad the actual content, not the waste)
+- Auto-crop must happen first to remove wasted space from the original image
+- Padding must happen after cropping so we pad the actual content, not the wasted space
 - Quantization must happen last so the padding color gets included in the color palette
 - If padding happened before auto-crop, we'd add an outline just to remove it
 - If quantization happened before padding, the padding color might not be in the reduced palette
