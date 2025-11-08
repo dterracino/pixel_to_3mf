@@ -377,5 +377,76 @@ class TestFormatFilesize(unittest.TestCase):
         self.assertEqual(result, "1.18 MB")
 
 
+class TestConvertWithPadding(unittest.TestCase):
+    """Test conversion with padding enabled."""
+    
+    def test_convert_with_padding_expands_canvas(self):
+        """Test that padding expands the canvas."""
+        # Create a simple 10x10 image
+        img_path = create_simple_square_image(size=10, color=(255, 0, 0))
+        output_path = img_path.replace('.png', '_padded.3mf')
+        
+        try:
+            # Convert with 3px padding
+            config = ConversionConfig(
+                max_size_mm=50,
+                padding_size=3,
+                padding_color=(255, 255, 255)
+            )
+            
+            stats = convert_image_to_3mf(
+                input_path=img_path,
+                output_path=output_path,
+                config=config
+            )
+            
+            # Image should be expanded by 3px on each side
+            # 10 + 2*3 = 16x16
+            self.assertEqual(stats['image_width'], 16)
+            self.assertEqual(stats['image_height'], 16)
+            
+            # Should have added the padding color
+            # Original: 1 color (red)
+            # With padding: 2 colors (red + white padding)
+            self.assertEqual(stats['num_colors'], 2)
+            
+            # Output file should exist
+            self.assertTrue(os.path.exists(output_path))
+            
+        finally:
+            cleanup_test_file(img_path)
+            cleanup_test_file(output_path)
+    
+    def test_convert_without_padding_no_expansion(self):
+        """Test that no padding means no canvas expansion."""
+        # Create a simple 10x10 image
+        img_path = create_simple_square_image(size=10, color=(255, 0, 0))
+        output_path = img_path.replace('.png', '_no_padding.3mf')
+        
+        try:
+            # Convert without padding (padding_size=0)
+            config = ConversionConfig(
+                max_size_mm=50,
+                padding_size=0
+            )
+            
+            stats = convert_image_to_3mf(
+                input_path=img_path,
+                output_path=output_path,
+                config=config
+            )
+            
+            # Image should remain 10x10
+            self.assertEqual(stats['image_width'], 10)
+            self.assertEqual(stats['image_height'], 10)
+            
+            # Should have only 1 color
+            self.assertEqual(stats['num_colors'], 1)
+            
+        finally:
+            cleanup_test_file(img_path)
+            cleanup_test_file(output_path)
+
+
 if __name__ == '__main__':
     unittest.main()

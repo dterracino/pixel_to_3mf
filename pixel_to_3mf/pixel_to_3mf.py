@@ -14,7 +14,7 @@ import os
 from typing import Optional, Callable, Dict, Any
 from pathlib import Path
 
-from .image_processor import load_image, auto_crop_transparency
+from .image_processor import load_image
 from .region_merger import merge_regions
 from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf
@@ -119,19 +119,9 @@ def convert_image_to_3mf(
     # Config validates itself in __post_init__, so we don't need to validate parameters here
     
     # Step 1: Load and process image
+    # Note: Auto-crop (if enabled) happens inside load_image() as part of the pipeline
     _progress("load", f"Loading image: {input_file.name}")
     pixel_data = load_image(str(input_path), config)
-
-    # Step 1.5: Auto-crop if requested
-    if config.auto_crop:
-        original_size = f"{pixel_data.width}x{pixel_data.height}"
-        pixel_data = auto_crop_transparency(pixel_data)
-        new_size = f"{pixel_data.width}x{pixel_data.height}"
-        
-        if original_size != new_size:
-            _progress("crop", f"Auto-cropped from {original_size} to {new_size}")
-        else:
-            _progress("crop", "No cropping needed (image already at bounds)")
 
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
                      f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel")
@@ -208,11 +198,11 @@ def convert_image_to_3mf(
     
     # Step 4: Write 3MF
     _progress("export", "Writing 3MF file...")
-    write_3mf(output_path, meshes, region_colors, pixel_data, config, progress_callback)
+    summary_path = write_3mf(output_path, meshes, region_colors, pixel_data, config, progress_callback)
     _progress("export", f"3MF written to: {output_path}")
     
     # Return statistics
-    return {
+    stats = {
         'image_width': pixel_data.width,
         'image_height': pixel_data.height,
         'pixel_size_mm': pixel_data.pixel_size_mm,
@@ -224,3 +214,9 @@ def convert_image_to_3mf(
         'output_path': output_path,
         'file_size': format_filesize(os.path.getsize(output_path))
     }
+    
+    # Add summary path if generated
+    if summary_path:
+        stats['summary_path'] = summary_path
+    
+    return stats
