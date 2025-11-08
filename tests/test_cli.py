@@ -304,6 +304,134 @@ class TestProcessBatch(unittest.TestCase):
         self.assertEqual(len(results['success']), 1)
         self.assertEqual(len(results['skipped']), 1)
         self.assertEqual(len(results['failed']), 1)
+    
+    def test_process_recursive_single_level(self):
+        """Test batch processing with recurse=True on a single subfolder level."""
+        # Create folder structure with images at different levels
+        subfolder = self.input_dir / "subfolder"
+        subfolder.mkdir()
+        
+        # Create images at root and subfolder level
+        img1_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        img2_path = create_simple_square_image(size=4, color=(0, 255, 0))
+        
+        shutil.move(img1_path, self.input_dir / "root.png")
+        shutil.move(img2_path, subfolder / "sub.png")
+        
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config, recurse=True)
+        
+        # Should process both images
+        self.assertEqual(len(results['success']), 2)
+        self.assertEqual(len(results['skipped']), 0)
+        self.assertEqual(len(results['failed']), 0)
+        
+        # Check that output files exist in correct locations
+        self.assertTrue((self.output_dir / "root_model.3mf").exists())
+        self.assertTrue((self.output_dir / "subfolder" / "sub_model.3mf").exists())
+        
+        # Check relative paths in results
+        input_files = [item['input_file'] for item in results['success']]
+        output_files = [item['output_file'] for item in results['success']]
+        self.assertIn('root.png', input_files)
+        self.assertIn('subfolder/sub.png', input_files)
+        self.assertIn('root_model.3mf', output_files)
+        self.assertIn('subfolder/sub_model.3mf', output_files)
+    
+    def test_process_recursive_multiple_levels(self):
+        """Test batch processing with recurse=True on multiple nested levels."""
+        # Create nested folder structure
+        level1 = self.input_dir / "level1"
+        level2 = level1 / "level2"
+        level3 = level2 / "level3"
+        level1.mkdir()
+        level2.mkdir()
+        level3.mkdir()
+        
+        # Create images at different nesting levels
+        img1_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        img2_path = create_simple_square_image(size=4, color=(0, 255, 0))
+        img3_path = create_simple_square_image(size=4, color=(0, 0, 255))
+        img4_path = create_simple_square_image(size=4, color=(255, 255, 0))
+        
+        shutil.move(img1_path, self.input_dir / "root.png")
+        shutil.move(img2_path, level1 / "l1.png")
+        shutil.move(img3_path, level2 / "l2.png")
+        shutil.move(img4_path, level3 / "l3.png")
+        
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config, recurse=True)
+        
+        # Should process all 4 images
+        self.assertEqual(len(results['success']), 4)
+        
+        # Verify folder structure is preserved
+        self.assertTrue((self.output_dir / "root_model.3mf").exists())
+        self.assertTrue((self.output_dir / "level1" / "l1_model.3mf").exists())
+        self.assertTrue((self.output_dir / "level1" / "level2" / "l2_model.3mf").exists())
+        self.assertTrue((self.output_dir / "level1" / "level2" / "level3" / "l3_model.3mf").exists())
+        
+        # Check relative paths are correct
+        input_files = [item['input_file'] for item in results['success']]
+        self.assertIn('root.png', input_files)
+        self.assertIn('level1/l1.png', input_files)
+        self.assertIn('level1/level2/l2.png', input_files)
+        self.assertIn('level1/level2/level3/l3.png', input_files)
+    
+    def test_process_non_recursive_ignores_subfolders(self):
+        """Test that process_batch with recurse=False ignores images in subfolders."""
+        # Create folder structure with images at different levels
+        subfolder = self.input_dir / "subfolder"
+        subfolder.mkdir()
+        
+        # Create images at root and subfolder level
+        img1_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        img2_path = create_simple_square_image(size=4, color=(0, 255, 0))
+        
+        shutil.move(img1_path, self.input_dir / "root.png")
+        shutil.move(img2_path, subfolder / "sub.png")
+        
+        config = ConversionConfig()
+        results = process_batch(self.input_dir, self.output_dir, config, recurse=False)
+        
+        # Should only process the root image
+        self.assertEqual(len(results['success']), 1)
+        self.assertEqual(results['success'][0]['input_file'], 'root.png')
+        
+        # Only root file should exist in output
+        self.assertTrue((self.output_dir / "root_model.3mf").exists())
+        self.assertFalse((self.output_dir / "subfolder" / "sub_model.3mf").exists())
+    
+    def test_process_recursive_with_mixed_results(self):
+        """Test recursive batch processing with mix of success, skip, and fail."""
+        # Create folder structure
+        subfolder = self.input_dir / "subfolder"
+        subfolder.mkdir()
+        
+        # Create a successful image at root
+        img1_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        shutil.move(img1_path, self.input_dir / "good.png")
+        
+        # Create a high-resolution image in subfolder (will be skipped)
+        config_for_calc = ConversionConfig()
+        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
+        test_size = max_recommended_px + 100
+        
+        positions = [(x, y) for x in range(test_size) for y in range(test_size)]
+        colors = {(255, 0, 0, 255): positions}
+        img2_path = create_test_image(test_size, test_size, colors)
+        shutil.move(img2_path, subfolder / "highres.png")
+        
+        config = ConversionConfig(batch_mode=True)
+        results = process_batch(self.input_dir, self.output_dir, config, recurse=True)
+        
+        # Should have 1 success, 1 skipped
+        self.assertEqual(len(results['success']), 1)
+        self.assertEqual(len(results['skipped']), 1)
+        
+        # Check relative paths include subfolder
+        self.assertEqual(results['success'][0]['input_file'], 'good.png')
+        self.assertEqual(results['skipped'][0]['input_file'], 'subfolder/highres.png')
 
 
 class TestGenerateBatchSummary(unittest.TestCase):
