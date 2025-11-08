@@ -2,6 +2,35 @@
 
 This document contains feature ideas and enhancements that align with the pixel art to 3MF converter's core purpose. These are stretch goals that could improve the user experience and expand capabilities.
 
+## ✅ Recently Implemented
+
+### Automatic Color Quantization (Implemented!)
+
+**Status:** ✅ **COMPLETED** - Added in current PR
+
+**Description:** Automatically reduce image colors when they exceed max_colors, eliminating the need for manual preprocessing in external applications.
+
+**Implementation:**
+- Added `--quantize` flag to enable automatic color reduction
+- Added `--quantize-algo` flag with options: `none` (simple nearest color) or `floyd` (Floyd-Steinberg dithering)
+- Added `--quantize-colors` flag to specify target color count (defaults to max_colors)
+- Integrated into image loading pipeline with proper error handling
+- Full test coverage with 16 new unit tests
+
+**Usage:**
+```bash
+# Automatically quantize to 16 colors when image has too many
+python run_converter.py image.png --quantize
+
+# Use Floyd-Steinberg dithering for smoother gradients
+python run_converter.py image.png --quantize --quantize-algo floyd
+
+# Quantize to specific color count
+python run_converter.py image.png --quantize --quantize-colors 8
+```
+
+---
+
 ## High-Value Features
 
 ### 1. Support for Multi-Material Filament Mapping
