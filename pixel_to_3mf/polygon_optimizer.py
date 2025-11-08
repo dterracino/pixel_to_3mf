@@ -10,7 +10,7 @@ The optimization reduces vertex and triangle counts by 50-90% for typical
 pixel art while maintaining all manifold properties.
 """
 
-from typing import List, Tuple, Set, Optional, Dict, TYPE_CHECKING
+from typing import List, Tuple, Set, Optional, Dict, TYPE_CHECKING, cast, Sequence
 from shapely.geometry import Polygon, box, MultiPolygon
 from shapely.ops import unary_union
 import triangle as tr
@@ -91,9 +91,13 @@ def pixels_to_polygon(
             f"This geometry is not suitable for optimization."
         )
     
+    # At this point, merged must be a Polygon (not MultiPolygon)
+    if not isinstance(merged, Polygon):
+        raise ValueError(f"Expected Polygon but got {type(merged).__name__}")
+    
     # Validate the polygon
     if not merged.is_valid:
-        error_msg = merged.explain_validity() if hasattr(merged, 'explain_validity') else "unknown reason"
+        error_msg = merged.explain_validity() if hasattr(merged, 'explain_validity') else "unknown reason"  # type: ignore[attr-defined]
         raise ValueError(f"Invalid polygon created: {error_msg}")
     
     # Log polygon characteristics
@@ -124,7 +128,7 @@ def _validate_polygon_for_triangulation(poly: Polygon) -> Tuple[bool, str]:
     """
     # Check basic validity
     if not poly.is_valid:
-        return (False, f"Invalid polygon: {poly.explain_validity()}")
+        return (False, f"Invalid polygon: {poly.explain_validity()}")  # type: ignore[attr-defined]
     
     # Check for degenerate cases
     if poly.area <= 0:
@@ -430,7 +434,7 @@ def extrude_polygon_to_mesh(
 
 
 def _create_wall_quads(
-    perimeter: List[Tuple[float, float]],
+    perimeter: Sequence[Tuple[float, ...]],
     coord_to_idx: Dict[Tuple[float, float], int],
     top_vertex_map: Dict[int, int],
     bottom_vertex_map: Dict[int, int],

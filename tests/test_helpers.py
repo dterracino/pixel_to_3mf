@@ -6,7 +6,7 @@ used across multiple test files.
 """
 
 from PIL import Image
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 import tempfile
 import os
 
@@ -15,7 +15,7 @@ def create_test_image(
     width: int,
     height: int,
     colors: Dict[Tuple[int, int, int, int], list],
-    filepath: str = None
+    filepath: Optional[str] = None
 ) -> str:
     """
     Create a test image with specified colors at specified positions.
@@ -32,6 +32,9 @@ def create_test_image(
     # Create blank transparent image
     img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     pixels = img.load()
+    
+    if pixels is None:
+        raise RuntimeError("Failed to load image pixels")
     
     # Fill in specified colors
     for color, positions in colors.items():

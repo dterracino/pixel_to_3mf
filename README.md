@@ -36,7 +36,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 
 ### Prerequisites
 
-- Python 3.7 or higher
+- Python 3.10 or higher
 - pip (Python package manager)
 
 ### Install Dependencies
