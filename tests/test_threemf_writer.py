@@ -264,7 +264,7 @@ class TestWrite3MFIntegration(unittest.TestCase):
         config = ConversionConfig()
 
         # Create region and mesh
-        regions = merge_regions(pixel_data)
+        regions = merge_regions(pixel_data, config)
         meshes = []
         region_colors = []
 

@@ -162,8 +162,9 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
-        regions = merge_regions(pixel_data)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+        regions = merge_regions(pixel_data, config)
         
         # Should get exactly 1 region for the entire image
         self.assertEqual(len(regions), 1)
@@ -175,8 +176,9 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_two_region_image()
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
-        regions = merge_regions(pixel_data)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+        regions = merge_regions(pixel_data, config)
         
         # Should get 2 regions (red and blue)
         self.assertEqual(len(regions), 2)
@@ -195,8 +197,9 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_transparent_image()
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
-        regions = merge_regions(pixel_data)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+        regions = merge_regions(pixel_data, config)
         
         # Should get 1 region for the red center
         self.assertEqual(len(regions), 1)
@@ -208,8 +211,9 @@ class TestMergeRegions(unittest.TestCase):
         filepath = create_diagonal_pattern_image()
         self.test_files.append(filepath)
         
-        pixel_data = load_image(filepath, ConversionConfig(max_size_mm=200.0))
-        regions = merge_regions(pixel_data)
+        config = ConversionConfig(max_size_mm=200.0)
+        pixel_data = load_image(filepath, config)
+        regions = merge_regions(pixel_data, config)
         
         # All diagonal pixels should merge into 1 region due to diagonal connectivity
         self.assertEqual(len(regions), 1)
@@ -217,8 +221,9 @@ class TestMergeRegions(unittest.TestCase):
     
     def test_merge_empty_image(self):
         """Test merging on completely transparent image."""
+        config = ConversionConfig(max_size_mm=200.0)
         pixel_data = PixelData(width=4, height=4, pixel_size_mm=1.0, pixels={})
-        regions = merge_regions(pixel_data)
+        regions = merge_regions(pixel_data, config)
         
         # Should get 0 regions
         self.assertEqual(len(regions), 0)

@@ -20,8 +20,10 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 ## Features ✨
 
 - **Exact Scaling**: Scales your pixel art so the largest dimension exactly matches your target size (default 200mm)
-- **Smart Region Merging**: Uses flood-fill algorithm with 8-connectivity (includes diagonals) to merge connected same-color pixels into single manifold objects
-- **Perceptual Color Names**: Uses Delta E 2000 (industry standard) to find the nearest CSS color name for each region
+- **Smart Region Merging**: Uses flood-fill algorithm with configurable connectivity (4-way, 8-way, or per-pixel) to merge connected same-color pixels into single manifold objects
+- **Auto-Crop**: Optional automatic cropping of fully transparent edges to optimize model size
+- **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
+- **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations
 - **Transparent Pixel Support**: Transparent areas become holes in the model
 - **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable)
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
@@ -153,6 +155,13 @@ python run_converter.py --batch \
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
+| `--auto-crop` | Automatically crop away fully transparent edges | Off |
+| `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
+| `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
+| `--filament-maker` | Filament maker filter (for `filament` mode) | `Bambu Lab` |
+| `--filament-type` | Filament type filter (for `filament` mode) | `PLA` |
+| `--filament-finish` | Filament finish filter(s), comma-separated (for `filament` mode) | `Basic, Matte` |
+| `--optimize-mesh` | Use polygon-based mesh optimization | Off |
 
 #### Batch Mode
 
@@ -215,7 +224,14 @@ config = ConversionConfig(
     color_height_mm=2.0,
     base_height_mm=2.0,
     max_colors=16,
-    backing_color=(255, 255, 255)  # RGB tuple
+    backing_color=(255, 255, 255),  # RGB tuple
+    auto_crop=True,                  # Crop transparent edges
+    connectivity=8,                   # 0, 4, or 8
+    color_mode="filament",            # "color", "filament", or "hex"
+    filament_maker="Bambu Lab",
+    filament_type="PLA",
+    filament_finish=["Basic", "Matte"],
+    optimize_mesh=False
 )
 
 stats = convert_image_to_3mf(
@@ -323,13 +339,77 @@ python run_converter.py --batch \
 - **Size:** All scaled to 100mm max
 - **Summary:** Creates timestamped report in output folder
 
+#### Auto-Crop Transparent Edges
+
+```bash
+python run_converter.py sprite.png --auto-crop
+```
+
+- **Effect:** Automatically removes fully transparent borders
+- **Result:** Tighter model bounds, smaller file size
+- **Use case:** Images with large transparent padding, optimizing material usage
+
+#### Custom Connectivity Modes
+
+```bash
+# Per-pixel mode (debugging/special effects)
+python run_converter.py image.png --connectivity 0
+
+# Classic 4-connectivity (edge-only, simpler geometry)
+python run_converter.py image.png --connectivity 4
+
+# Default 8-connectivity (includes diagonals, fewer objects)
+python run_converter.py image.png --connectivity 8
+```
+
+- **0 (per-pixel):** Each pixel becomes a separate object - useful for debugging or intentional effects
+- **4 (edge-only):** Pixels connected via edges only - simpler geometry, more separate regions
+- **8 (diagonals):** Includes diagonal connections - fewer objects, may create complex shapes
+
+**When to use each:**
+- **0:** Debugging region merging issues, or creating artistic "pixelated" effects
+- **4:** When you want cleaner geometry separation, or traditional flood-fill behavior
+- **8 (default):** Best for most pixel art - merges diagonal lines properly
+
+#### Filament-Based Color Naming
+
+```bash
+# Use Bambu Lab PLA filament names (default)
+python run_converter.py image.png --color-mode filament
+
+# Use specific filament maker/type
+python run_converter.py image.png \
+  --color-mode filament \
+  --filament-maker "Polymaker" \
+  --filament-type "PLA"
+
+# Filter by finish (comma-separated for multiple)
+python run_converter.py image.png \
+  --color-mode filament \
+  --filament-maker "Bambu Lab" \
+  --filament-type "PLA" \
+  --filament-finish "Silk,Matte"
+
+# Use hex color codes instead
+python run_converter.py image.png --color-mode hex
+```
+
+- **`color` mode:** Uses CSS color names (e.g., "Red", "SkyBlue") - best for general use
+- **`filament` mode:** Matches to real filament colors with maker/type/finish filters - perfect for planning prints
+- **`hex` mode:** Uses hex codes (e.g., "#FF5733") - precise color identification
+
+**Filament mode benefits:**
+- See actual filament names in your slicer (e.g., "Bambu Lab PLA Basic Red")
+- Filter by your available filament inventory
+- Plan multi-color prints with real products in mind
+
 ## How It Works 🔧
 
 The converter follows a precise pipeline to transform 2D images into 3D printable files:
 
 ```text
-Image Loading → Color Validation → Exact Scaling → Region Merging → 
-Mesh Generation → Color Naming → 3MF Export
+Image Loading → Auto-Crop (optional) → Color Validation → Exact Scaling → 
+Region Merging → Mesh Generation → Color Naming → 3MF Export
 ```
 
 ### Step-by-Step Process
@@ -338,6 +418,7 @@ Mesh Generation → Color Naming → 3MF Export
    - Reads your pixel art using PIL/Pillow
    - Converts to RGBA format (supports transparency)
    - Flips Y-axis so models appear right-side-up in slicers
+   - Optionally crops away fully transparent edges (if `--auto-crop` is enabled)
 
 2. **Validate Colors**
    - Counts unique colors in the image
@@ -351,7 +432,7 @@ Mesh Generation → Color Naming → 3MF Export
 
 4. **Merge Regions (Flood Fill)**
    - Groups connected same-color pixels into regions
-   - Uses **8-connectivity** (includes diagonal connections)
+   - Configurable connectivity: **0** (per-pixel), **4** (edges only), or **8** (includes diagonals)
    - Each region becomes one 3D object
    - Transparent pixels create holes
 
@@ -365,9 +446,11 @@ Mesh Generation → Color Naming → 3MF Export
    - Generates optional backing plate with holes for transparent areas (if base_height > 0)
 
 6. **Name Colors**
-   - Converts RGB → LAB color space
-   - Uses Delta E 2000 to find nearest CSS color name
-   - Example: RGB(255, 0, 0) → "Red"
+   - Multiple naming modes available:
+     - **CSS mode**: Converts RGB → LAB, uses Delta E 2000 to find nearest CSS color name
+     - **Filament mode**: Matches to real filament colors (with maker/type/finish filters)
+     - **Hex mode**: Uses hex color codes (e.g., "#FF5733")
+   - Examples (CSS mode): RGB(255, 0, 0) → "Red", RGB(135, 206, 235) → "SkyBlue"
 
 7. **Export 3MF File**
    - Packages meshes into 3MF format (ZIP archive)
@@ -386,23 +469,32 @@ Mesh Generation → Color Naming → 3MF Export
 
 ## Technical Details 🤓
 
-### Region Merging: 8-Connectivity Flood Fill
+### Region Merging: Configurable Connectivity
 
-The region merger uses **8-connectivity**, meaning pixels are considered connected if they share an edge **or a diagonal corner**. This prevents diagonal lines from being split into separate objects.
+The region merger supports three connectivity modes to control how pixels are grouped:
+
+#### 8-Connectivity (Default)
+Pixels are considered connected if they share an edge **or a diagonal corner**. This prevents diagonal lines from being split into separate objects.
 
 ```text
-Example: 4-connectivity vs 8-connectivity
-
-Diagonal line in 4-connectivity: 3 separate regions ❌
-X . .
-. X .
-. . X
-
 Diagonal line in 8-connectivity: 1 region ✅
 X . .
 . X .
 . . X
 ```
+
+#### 4-Connectivity (Edge-Only)
+Pixels are connected only if they share an edge (not diagonals). Results in simpler geometry but more separate regions.
+
+```text
+Diagonal line in 4-connectivity: 3 separate regions
+X . .
+. X .
+. . X
+```
+
+#### 0-Connectivity (Per-Pixel)
+No merging - each pixel becomes a separate object. Useful for debugging or creating intentional "pixelated" effects.
 
 **Algorithm:** Iterative breadth-first search (BFS)
 **Time complexity:** O(n) where n = number of pixels
@@ -442,9 +534,13 @@ Walls: Up to 8 triangles per perimeter pixel
 
 This ensures pixel art appears **right-side-up** when loaded in slicers.
 
-### Color Naming: Delta E 2000
+### Color Naming: Multiple Modes
 
-**Color matching process:**
+The converter supports three color naming modes for labeling objects in the 3MF file:
+
+#### CSS Color Mode (Default)
+
+Uses perceptual color matching with Delta E 2000:
 
 1. **RGB → LAB conversion**
    - RGB: Device-dependent color space
@@ -462,6 +558,24 @@ This ensures pixel art appears **right-side-up** when loaded in slicers.
      - RGB(255, 0, 0) → "Red"
      - RGB(135, 206, 235) → "SkyBlue"
      - RGB(255, 215, 0) → "Gold"
+
+#### Filament Color Mode
+
+Matches colors to real filament products with configurable filters:
+
+- **Maker filter**: e.g., "Bambu Lab", "Polymaker", "eSun"
+- **Type filter**: e.g., "PLA", "PETG", "ABS"
+- **Finish filter**: e.g., "Basic", "Matte", "Silk" (supports multiple, comma-separated)
+
+Uses the same Delta E 2000 algorithm but compares against filtered filament database.
+
+**Example result:** "Bambu Lab PLA Basic Red" instead of just "Red"
+
+#### Hex Code Mode
+
+Simply uses hex color codes for precise color identification:
+- RGB(255, 87, 51) → "#FF5733"
+- No perceptual matching, exact representation
 
 ### Exact Scaling Mathematics
 
@@ -533,6 +647,51 @@ The converter warns if pixel size < 0.42mm (typical nozzle width):
 - Reduce image resolution before converting
 - Increase `--max-size` parameter
 - Use larger nozzle (0.6mm, 0.8mm)
+
+### Choosing the Right Connectivity Mode
+
+**Use 8-connectivity (default)** for:
+- Most pixel art with diagonal lines
+- Minimizing number of objects in slicer
+- Natural-looking merged regions
+
+**Use 4-connectivity** when:
+- You want cleaner geometry separation
+- Traditional flood-fill behavior is needed
+- Diagonal connections create unwanted merges
+
+**Use 0-connectivity (per-pixel)** for:
+- Debugging region merging issues
+- Creating intentional "pixelated/voxel" artistic effects
+- Testing individual pixel extrusion
+
+### When to Use Auto-Crop
+
+The `--auto-crop` feature is helpful when:
+- Your image has large transparent borders (from export padding)
+- You want to minimize model size and material usage
+- Processing screenshots with UI padding
+- Batch processing images with inconsistent padding
+
+**Note:** Only fully transparent edges are cropped. Partially transparent pixels are preserved.
+
+### Choosing a Color Naming Mode
+
+**Use CSS mode (`--color-mode color`)** when:
+- You want simple, recognizable color names
+- General-purpose printing without specific filament planning
+- Quick identification of regions in slicer
+
+**Use Filament mode (`--color-mode filament`)** when:
+- Planning prints with specific filament brands/types
+- Matching to your actual filament inventory
+- You want slicer to show real product names
+- Working with specific maker's color palette
+
+**Use Hex mode (`--color-mode hex`)** when:
+- You need precise color identification
+- Doing color-accurate reproduction
+- Programmatic processing of output files
 
 ### Consistent Pixel Sizes Across Multiple Images
 
@@ -711,6 +870,14 @@ LINE_WIDTH_MM = 0.42
 
 # Coordinate precision (decimal places = 0.001mm)
 COORDINATE_PRECISION = 3
+
+# Color naming mode - "color", "filament", or "hex"
+COLOR_NAMING_MODE = "color"
+
+# Default filament filters for filament mode
+DEFAULT_FILAMENT_MAKER = "Bambu Lab"
+DEFAULT_FILAMENT_TYPE = "PLA"
+DEFAULT_FILAMENT_FINISH = ["Basic", "Matte"]
 ```
 
 After editing, the new defaults apply to all conversions.
@@ -760,7 +927,7 @@ See [`tests/README.md`](tests/README.md) for detailed testing documentation.
 ### Areas for Contribution
 
 - 🎨 Additional color palettes beyond CSS colors
-- 🚀 Performance optimizations (polygon merging using shapely/triangle - see [`OPTIMIZATION_PLAN.MD`](OPTIMIZATION_PLAN.MD))
+- 🚀 Performance optimizations (polygon merging using shapely/triangle - see [`docs/OPTIMIZATION_PLAN.MD`](docs/OPTIMIZATION_PLAN.MD))
 - 🧪 More test coverage
 - 📝 Documentation improvements
 - 🐛 Bug fixes
