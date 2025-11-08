@@ -11,8 +11,8 @@ permissions:
   contents: write
 
 env:
-  SOURCE_DIR: pixel_to_3mf/samples/input
-  TARGET_DIR: pixel_to_3mf/batch/input
+  SOURCE_DIR: samples/input
+  TARGET_DIR: batch/input
 
 jobs:
   sync-folders:
@@ -26,6 +26,9 @@ jobs:
 
       - name: Sync ${{ env.SOURCE_DIR }} → ${{ env.TARGET_DIR }}
         run: |
+          set -e
+          echo "Syncing from ${SOURCE_DIR} to ${TARGET_DIR}"
+          ls -R
           mkdir -p "${TARGET_DIR}"
           rsync -av --delete "${SOURCE_DIR}/" "${TARGET_DIR}/"
 
@@ -37,9 +40,7 @@ jobs:
 
             git add "${TARGET_DIR}"
 
-            # Build a diffstat summary for the commit body
             summary="$(git diff --cached --stat)"
-
             git commit -m "Sync sample inputs to batch inputs" -m "$summary"
             git push
           else
