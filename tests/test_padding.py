@@ -226,6 +226,131 @@ class TestAddPadding(unittest.TestCase):
         
         r, g, b, a = result.getpixel((4 + 2, 3 + 2))
         self.assertEqual((r, g, b, a), (0, 0, 255, 255))
+    
+    def test_transparent_outer_edges_with_padding(self):
+        """Test that padding follows the shape of non-transparent pixels when outer edges are transparent."""
+        # Create image with transparent outer edges and a sprite in the center
+        img = Image.new('RGBA', (10, 10), (0, 0, 0, 0))
+        
+        # Create a small cross-shaped sprite in the center
+        # Vertical bar
+        for y in range(3, 7):
+            img.putpixel((5, y), (255, 0, 0, 255))
+        # Horizontal bar
+        for x in range(3, 7):
+            img.putpixel((x, 5), (255, 0, 0, 255))
+        
+        # Add 2px padding
+        result = add_padding(img, 2, (255, 255, 255))
+        
+        # Canvas should be expanded: 10 + 2*2 = 14x14
+        self.assertEqual(result.size, (14, 14))
+        
+        # Original cross center at (5, 5) -> shifted to (7, 7)
+        r, g, b, a = result.getpixel((7, 7))
+        self.assertEqual((r, g, b, a), (255, 0, 0, 255))
+        
+        # Padding should surround the cross shape
+        # Check padding around the top of vertical bar
+        # Original (5, 2) was transparent, should have padding around (5, 3)
+        # Shifted position of (5, 3) -> (7, 5)
+        # Position (7, 4) should have padding (1px above the top of vertical bar)
+        r, g, b, a = result.getpixel((7, 4))
+        self.assertEqual((r, g, b), (255, 255, 255))
+        self.assertEqual(a, 255)
+        
+        # Check corners don't have padding (cross shape, not filled square)
+        # Original (3, 3) was transparent and far from sprite
+        # Shifted to (5, 5) - should remain transparent or have less padding
+        # Let's check a corner that's definitely outside padding range
+        # Original (1, 1) -> (3, 3) should be transparent
+        r, g, b, a = result.getpixel((3, 3))
+        self.assertEqual(a, 0)  # Should be transparent
+    
+    def test_internal_hole_gets_filled_by_padding(self):
+        """Test that padding fills in internal holes up to the padding size."""
+        # Create a donut shape - outer ring with hole in center
+        img = Image.new('RGBA', (12, 12), (0, 0, 0, 0))
+        
+        # Create outer ring (3x3 grid with hole in middle)
+        for y in range(4, 8):
+            for x in range(4, 8):
+                img.putpixel((x, y), (255, 0, 0, 255))
+        
+        # Create a 2x2 hole in the center
+        for y in range(5, 7):
+            for x in range(5, 7):
+                img.putpixel((x, y), (0, 0, 0, 0))
+        
+        # Add 1px padding - should fill part of the hole
+        result = add_padding(img, 1, (255, 255, 255))
+        
+        # Canvas expanded: 12 + 2*1 = 14x14
+        self.assertEqual(result.size, (14, 14))
+        
+        # Check that the hole has padding filling it
+        # Original hole pixel at (5, 5) -> shifted to (6, 6)
+        r, g, b, a = result.getpixel((6, 6))
+        # This should have white padding (filling the hole)
+        self.assertEqual((r, g, b), (255, 255, 255))
+        self.assertEqual(a, 255)
+        
+        # Another hole pixel at (6, 6) -> shifted to (7, 7)
+        r, g, b, a = result.getpixel((7, 7))
+        self.assertEqual((r, g, b), (255, 255, 255))
+        self.assertEqual(a, 255)
+        
+        # The red ring should still be preserved
+        # Original (4, 4) -> shifted to (5, 5)
+        r, g, b, a = result.getpixel((5, 5))
+        self.assertEqual((r, g, b, a), (255, 0, 0, 255))
+    
+    def test_padding_follows_complex_shape(self):
+        """Test that padding accurately follows a complex shape with both outer edges and internal holes."""
+        # Create an L-shape with transparent areas
+        img = Image.new('RGBA', (10, 10), (0, 0, 0, 0))
+        
+        # Vertical part of L
+        for y in range(2, 8):
+            img.putpixel((3, y), (255, 0, 0, 255))
+        
+        # Horizontal part of L
+        for x in range(3, 7):
+            img.putpixel((x, 7), (255, 0, 0, 255))
+        
+        # Add 1px padding
+        result = add_padding(img, 1, (255, 255, 255))
+        
+        # Canvas: 10 + 2*1 = 12x12
+        self.assertEqual(result.size, (12, 12))
+        
+        # Original L-shape should be preserved (shifted by 1)
+        # Check vertical part: (3, 3) -> (4, 4)
+        r, g, b, a = result.getpixel((4, 4))
+        self.assertEqual((r, g, b, a), (255, 0, 0, 255))
+        
+        # Check horizontal part: (5, 7) -> (6, 8)
+        r, g, b, a = result.getpixel((6, 8))
+        self.assertEqual((r, g, b, a), (255, 0, 0, 255))
+        
+        # Check padding on outer edge of vertical part
+        # Left side of (3, 3) -> (4, 4): position (3, 4) should have padding
+        r, g, b, a = result.getpixel((3, 4))
+        self.assertEqual((r, g, b), (255, 255, 255))
+        self.assertEqual(a, 255)
+        
+        # Check padding on outer edge of horizontal part
+        # Below (5, 7) -> (6, 8): position (6, 9) should have padding
+        r, g, b, a = result.getpixel((6, 9))
+        self.assertEqual((r, g, b), (255, 255, 255))
+        self.assertEqual(a, 255)
+        
+        # Check internal corner (inside the L) has padding
+        # Position (4, 6) was transparent and next to L
+        # Shifted to (5, 7) should have padding
+        r, g, b, a = result.getpixel((5, 7))
+        self.assertEqual((r, g, b), (255, 255, 255))
+        self.assertEqual(a, 255)
 
 
 if __name__ == '__main__':
