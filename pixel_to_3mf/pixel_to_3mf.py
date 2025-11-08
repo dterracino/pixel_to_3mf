@@ -15,7 +15,7 @@ from typing import Optional, Callable, Dict, Any
 from pathlib import Path
 
 from .image_processor import load_image
-from .region_merger import merge_regions
+from .region_merger import merge_regions, trim_disconnected_pixels
 from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf
 from .config import ConversionConfig
@@ -176,6 +176,14 @@ def convert_image_to_3mf(
     _progress("merge", "Merging connected pixels into regions...")
     regions = merge_regions(pixel_data, config)
     _progress("merge", f"Found {len(regions)} connected regions")
+    
+    # Step 2.5: Trim disconnected pixels if enabled
+    if config.trim_disconnected:
+        _progress("merge", "Trimming disconnected pixels...")
+        original_count = len(regions)
+        regions = trim_disconnected_pixels(regions)
+        if len(regions) < original_count:
+            _progress("merge", f"Trimmed to {len(regions)} regions (removed {original_count - len(regions)} empty regions)")
     
     # Step 3: Generate meshes
     _progress("mesh", "Generating 3D geometry...")
