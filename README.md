@@ -527,21 +527,48 @@ python run_converter.py image.png --color-mode hex
 The converter follows a precise pipeline to transform 2D images into 3D printable files:
 
 ```text
-Image Loading → Auto-Crop (optional) → Color Validation → Exact Scaling → 
-Region Merging → Mesh Generation → Color Naming → 3MF Export
+Image Loading → Auto-Crop (optional) → Padding (optional) → Color Validation → 
+Quantization (optional) → Exact Scaling → Region Merging → Mesh Generation → 
+Color Naming → 3MF Export
 ```
+
+### Image Processing Pipeline Order
+
+When using multiple processing options (`--auto-crop`, `--padding-size`, `--quantize`), the order of operations is critical for best results:
+
+**Operation Order:**
+1. **Auto-Crop** - Removes fully transparent edges from original image
+2. **Padding** - Adds outline around remaining content (expands canvas)
+3. **Quantization** - Reduces colors if needed (includes padding color in palette)
+
+**Why This Order Matters:**
+- Auto-crop must happen first to remove wasted space from the original image
+- Padding must happen after cropping so we pad the actual content, not the wasted space
+- Quantization must happen last so the padding color gets included in the color palette
+- If padding happened before auto-crop, we'd add an outline just to remove it
+- If quantization happened before padding, the padding color might not be in the reduced palette
+
+**Example workflow with all options:**
+```bash
+python run_converter.py sprite.png --auto-crop --padding-size 5 --quantize
+```
+1. Crops transparent edges: 100×100 → 60×80
+2. Adds 5px white padding: 60×80 → 70×90
+3. Reduces to 16 colors (including the white padding)
 
 ### Step-by-Step Process
 
 1. **Load & Prepare Image**
    - Reads your pixel art using PIL/Pillow
    - Converts to RGBA format (supports transparency)
+   - **Auto-crop**: Optionally crops away fully transparent edges (if `--auto-crop` is enabled)
+   - **Padding**: Optionally adds outline around content (if `--padding-size > 0`)
    - Flips Y-axis so models appear right-side-up in slicers
-   - Optionally crops away fully transparent edges (if `--auto-crop` is enabled)
 
 2. **Validate Colors**
-   - Counts unique colors in the image
+   - Counts unique colors in the image (after auto-crop and padding)
    - Ensures it doesn't exceed your color limit (default: 16)
+   - **Quantization**: Optionally reduces colors if needed (if `--quantize` is enabled)
    - Reserves one color slot for backing plate if needed
 
 3. **Calculate Exact Scaling**

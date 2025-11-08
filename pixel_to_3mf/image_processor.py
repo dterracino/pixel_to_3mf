@@ -112,6 +112,63 @@ def calculate_pixel_size(
     return pixel_size_mm
 
 
+def auto_crop_image(img: Image.Image) -> Image.Image:
+    """
+    Crop away fully transparent edges from a PIL Image.
+    
+    This operates at the PIL Image level (before pixel extraction), finding
+    the bounding box of all non-transparent pixels and cropping to that area.
+    This removes wasted space and ensures the model is as compact as possible.
+    
+    Why this happens BEFORE padding and quantization:
+    - Auto-crop removes transparent edges from the original image first
+    - Then padding adds an outline around the remaining content
+    - Then quantization reduces colors including the padding color
+    
+    If we did padding first, then auto-crop, we'd waste time adding padding
+    just to remove it again.
+    
+    Args:
+        img: PIL Image in RGBA mode
+    
+    Returns:
+        New PIL Image cropped to non-transparent bounds, or original if no cropping needed
+    """
+    if img.mode != 'RGBA':
+        img = img.convert('RGBA')
+    
+    width, height = img.size
+    pixel_array = np.array(img)
+    
+    # Find all non-transparent pixels
+    non_transparent_coords = []
+    for y in range(height):
+        for x in range(width):
+            alpha = pixel_array[y, x, 3]
+            if alpha > 0:
+                non_transparent_coords.append((x, y))
+    
+    # If image is completely transparent, return original
+    if not non_transparent_coords:
+        return img
+    
+    # Find bounding box
+    min_x = min(x for x, y in non_transparent_coords)
+    max_x = max(x for x, y in non_transparent_coords)
+    min_y = min(y for x, y in non_transparent_coords)
+    max_y = max(y for x, y in non_transparent_coords)
+    
+    # If already at edges, no cropping needed
+    if min_x == 0 and min_y == 0 and max_x == width - 1 and max_y == height - 1:
+        return img
+    
+    # Crop to bounding box (box is left, upper, right, lower)
+    # Note: right and lower are exclusive in PIL.crop()
+    cropped = img.crop((min_x, min_y, max_x + 1, max_y + 1))
+    
+    return cropped
+
+
 def quantize_image(
     img: Image.Image,
     num_colors: int,
@@ -178,9 +235,22 @@ def load_image(
     """
     Load an image file and extract pixel data with automatic scaling.
 
-    This is the main entry point for image processing. It loads the image,
-    applies padding if enabled, calculates exact scaling to fit the print bed,
-    and packages everything up nicely.
+    This is the main entry point for image processing. It follows a specific
+    pipeline order to ensure operations are performed correctly:
+    
+    PIPELINE ORDER (this order is critical):
+    1. Auto-crop - Remove transparent edges from original image
+    2. Padding - Add padding around the remaining content
+    3. Pixel extraction - Convert to pixel coordinates with Y-flip
+    4. Quantize - Reduce colors AFTER padding so padding color is included
+    
+    Why this order matters:
+    - Auto-crop must happen first to remove wasted space from the original image
+    - Padding must happen after cropping, so we pad the actual content not the waste
+    - Quantization must happen last so the padding color gets included in the palette
+    
+    If we did padding before auto-crop, we'd add an outline then immediately remove it.
+    If we did quantization before padding, the padding color might not be in the palette.
 
     Args:
         image_path: Path to the image file (PNG, JPG, etc.)
@@ -201,19 +271,24 @@ def load_image(
     # (some formats like JPG don't have transparency, so we add it)
     img = img.convert('RGBA')
     
-    # Apply padding if enabled
-    # This must happen BEFORE Y-flip and pixel extraction to properly
-    # trace edges and expand the canvas
+    # STEP 1: Auto-crop transparent edges (if enabled)
+    # This removes wasted space from the original image BEFORE we do anything else
+    if config.auto_crop:
+        img = auto_crop_image(img)
+    
+    # STEP 2: Apply padding (if enabled)
+    # This adds an outline around the content we just cropped
+    # Must happen AFTER auto-crop but BEFORE pixel extraction
     if should_apply_padding(config.padding_size):
         img = add_padding(img, config.padding_size, config.padding_color)
 
-    # Get image dimensions
+    # Get image dimensions (after auto-crop and padding)
     width, height = img.size
 
     # Calculate appropriate pixel size
     pixel_size_mm = calculate_pixel_size(width, height, config)
     
-    # Extract pixel data as numpy array for fast processing
+    # STEP 3: Extract pixel data as numpy array for fast processing
     # Shape will be (height, width, 4) where 4 = RGBA
     pixel_array = np.array(img)
     
@@ -251,6 +326,7 @@ def load_image(
         effective_max_colors = config.max_colors - 1
         color_status_msg = f"(backing color not in image - reserving 1 slot)"
 
+    # STEP 4: Quantize if needed (AFTER padding so padding color is included)
     if num_colors > effective_max_colors:
         # Too many colors - check if quantization is enabled
         if config.quantize:
@@ -317,7 +393,15 @@ def load_image(
 
 def auto_crop_transparency(pixel_data: PixelData) -> PixelData:
     """
-    Crop away fully transparent edges.
+    Crop away fully transparent edges from PixelData.
+    
+    DEPRECATED: This function operates on PixelData after pixel extraction.
+    The new auto_crop_image() function operates on PIL Images before extraction,
+    which is part of the correct processing pipeline order in load_image().
+    
+    This function is kept for backward compatibility but should not be used
+    in new code. Use config.auto_crop=True instead, which triggers auto_crop_image()
+    at the correct point in the pipeline.
     
     Finds the bounding box of all non-transparent pixels and crops
     the image to just that area. This removes wasted space and can
