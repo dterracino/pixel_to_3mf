@@ -136,7 +136,8 @@ def generate_batch_summary(
 def process_batch(
     input_folder: Path,
     output_folder: Path,
-    config: ConversionConfig
+    config: ConversionConfig,
+    recurse: bool = False
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     Process all images in a folder in batch mode.
@@ -145,6 +146,7 @@ def process_batch(
         input_folder: Folder containing input images
         output_folder: Folder where output files should be written
         config: ConversionConfig object with conversion parameters (including skip_checks and batch_mode flags)
+        recurse: If True, process subfolders recursively and maintain folder structure
         
     Returns:
         Dictionary with 'success', 'skipped', and 'failed' results
@@ -158,8 +160,11 @@ def process_batch(
     # Make sure output folder exists
     output_folder.mkdir(parents=True, exist_ok=True)
     
-    # Find all image files
-    image_files = [f for f in input_folder.iterdir() if f.is_file() and is_image_file(f)]
+    # Find all image files (recursively or not)
+    if recurse:
+        image_files = [f for f in input_folder.rglob('*') if f.is_file() and is_image_file(f)]
+    else:
+        image_files = [f for f in input_folder.iterdir() if f.is_file() and is_image_file(f)]
     
     if not image_files:
         console.print(f"[yellow]⚠️  No image files found in {input_folder}[/yellow]")
@@ -172,24 +177,39 @@ def process_batch(
     for i, input_path in enumerate(sorted(image_files), start=1):
         console.print(f"[cyan][{i}/{len(image_files)}] Processing: {input_path.name}[/cyan]")
         
-        # Determine output path
-        output_filename = input_path.stem + DEFAULT_OUTPUT_SUFFIX + '.3mf'
-        output_path = output_folder / output_filename
+        # Determine output path - preserve folder structure if recursive
+        if recurse:
+            # Calculate relative path from input folder
+            relative_path = input_path.relative_to(input_folder)
+            # Create the same subfolder structure in output
+            output_file_path = output_folder / relative_path.parent / (relative_path.stem + DEFAULT_OUTPUT_SUFFIX + '.3mf')
+            # Ensure the subfolder exists
+            output_file_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Flat structure - all files go to output folder root
+            output_filename = input_path.stem + DEFAULT_OUTPUT_SUFFIX + '.3mf'
+            output_file_path = output_folder / output_filename
         
         try:
             # Try to convert the image
             # All settings including skip_checks and batch_mode are in the config!
             stats = convert_image_to_3mf(
                 input_path=str(input_path),
-                output_path=str(output_path),
+                output_path=str(output_file_path),
                 config=config,
                 progress_callback=None  # No progress in batch mode
             )
             
             # Success!
+            # Store relative path for better reporting in recursive mode
+            if recurse:
+                output_display = str(output_file_path.relative_to(output_folder))
+            else:
+                output_display = output_file_path.name
+                
             results['success'].append({
-                'input_file': input_path.name,
-                'output_file': output_filename,
+                'input_file': str(input_path.relative_to(input_folder)) if recurse else input_path.name,
+                'output_file': output_display,
                 'num_regions': stats['num_regions'],
                 'num_colors': stats['num_colors'],
                 'model_width_mm': stats['model_width_mm'],
@@ -201,26 +221,30 @@ def process_batch(
         except ValueError as e:
             error_msg = str(e)
             
+            # Determine input file display name
+            input_display = str(input_path.relative_to(input_folder)) if recurse else input_path.name
+            
             # Check if this is a resolution warning
             # The error message from the resolution check contains this specific text
             if "resolution too high" in error_msg.lower():
                 results['skipped'].append({
-                    'input_file': input_path.name,
+                    'input_file': input_display,
                     'reason': error_msg
                 })
                 console.print(f"[yellow]   ⚠️  Skipped: Resolution warning[/yellow]")
             else:
                 # Other ValueError = actual failure (e.g., too many colors)
                 results['failed'].append({
-                    'input_file': input_path.name,
+                    'input_file': input_display,
                     'error': error_msg
                 })
                 error_console.print(f"[red]   ❌ Failed: {error_msg}[/red]")
                 
         except Exception as e:
             # Any other error = failure
+            input_display = str(input_path.relative_to(input_folder)) if recurse else input_path.name
             results['failed'].append({
-                'input_file': input_path.name,
+                'input_file': input_display,
                 'error': str(e)
             })
             error_console.print(f"[red]   ❌ Failed: {e}[/red]")
@@ -239,10 +263,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Single file conversion
   %(prog)s sprite.png
   %(prog)s mario.png --output mario_model.3mf
   %(prog)s pixel_art.png --max-size 150 --color-height 1.5
   %(prog)s icon.png --base-height 2.0 --max-colors 20
+  
+  # Batch mode
+  %(prog)s --batch --batch-input images/ --batch-output models/
+  %(prog)s --batch --batch-input sprites/ --batch-output output/ --recurse
 
 The program will:
   1. Load your pixel art image
@@ -286,6 +315,12 @@ The program will:
         "--skip-checks",
         action="store_true",
         help="Skip resolution warnings in batch mode (process all files regardless of pixel size)"
+    )
+    
+    parser.add_argument(
+        "--recurse",
+        action="store_true",
+        help="Process subfolders recursively in batch mode, maintaining folder structure in output"
     )
     
     # Optional arguments
@@ -534,11 +569,12 @@ The program will:
         console.print(f"[cyan]📂 Input folder:  {input_folder}[/cyan]")
         console.print(f"[cyan]📂 Output folder: {output_folder}[/cyan]")
         console.print(f"[cyan]⚙️  Skip checks:   {args.skip_checks}[/cyan]")
+        console.print(f"[cyan]🔄 Recursive:     {args.recurse}[/cyan]")
         console.print()
         
         # Process the batch
         start_time = datetime.now()
-        results = process_batch(input_folder, output_folder, config)
+        results = process_batch(input_folder, output_folder, config, recurse=args.recurse)
         end_time = datetime.now()
         
         # Generate summary
