@@ -460,5 +460,5 @@ Then update the priority ranking based on current project needs.
 ## See Also
 
 - [Custom Agents](CUSTOM_AGENTS.md) - Documentation for existing agents
-- [Agent Instructions](../.github/agent-instructions.md) - General agent guidelines
+- [Copilot Instructions](../.github/copilot-instructions.md) - General agent guidelines
 - [Custom Agent Generator](../.github/agents/custom-agent-generator.md) - Tool for creating new agents

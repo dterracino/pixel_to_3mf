@@ -326,7 +326,7 @@ The generator will:
 **Need a new agent?**
 - Use the custom-agent-generator to create one
 - Document the new agent in this file
-- Update .github/agent-instructions.md with triggering rules
+- Update .github/copilot-instructions.md with triggering rules
 
 ## Contributing
 
@@ -334,12 +334,11 @@ When updating custom agents:
 
 1. Edit the agent file in `.github/agents/`
 2. Update this documentation file
-3. Update `.github/agent-instructions.md` if triggering rules change
+3. Update `.github/copilot-instructions.md` if triggering rules change
 4. Test the agent with typical use cases
 5. Document any new capabilities
 
 ## See Also
 
 - [Suggested Custom Agents](SUGGESTED_CUSTOM_AGENTS.md) - Ideas for future agents
-- [Agent Instructions](../.github/agent-instructions.md) - General agent guidelines
-- [Repository Custom Instructions](../.github/copilot-instructions.md) - Project-wide AI instructions
+- [Copilot Instructions](../.github/copilot-instructions.md) - General agent guidelines and project-wide AI instructions
