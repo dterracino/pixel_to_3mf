@@ -54,7 +54,7 @@ BACKING_COLOR = (255, 255, 255)  # White
 # - "color": Use nearest CSS color name (e.g., "red", "coral")
 # - "filament": Use nearest filament name based on filters (e.g., "Bambu Lab PLA Basic Red")
 # - "hex": Use hex color code (e.g., "#FF5733")
-COLOR_NAMING_MODE = "color"
+COLOR_NAMING_MODE = "filament"
 
 # Default filament filters when using filament mode
 DEFAULT_FILAMENT_MAKER = "Bambu Lab"
