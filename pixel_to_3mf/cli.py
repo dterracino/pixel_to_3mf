@@ -560,6 +560,49 @@ The program will:
     ))
     console.print()
     
+    # Display configuration table
+    config_table = Table(title="Configuration", box=box.ROUNDED, show_header=True, header_style="bold cyan")
+    config_table.add_column("Parameter", style="bold yellow")
+    config_table.add_column("Value", style="white")
+    
+    # Input/Output
+    config_table.add_row("Input File", str(input_path))
+    config_table.add_row("Output File", output_path)
+    
+    # Dimensions
+    config_table.add_row("Max Size", f"{config.max_size_mm}mm")
+    config_table.add_row("Line Width", f"{config.line_width_mm}mm")
+    
+    # Heights
+    config_table.add_row("Color Layer Height", f"{config.color_height_mm}mm")
+    config_table.add_row("Base Layer Height", f"{config.base_height_mm}mm" if config.base_height_mm > 0 else "0mm (disabled)")
+    
+    # Colors
+    config_table.add_row("Max Colors", str(config.max_colors))
+    config_table.add_row("Backing Color", f"RGB{config.backing_color}")
+    config_table.add_row("Color Naming Mode", config.color_naming_mode)
+    
+    # Filament filters (if in filament mode)
+    if config.color_naming_mode == "filament":
+        maker_str = ", ".join(config.filament_maker) if isinstance(config.filament_maker, list) else config.filament_maker
+        type_str = ", ".join(config.filament_type) if isinstance(config.filament_type, list) else config.filament_type
+        finish_str = ", ".join(config.filament_finish) if isinstance(config.filament_finish, list) else config.filament_finish
+        config_table.add_row("  Filament Maker(s)", maker_str)
+        config_table.add_row("  Filament Type(s)", type_str)
+        config_table.add_row("  Filament Finish(es)", finish_str)
+    
+    # Processing options
+    config_table.add_row("Auto-Crop", "Enabled" if config.auto_crop else "Disabled")
+    connectivity_map = {0: "None (separate pixels)", 4: "4-connected (edges only)", 8: "8-connected (includes diagonals)"}
+    config_table.add_row("Connectivity", connectivity_map.get(config.connectivity, str(config.connectivity)))
+    
+    # Mesh optimization
+    import pixel_to_3mf.mesh_generator as mg
+    config_table.add_row("Mesh Optimization", "Enabled" if mg.USE_OPTIMIZED_MESH_GENERATION else "Disabled")
+    
+    console.print(config_table)
+    console.print()
+    
     # Warning callback for resolution issues
     def warning_callback(warning_type: str, data: Dict[str, Any]) -> bool:
         """Handle warnings during conversion, ask user for confirmation."""

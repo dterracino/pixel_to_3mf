@@ -438,8 +438,9 @@ def get_color_name(rgb: Tuple[int, int, int], config: 'ConversionConfig') -> str
                 type_name=config.filament_type,
                 finish=config.filament_finish
             )
-            # Use the filament's color name
-            return nearest_filament.color
+            # Return the full filament description: Maker + Type + Finish + Color
+            # Example: "Bambu Lab PLA Basic Black"
+            return f"{nearest_filament.maker} {nearest_filament.type} {nearest_filament.finish} {nearest_filament.color}"
         except ValueError as e:
             # If no filaments match the filters, fall back to hex
             return rgb_to_hex(rgb)
