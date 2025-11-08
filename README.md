@@ -22,6 +22,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Exact Scaling**: Scales your pixel art so the largest dimension exactly matches your target size (default 200mm)
 - **Smart Region Merging**: Uses flood-fill algorithm with configurable connectivity (4-way, 8-way, or per-pixel) to merge connected same-color pixels into single manifold objects
 - **Auto-Crop**: Optional automatic cropping of fully transparent edges to optimize model size
+- **Automatic Color Quantization**: Reduce image colors on-the-fly when exceeding limits - no external preprocessing needed!
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations
 - **Transparent Pixel Support**: Transparent areas become holes in the model
@@ -155,6 +156,9 @@ python run_converter.py --batch \
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
+| `--quantize` | Automatically reduce colors when exceeding max-colors | Off |
+| `--quantize-algo` | Quantization algorithm: `none` (fast/sharp), `floyd` (smooth) | `none` |
+| `--quantize-colors` | Target color count for quantization (defaults to max-colors) | `max-colors` |
 | `--auto-crop` | Automatically crop away fully transparent edges | Off |
 | `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
 | `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
@@ -313,6 +317,25 @@ python run_converter.py detailed_art.png --max-colors 32
 
 - **Raises limit:** From 16 to 32 unique colors
 - **Note:** More colors = longer print time with filament changes
+
+#### Automatic Color Reduction
+
+```bash
+# Automatically reduce colors when image exceeds max-colors
+python run_converter.py photo.png --quantize
+
+# Use Floyd-Steinberg dithering for smoother gradients
+python run_converter.py artwork.png --quantize --quantize-algo floyd
+
+# Reduce to specific color count
+python run_converter.py complex_art.png --quantize --quantize-colors 8
+```
+
+- **Benefit:** No need to preprocess images in external applications
+- **Algorithms:**
+  - `none`: Simple nearest color (faster, sharper edges)
+  - `floyd`: Floyd-Steinberg dithering (slower, smoother gradients)
+- **Use case:** Images with slightly more colors than your max-colors setting
 
 #### No Backing Plate (Decals, Stickers)
 
@@ -761,13 +784,21 @@ python run_converter.py --batch --batch-input resized_sprites
 **Solutions:**
 
 ```bash
-# Option 1: Increase limit
+# Option 1: Use automatic quantization (easiest!)
+python run_converter.py image.png --quantize
+
+# Option 2: Quantize with Floyd-Steinberg dithering for smoother results
+python run_converter.py image.png --quantize --quantize-algo floyd
+
+# Option 3: Increase color limit
 python run_converter.py image.png --max-colors 32
 
-# Option 2: Reduce colors in image editor
+# Option 4: Reduce colors in image editor
 # - Use posterize/index color mode
 # - Reduce to 16 colors or less
 ```
+
+**Recommended:** Use `--quantize` for automatic color reduction without needing external tools!
 
 #### Colors not merging (too many small regions)
 

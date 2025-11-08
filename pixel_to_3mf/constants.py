@@ -62,6 +62,20 @@ DEFAULT_FILAMENT_TYPE = "PLA"
 DEFAULT_FILAMENT_FINISH = ["Basic", "Matte"]  # Multiple finishes allowed
 
 # ============================================================================
+# Color Quantization
+# ============================================================================
+
+# Whether to enable automatic color quantization when image has too many colors
+ENABLE_QUANTIZATION = False
+
+# Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
+QUANTIZATION_ALGORITHM = "none"
+
+# Number of colors to quantize to (defaults to MAX_COLORS if not specified)
+# Only used when quantization is enabled
+QUANTIZATION_COLORS = None
+
+# ============================================================================
 # Batch Processing
 # ============================================================================
 

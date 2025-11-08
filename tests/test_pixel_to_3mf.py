@@ -14,7 +14,7 @@ from pathlib import Path
 # Add parent directory to path to import the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf
+from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf, format_filesize
 from pixel_to_3mf.config import ConversionConfig
 from tests.test_helpers import (
     create_simple_square_image,
@@ -334,6 +334,47 @@ class TestConvertImageTo3MFWithRealSamples(unittest.TestCase):
         self.assertGreater(stats['image_width'], 0)
         self.assertGreater(stats['image_height'], 0)
         self.assertGreater(stats['num_regions'], 0)
+
+
+class TestFormatFilesize(unittest.TestCase):
+    """Test the format_filesize utility function."""
+    
+    def test_zero_bytes(self):
+        """Test formatting zero bytes."""
+        self.assertEqual(format_filesize(0), "0B")
+    
+    def test_bytes(self):
+        """Test formatting bytes (less than 1 KB)."""
+        self.assertEqual(format_filesize(1), "1.0 B")
+        self.assertEqual(format_filesize(500), "500.0 B")
+        self.assertEqual(format_filesize(1023), "1023.0 B")
+    
+    def test_kilobytes(self):
+        """Test formatting kilobytes."""
+        self.assertEqual(format_filesize(1024), "1.0 KB")
+        self.assertEqual(format_filesize(1536), "1.5 KB")
+        self.assertEqual(format_filesize(2048), "2.0 KB")
+    
+    def test_megabytes(self):
+        """Test formatting megabytes."""
+        self.assertEqual(format_filesize(1048576), "1.0 MB")  # 1024^2
+        self.assertEqual(format_filesize(1572864), "1.5 MB")  # 1.5 * 1024^2
+        self.assertEqual(format_filesize(5242880), "5.0 MB")  # 5 * 1024^2
+    
+    def test_gigabytes(self):
+        """Test formatting gigabytes."""
+        self.assertEqual(format_filesize(1073741824), "1.0 GB")  # 1024^3
+        self.assertEqual(format_filesize(2147483648), "2.0 GB")  # 2 * 1024^3
+    
+    def test_rounding(self):
+        """Test that values are rounded to 2 decimal places."""
+        # 1234 bytes = 1.205078125 KB -> should round to 1.21 KB
+        result = format_filesize(1234)
+        self.assertEqual(result, "1.21 KB")
+        
+        # 1234567 bytes = 1.177376747131348 MB -> should round to 1.18 MB
+        result = format_filesize(1234567)
+        self.assertEqual(result, "1.18 MB")
 
 
 if __name__ == '__main__':

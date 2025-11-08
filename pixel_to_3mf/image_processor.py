@@ -110,6 +110,65 @@ def calculate_pixel_size(
     return pixel_size_mm
 
 
+def quantize_image(
+    img: Image.Image,
+    num_colors: int,
+    algorithm: str = "none"
+) -> Image.Image:
+    """
+    Reduce the number of colors in an image using quantization.
+    
+    This allows users to automatically reduce color count without preprocessing
+    in external applications. Useful when an image has slightly more colors
+    than max_colors.
+    
+    Args:
+        img: PIL Image object (should be in RGBA mode)
+        num_colors: Target number of colors (must be > 0)
+        algorithm: Quantization algorithm
+                  - "none": Simple nearest color without dithering (faster, sharper)
+                  - "floyd": Floyd-Steinberg dithering (slower, smoother gradients)
+    
+    Returns:
+        New PIL Image with reduced colors (in RGBA mode)
+        
+    Raises:
+        ValueError: If num_colors <= 0 or algorithm is invalid
+    """
+    if num_colors <= 0:
+        raise ValueError(f"num_colors must be positive, got {num_colors}")
+    
+    valid_algos = {"none", "floyd"}
+    if algorithm not in valid_algos:
+        raise ValueError(f"algorithm must be one of {valid_algos}, got {algorithm}")
+    
+    # Separate alpha channel (we'll preserve it exactly)
+    # Quantization should only affect RGB channels
+    if img.mode != 'RGBA':
+        img = img.convert('RGBA')
+    
+    # Split into RGB and alpha
+    rgb_img = img.convert('RGB')
+    alpha = img.split()[3]  # Extract alpha channel
+    
+    # Perform quantization on RGB only
+    # PIL's quantize method uses median cut algorithm
+    if algorithm == "none":
+        # No dithering - simpler, sharper color reduction
+        quantized_rgb = rgb_img.quantize(colors=num_colors, dither=Image.Dither.NONE)
+    else:  # "floyd"
+        # Floyd-Steinberg dithering - smoother gradients
+        quantized_rgb = rgb_img.quantize(colors=num_colors, dither=Image.Dither.FLOYDSTEINBERG)
+    
+    # Convert back to RGB mode (quantize returns palette mode)
+    quantized_rgb = quantized_rgb.convert('RGB')
+    
+    # Recombine with original alpha channel
+    quantized_rgba = Image.merge('RGBA', (*quantized_rgb.split(), alpha))
+    
+    return quantized_rgba
+
+
 def load_image(
     image_path: str,
     config: 'ConversionConfig'
@@ -184,12 +243,60 @@ def load_image(
         color_status_msg = f"(backing color not in image - reserving 1 slot)"
 
     if num_colors > effective_max_colors:
-        backing_name = f"RGB{config.backing_color}"
-        raise ValueError(
-            f"Image has {num_colors} unique colors, but maximum allowed is {effective_max_colors} {color_status_msg}.\n"
-            f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
-            f"Try reducing colors in your image editor or increase --max-colors."
-        )
+        # Too many colors - check if quantization is enabled
+        if config.quantize:
+            # Quantize the image to reduce colors
+            target_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
+            
+            # Make sure we don't try to quantize to more colors than we have
+            if target_colors >= num_colors:
+                # No need to quantize if target is >= current color count
+                pass
+            else:
+                # Perform quantization
+                img = quantize_image(img, target_colors, config.quantize_algo)
+                
+                # Re-extract pixel data from quantized image
+                pixel_array = np.array(img)
+                pixels = {}
+                
+                for y in range(height):
+                    for x in range(width):
+                        r, g, b, a = pixel_array[y, x]
+                        
+                        if a > 0:
+                            flipped_y = height - 1 - y
+                            pixels[(x, flipped_y)] = (int(r), int(g), int(b), int(a))
+                
+                # Recalculate color count after quantization
+                unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
+                num_colors = len(unique_colors)
+                
+                # Check again if we're within limits now
+                backing_in_image = config.backing_color in unique_colors
+                if backing_in_image:
+                    effective_max_colors = config.max_colors
+                    color_status_msg = f"(including backing color)"
+                else:
+                    effective_max_colors = config.max_colors - 1
+                    color_status_msg = f"(backing color not in image - reserving 1 slot)"
+                
+                # If still too many colors after quantization, raise error
+                if num_colors > effective_max_colors:
+                    backing_name = f"RGB{config.backing_color}"
+                    raise ValueError(
+                        f"Image has {num_colors} unique colors after quantization, but maximum allowed is {effective_max_colors} {color_status_msg}.\n"
+                        f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
+                        f"Try reducing --quantize-colors further or increase --max-colors."
+                    )
+        else:
+            # Quantization not enabled, raise the original error
+            backing_name = f"RGB{config.backing_color}"
+            raise ValueError(
+                f"Image has {num_colors} unique colors, but maximum allowed is {effective_max_colors} {color_status_msg}.\n"
+                f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
+                f"Try reducing colors in your image editor, enable --quantize, or increase --max-colors."
+            )
     
     return PixelData(
         width=width,
