@@ -760,7 +760,7 @@ See [`tests/README.md`](tests/README.md) for detailed testing documentation.
 ### Areas for Contribution
 
 - 🎨 Additional color palettes beyond CSS colors
-- 🚀 Performance optimizations (polygon merging using shapely/triangle - see [`OPTIMIZATION_PLAN.MD`](OPTIMIZATION_PLAN.MD))
+- 🚀 Performance optimizations (polygon merging using shapely/triangle - see [`docs/OPTIMIZATION_PLAN.MD`](docs/OPTIMIZATION_PLAN.MD))
 - 🧪 More test coverage
 - 📝 Documentation improvements
 - 🐛 Bug fixes
