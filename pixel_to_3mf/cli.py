@@ -392,6 +392,30 @@ The program will:
         help="Use optimized polygon-based mesh generation (50-90%% reduction in vertices/triangles). "
              "Both optimized and original modes produce manifold meshes with identical visual results."
     )
+    
+    parser.add_argument(
+        "--quantize",
+        action="store_true",
+        help="Automatically reduce colors when image exceeds max-colors. "
+             "Eliminates need to preprocess images in external applications."
+    )
+    
+    parser.add_argument(
+        "--quantize-algo",
+        type=str,
+        choices=["none", "floyd"],
+        default="none",
+        help="Quantization algorithm: 'none' for simple nearest color (faster, sharper), "
+             "'floyd' for Floyd-Steinberg dithering (slower, smoother). Default: none"
+    )
+    
+    parser.add_argument(
+        "--quantize-colors",
+        type=int,
+        default=None,
+        help="Number of colors to quantize to. Defaults to max-colors if not specified. "
+             "Only used when --quantize is enabled."
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -455,7 +479,10 @@ The program will:
             filament_type=filament_type,
             filament_finish=filament_finish,
             auto_crop=args.auto_crop,
-            connectivity=args.connectivity
+            connectivity=args.connectivity,
+            quantize=args.quantize,
+            quantize_algo=args.quantize_algo,
+            quantize_colors=args.quantize_colors
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
@@ -599,6 +626,13 @@ The program will:
     # Mesh optimization
     import pixel_to_3mf.mesh_generator as mg
     config_table.add_row("Mesh Optimization", "Enabled" if mg.USE_OPTIMIZED_MESH_GENERATION else "Disabled")
+    
+    # Color quantization
+    if config.quantize:
+        quant_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
+        config_table.add_row("Color Quantization", f"Enabled ({config.quantize_algo}, {quant_colors} colors)")
+    else:
+        config_table.add_row("Color Quantization", "Disabled")
     
     console.print(config_table)
     console.print()

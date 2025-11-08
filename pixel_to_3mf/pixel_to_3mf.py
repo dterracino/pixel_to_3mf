@@ -8,7 +8,8 @@ making it easy to use programmatically or test.
 No print statements, no argparse, just clean conversion logic! 🎯
 """
 
-import os, math
+import math
+import os
 
 from typing import Optional, Callable, Dict, Any
 from pathlib import Path
@@ -20,8 +21,24 @@ from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
 
-def format_filesize(size_bytes):
-    """Converts a file size in bytes to a human-readable format."""
+def format_filesize(size_bytes: int) -> str:
+    """
+    Convert a file size in bytes to a human-readable format.
+    
+    Args:
+        size_bytes: File size in bytes
+    
+    Returns:
+        Formatted string like "1.5 KB", "2.3 MB", etc.
+    
+    Examples:
+        >>> format_filesize(0)
+        '0B'
+        >>> format_filesize(1024)
+        '1 KB'
+        >>> format_filesize(1536)
+        '1.5 KB'
+    """
     if size_bytes == 0:
         return "0B"
     # Define the size units

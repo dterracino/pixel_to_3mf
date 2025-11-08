@@ -19,7 +19,10 @@ from .constants import (
     COLOR_NAMING_MODE,
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
-    DEFAULT_FILAMENT_FINISH
+    DEFAULT_FILAMENT_FINISH,
+    ENABLE_QUANTIZATION,
+    QUANTIZATION_ALGORITHM,
+    QUANTIZATION_COLORS
 )
 
 
@@ -47,6 +50,9 @@ class ConversionConfig:
         filament_finish: Filament finish filter(s) (for filament mode) - can be str or list
         auto_crop: If True, automatically crop away fully transparent edges before processing
         connectivity: Pixel connectivity mode - 0 (no merge), 4 (edge-connected only), or 8 (includes diagonals)
+        quantize: If True, automatically reduce colors when image exceeds max_colors
+        quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
+        quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
     """
 
     max_size_mm: float = MAX_MODEL_SIZE_MM
@@ -65,6 +71,11 @@ class ConversionConfig:
     # Processing options
     auto_crop: bool = False
     connectivity: int = 8  # 0 (no merge), 4 (edge only), or 8 (includes diagonals)
+    
+    # Color quantization options
+    quantize: bool = ENABLE_QUANTIZATION
+    quantize_algo: str = QUANTIZATION_ALGORITHM
+    quantize_colors: Union[int, None] = QUANTIZATION_COLORS
 
     def __post_init__(self):
         """Validate configuration parameters."""
@@ -91,6 +102,15 @@ class ConversionConfig:
         # Validate connectivity mode
         if self.connectivity not in (0, 4, 8):
             raise ValueError(f"connectivity must be 0, 4, or 8, got {self.connectivity}")
+        
+        # Validate quantization algorithm
+        valid_algos = {"none", "floyd"}
+        if self.quantize_algo not in valid_algos:
+            raise ValueError(f"quantize_algo must be one of {valid_algos}, got {self.quantize_algo}")
+        
+        # Validate quantize_colors if set
+        if self.quantize_colors is not None and self.quantize_colors <= 0:
+            raise ValueError(f"quantize_colors must be positive, got {self.quantize_colors}")
         
         # Set default filament filters if None
         if self.filament_maker is None:

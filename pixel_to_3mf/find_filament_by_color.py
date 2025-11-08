@@ -1,4 +1,4 @@
-from color_tools import FilamentPalette
+from .color_tools import FilamentPalette
 
 # Hex codes and their RGB conversions
 colors = [
