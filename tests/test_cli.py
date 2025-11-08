@@ -517,5 +517,57 @@ class TestConversionConfigBatchFlags(unittest.TestCase):
         self.assertTrue(config.batch_mode)
 
 
+class TestFilamentFilters(unittest.TestCase):
+    """Test filament filter configuration with single values and lists."""
+    
+    def test_default_filament_filters(self):
+        """Test that filament filters use default values when not specified."""
+        config = ConversionConfig()
+        self.assertEqual(config.filament_maker, "Bambu Lab")
+        self.assertEqual(config.filament_type, "PLA")
+        self.assertEqual(config.filament_finish, ["Basic", "Matte"])
+    
+    def test_single_string_filament_maker(self):
+        """Test setting filament_maker as a single string."""
+        config = ConversionConfig(filament_maker="Polymaker")
+        self.assertEqual(config.filament_maker, "Polymaker")
+    
+    def test_list_filament_maker(self):
+        """Test setting filament_maker as a list."""
+        config = ConversionConfig(filament_maker=["Bambu Lab", "Polymaker"])
+        self.assertEqual(config.filament_maker, ["Bambu Lab", "Polymaker"])
+    
+    def test_single_string_filament_type(self):
+        """Test setting filament_type as a single string."""
+        config = ConversionConfig(filament_type="PETG")
+        self.assertEqual(config.filament_type, "PETG")
+    
+    def test_list_filament_type(self):
+        """Test setting filament_type as a list."""
+        config = ConversionConfig(filament_type=["PLA", "PETG"])
+        self.assertEqual(config.filament_type, ["PLA", "PETG"])
+    
+    def test_single_string_filament_finish(self):
+        """Test setting filament_finish as a single string."""
+        config = ConversionConfig(filament_finish="Silk")
+        self.assertEqual(config.filament_finish, "Silk")
+    
+    def test_list_filament_finish(self):
+        """Test setting filament_finish as a list."""
+        config = ConversionConfig(filament_finish=["Silk", "Matte"])
+        self.assertEqual(config.filament_finish, ["Silk", "Matte"])
+    
+    def test_all_filters_as_lists(self):
+        """Test setting all filament filters as lists."""
+        config = ConversionConfig(
+            filament_maker=["Bambu Lab", "Polymaker"],
+            filament_type=["PLA", "PETG"],
+            filament_finish=["Basic", "Silk"]
+        )
+        self.assertEqual(config.filament_maker, ["Bambu Lab", "Polymaker"])
+        self.assertEqual(config.filament_type, ["PLA", "PETG"])
+        self.assertEqual(config.filament_finish, ["Basic", "Silk"])
+
+
 if __name__ == '__main__':
     unittest.main()

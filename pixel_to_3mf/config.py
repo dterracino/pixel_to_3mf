@@ -42,8 +42,8 @@ class ConversionConfig:
         skip_checks: If True, skip resolution warnings entirely
         batch_mode: If True, raise errors immediately instead of prompting user
         color_naming_mode: How to name objects - "color", "filament", or "hex"
-        filament_maker: Filament maker filter (for filament mode)
-        filament_type: Filament type filter (for filament mode)
+        filament_maker: Filament maker filter(s) (for filament mode) - can be str or list
+        filament_type: Filament type filter(s) (for filament mode) - can be str or list
         filament_finish: Filament finish filter(s) (for filament mode) - can be str or list
         auto_crop: If True, automatically crop away fully transparent edges before processing
         connectivity: Pixel connectivity mode - 0 (no merge), 4 (edge-connected only), or 8 (includes diagonals)
@@ -58,8 +58,8 @@ class ConversionConfig:
     skip_checks: bool = False
     batch_mode: bool = False
     color_naming_mode: str = COLOR_NAMING_MODE
-    filament_maker: str = DEFAULT_FILAMENT_MAKER
-    filament_type: str = DEFAULT_FILAMENT_TYPE
+    filament_maker: Union[str, List[str]] = None  # Will be set in __post_init__
+    filament_type: Union[str, List[str]] = None  # Will be set in __post_init__
     filament_finish: Union[str, List[str]] = None  # Will be set in __post_init__
     
     # Processing options
@@ -92,6 +92,10 @@ class ConversionConfig:
         if self.connectivity not in (0, 4, 8):
             raise ValueError(f"connectivity must be 0, 4, or 8, got {self.connectivity}")
         
-        # Set default filament_finish if None
+        # Set default filament filters if None
+        if self.filament_maker is None:
+            self.filament_maker = DEFAULT_FILAMENT_MAKER
+        if self.filament_type is None:
+            self.filament_type = DEFAULT_FILAMENT_TYPE
         if self.filament_finish is None:
             self.filament_finish = DEFAULT_FILAMENT_FINISH

@@ -350,15 +350,15 @@ The program will:
     parser.add_argument(
         "--filament-maker",
         type=str,
-        default=DEFAULT_FILAMENT_MAKER,
-        help=f"Filament maker filter for 'filament' mode (default: {DEFAULT_FILAMENT_MAKER})"
+        default=None,
+        help=f"Filament maker filter(s) for 'filament' mode. Comma-separated for multiple (default: {DEFAULT_FILAMENT_MAKER})"
     )
     
     parser.add_argument(
         "--filament-type",
         type=str,
-        default=DEFAULT_FILAMENT_TYPE,
-        help=f"Filament type filter for 'filament' mode (default: {DEFAULT_FILAMENT_TYPE})"
+        default=None,
+        help=f"Filament type filter(s) for 'filament' mode. Comma-separated for multiple (default: {DEFAULT_FILAMENT_TYPE})"
     )
     
     parser.add_argument(
@@ -426,7 +426,15 @@ The program will:
             error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
             sys.exit(1)
 
-    # Parse filament finish if provided (can be comma-separated)
+    # Parse filament filters if provided (can be comma-separated)
+    filament_maker = DEFAULT_FILAMENT_MAKER
+    if args.filament_maker:
+        filament_maker = [m.strip() for m in args.filament_maker.split(',')]
+    
+    filament_type = DEFAULT_FILAMENT_TYPE
+    if args.filament_type:
+        filament_type = [t.strip() for t in args.filament_type.split(',')]
+    
     filament_finish = DEFAULT_FILAMENT_FINISH
     if args.filament_finish:
         filament_finish = [f.strip() for f in args.filament_finish.split(',')]
@@ -443,8 +451,8 @@ The program will:
             skip_checks=args.skip_checks,
             batch_mode=args.batch,
             color_naming_mode=args.color_mode,
-            filament_maker=args.filament_maker,
-            filament_type=args.filament_type,
+            filament_maker=filament_maker,
+            filament_type=filament_type,
             filament_finish=filament_finish,
             auto_crop=args.auto_crop,
             connectivity=args.connectivity
