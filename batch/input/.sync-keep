@@ -1,7 +1,0 @@
-# One pattern per line, relative to batch/input.
-# Blank lines and lines starting with # are ignored.
-
-# Examples:
-# *.md
-# extra-*.json
-# keep-this-folder/**
