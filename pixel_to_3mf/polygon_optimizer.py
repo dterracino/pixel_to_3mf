@@ -30,6 +30,54 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_4_connected(pixels: Set[Tuple[int, int]]) -> bool:
+    """
+    Check if all pixels in the set are 4-connected (edge-sharing).
+    
+    This is critical for polygon optimization! Pixels that are only
+    diagonally connected (8-connected but not 4-connected) will form
+    separate polygon components when treated as squares, causing the
+    optimization to fail.
+    
+    Uses BFS to traverse the pixel set using only 4-connectivity
+    (up/down/left/right). If we can reach all pixels, they're all
+    4-connected. If we can't, some are only diagonally connected.
+    
+    Args:
+        pixels: Set of (x, y) pixel coordinates
+    
+    Returns:
+        True if all pixels are reachable via 4-connected neighbors,
+        False if some pixels are only diagonally connected
+    """
+    if not pixels:
+        return True
+    
+    # Start BFS from arbitrary pixel
+    visited: Set[Tuple[int, int]] = set()
+    start = next(iter(pixels))
+    queue = [start]
+    visited.add(start)
+    
+    while queue:
+        x, y = queue.pop(0)
+        
+        # Check only 4-connected neighbors (edge-sharing)
+        neighbors_4 = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+        for nx, ny in neighbors_4:
+            if (nx, ny) in pixels and (nx, ny) not in visited:
+                visited.add((nx, ny))
+                queue.append((nx, ny))
+    
+    # If we visited all pixels, they're all 4-connected
+    is_connected = len(visited) == len(pixels)
+    
+    if not is_connected:
+        logger.debug(f"Pixel set is NOT 4-connected: visited {len(visited)}/{len(pixels)} pixels")
+    
+    return is_connected
+
+
 def pixels_to_polygon(
     pixels: Set[Tuple[int, int]], 
     pixel_size_mm: float
@@ -521,6 +569,20 @@ def generate_region_mesh_optimized(
                f"color=RGB{region.color}")
     
     try:
+        # Step 0: Check if pixels are 4-connected (edge-sharing)
+        # If pixels are only diagonally connected (8-connected but not 4-connected),
+        # they will form disconnected polygon components, making optimization impossible
+        logger.debug("Step 0: Checking pixel connectivity...")
+        if not _is_4_connected(region.pixels):
+            logger.debug(
+                f"Region has pixels that are only diagonally connected. "
+                f"Falling back to original implementation."
+            )
+            # Don't warn here - this is an expected condition for 8-connected regions
+            # The user chose 8-connectivity for region merging, which is fine
+            from .mesh_generator import _generate_region_mesh_original
+            return _generate_region_mesh_original(region, pixel_data, config)
+        
         # Step 1: Convert pixels to polygon
         logger.debug("Step 1: Converting pixels to polygon...")
         poly = pixels_to_polygon(region.pixels, pixel_data.pixel_size_mm)
@@ -605,7 +667,16 @@ def generate_backing_plate_optimized(
         
         if not all_pixels:
             # No pixels means empty backing plate (shouldn't happen, but defensive)
+            from .mesh_generator import Mesh
             return Mesh(vertices=[], triangles=[])
+        
+        # Step 0: Check if pixels are 4-connected
+        # Backing plates can have disconnected parts (sprites with gaps),
+        # but if the entire set isn't 4-connected, skip optimization
+        if not _is_4_connected(all_pixels):
+            logger.debug("Backing plate pixels are not 4-connected, falling back to original")
+            from .mesh_generator import _generate_backing_plate_original
+            return _generate_backing_plate_original(pixel_data, config)
         
         # Step 1: Convert all pixels to polygon
         poly = pixels_to_polygon(all_pixels, pixel_data.pixel_size_mm)
