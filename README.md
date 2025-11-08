@@ -21,6 +21,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 
 - **Exact Scaling**: Scales your pixel art so the largest dimension exactly matches your target size (default 200mm)
 - **Smart Region Merging**: Uses flood-fill algorithm with configurable connectivity (4-way, 8-way, or per-pixel) to merge connected same-color pixels into single manifold objects
+- **Disconnected Pixel Trimming**: Optional removal of pixels that only connect via corners (unreliable for 3D printing) with `--trim`
 - **Auto-Crop**: Optional automatic cropping of fully transparent edges to optimize model size
 - **Smart Padding**: Add outlines around sprites to fill gaps between diagonally-connected pixels and improve printability
 - **Automatic Color Quantization**: Reduce image colors on-the-fly when exceeding limits - no external preprocessing needed!
@@ -169,6 +170,7 @@ python run_converter.py --batch \
 | `--quantize-colors` | Target color count for quantization (defaults to max-colors) | `max-colors` |
 | `--auto-crop` | Automatically crop away fully transparent edges | Off |
 | `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
+| `--trim` | Remove disconnected pixels (only corner-connected, no edge connections) | Off |
 | `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
 | `--filament-maker` | Filament maker filter(s), comma-separated (for `filament` mode) | `Bambu Lab` |
 | `--filament-type` | Filament type filter(s), comma-separated (for `filament` mode) | `PLA` |
@@ -448,6 +450,27 @@ python run_converter.py sprite.png --auto-crop --padding-size 5
   - Padding uses circular distance (Euclidean) for smooth outlines
   - Padding is disabled by default (`--padding-size 0`)
   - Original pixels are always preserved (padding never overwrites existing colors)
+
+#### Trim Disconnected Pixels
+
+```bash
+# Remove pixels that only connect via corners (diagonally)
+python run_converter.py sprite.png --trim
+```
+
+- **What it does:** Removes pixels that have no edge-connected neighbors (only diagonal connections)
+- **Why:** These pixels create weak connection points that are unreliable for 3D printing
+- **Example:** A pixel touching the main design only at a corner vertex will be removed
+- **Use case:** Cleaning up stray pixels, ensuring all geometry has strong edge connections
+
+**Example pattern:**
+```
+BBBBBBX
+BBBBXXB  <- This pixel is removed with --trim (only corner-connected)
+BBBBXXX
+```
+
+See [`docs/TRIM_FEATURE.md`](docs/TRIM_FEATURE.md) for detailed documentation and examples.
 
 #### Custom Connectivity Modes
 
