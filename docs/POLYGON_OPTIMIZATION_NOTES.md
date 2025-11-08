@@ -9,6 +9,7 @@ This document provides implementation notes for the polygon-based mesh optimizat
 ## Implementation Status
 
 ✅ **Completed:**
+
 - polygon_optimizer.py module with full implementation
 - pixels_to_polygon() - Merges pixel squares using shapely.ops.unary_union
 - triangulate_polygon_2d() - Constrained triangulation using triangle library
@@ -79,11 +80,13 @@ def generate_region_mesh_optimized(...):
 ## Dependencies
 
 ### shapely >= 2.0.0
+
 - Used for polygon union operations (unary_union)
 - Handles complex polygon topologies including holes
 - Already in requirements.txt
 
 ### triangle
+
 - Python wrapper for Jonathan Shewchuk's Triangle library
 - Provides constrained Delaunay triangulation
 - **Known limitation:** Can segfault on certain degenerate polygon configurations
@@ -129,6 +132,7 @@ Benchmarked reductions (typical pixel art):
 **Previous Issue:** The triangle library (C library) could segfault on certain polygon configurations, causing the entire process to crash with no error message.
 
 **Fix Applied (2025-11-07):**
+
 1. **Comprehensive Logging** - Added detailed logging to track execution before crashes occur
 2. **Input Validation** - Added pre-triangulation validation to detect problematic geometries:
    - MultiPolygon results (disconnected parts) now trigger fallback instead of being processed
@@ -138,30 +142,36 @@ Benchmarked reductions (typical pixel art):
 4. **Better Error Handling** - Improved hole point calculation using `representative_point()` for reliability
 
 **Current Behavior:**
+
 - When optimization encounters unsuitable geometry, it logs the issue and falls back to original implementation
 - The conversion always completes successfully, even if optimization can't be used
 - Logging shows which regions use optimization vs fallback
 
 **Symptoms (if any issues remain):**
+
 - If a segfault still occurs, logs will show the last successful operation
 - Most problematic cases now trigger ValueError and fall back gracefully
 
 **Geometries That Trigger Fallback:**
+
 - Regions with disconnected components (MultiPolygon from unary_union)
 - Polygons with more than 10 holes
 - Degenerate polygons (too thin or zero area)
 - Invalid polygons from shapely
 
 **When Optimization Works:**
+
 - Simple connected regions (squares, rectangles, L-shapes)
 - Regions with 0-10 holes
 - Valid, non-degenerate polygon geometries
 
 **Workaround (if needed):**
+
 - If issues persist, don't use --optimize-mesh flag (use default per-pixel method)
 - Optimization is disabled by default for safety
 
 **Future Enhancements:**
+
 - Replace triangle library with pure Python triangulation for full crash prevention
 - Add subprocess isolation to catch any remaining segfaults
 - Implement adaptive optimization (only optimize suitable regions)
@@ -192,6 +202,7 @@ python tests/run_tests.py
 ### Manifold Verification
 
 Tests verify critical manifold properties:
+
 1. No degenerate triangles (all 3 vertices unique)
 2. All triangle indices within bounds
 3. Each edge shared by exactly 2 triangles
@@ -199,14 +210,17 @@ Tests verify critical manifold properties:
 ## Integration Points
 
 ### CLI Layer
+
 - cli.py: Added --optimize-mesh argument
 - Enables feature flag before conversion
 
 ### Business Logic
+
 - mesh_generator.py: Dispatch logic in generate_region_mesh() and generate_backing_plate()
 - polygon_optimizer.py: All optimization implementation
 
 ### Configuration
+
 - No config changes needed (feature flag is module-level)
 - Could add to ConversionConfig in future if desired
 
@@ -282,6 +296,7 @@ The implementation follows the OPTIMIZATION_PLAN.MD specification:
 **Current Status:** Feature is complete and tested, but disabled by default due to triangle library segfault issues on certain geometries. Users can opt-in with --optimize-mesh flag.
 
 **Recommended Next Step:** Either:
+
 - Replace triangle library with more robust triangulation
 - Add subprocess isolation to catch segfaults
 - Or leave as experimental feature (current state)

@@ -11,6 +11,7 @@ This document outlines code quality improvements, refactoring opportunities, and
 **Issue:** Several helper functions in the CLI module are missing type hints.
 
 **Current:**
+
 ```python
 def is_image_file(filepath: Path) -> bool:
     """Check if a file is a supported image format."""
@@ -34,11 +35,13 @@ def is_image_file(filepath: Path) -> bool:
 **Issue:** The module imports `os` and `math`, but only uses them in the `format_filesize()` function. The `os` import is used for `os.path.getsize()` at the end.
 
 **Current:**
+
 ```python
 import os, math
 ```
 
 **Improvement:** Split onto separate lines per PEP 8:
+
 ```python
 import math
 import os
@@ -55,12 +58,14 @@ import os
 **Issue:** The build transform uses a hard-coded `z=1` offset with a comment saying it matches a "working example", but this isn't documented in constants.
 
 **Current:**
+
 ```python
 # We use z=1 to lift it slightly off the bed (matching the working example)
 build_transform = f"1 0 0 0 1 0 0 0 1 {build_plate_center[0]} {build_plate_center[1]} 1"
 ```
 
 **Recommendation:** Add to constants.py:
+
 ```python
 # Z-offset for build plate placement in 3MF (lifts model slightly off bed)
 BUILD_PLATE_Z_OFFSET_MM = 1.0
@@ -77,6 +82,7 @@ BUILD_PLATE_Z_OFFSET_MM = 1.0
 **Issue:** When polygon optimization is enabled but fails, it silently falls back to the original implementation. Users don't get feedback about why optimization didn't work.
 
 **Current:**
+
 ```python
 if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
     return generate_region_mesh_optimized(region, pixel_data, config)
@@ -86,6 +92,7 @@ return _generate_region_mesh_original(region, pixel_data, config)
 ```
 
 **Recommendation:** Add logging or progress callback when fallback occurs:
+
 ```python
 if USE_OPTIMIZED_MESH_GENERATION and OPTIMIZATION_AVAILABLE:
     try:
@@ -125,7 +132,8 @@ However, looking at the polygon_optimizer code, it already has comprehensive err
 
 **Current Location:** `pixel_to_3mf.py` (business logic)
 
-**Recommendation:** 
+**Recommendation:**
+
 - Option 1: Move to `cli.py` since it's primarily for display
 - Option 2: Create a `utils.py` module for shared utility functions
 - Option 3: Keep it where it is - it's actually useful for programmatic use too
@@ -143,11 +151,13 @@ However, looking at the polygon_optimizer code, it already has comprehensive err
 **Issue:** The vertex maps use `dict[...]` syntax which requires Python 3.9+. The project uses `typing.Dict` elsewhere for compatibility.
 
 **Current:**
+
 ```python
 top_vertex_map: dict[Tuple[int, int], int] = {}
 ```
 
 **Should be:**
+
 ```python
 top_vertex_map: Dict[Tuple[int, int], int] = {}
 ```
@@ -161,6 +171,7 @@ top_vertex_map: Dict[Tuple[int, int], int] = {}
 **Location:** `mesh_generator.py`, `_generate_region_mesh_original()` and `_generate_backing_plate_original()`
 
 **Issue:** Both functions have very similar logic for:
+
 - Creating top/bottom vertices
 - Managing vertex maps
 - Generating faces
@@ -169,6 +180,7 @@ top_vertex_map: Dict[Tuple[int, int], int] = {}
 **Current:** ~250 lines of duplicated patterns
 
 **Recommendation:** Extract common helper functions:
+
 ```python
 def _create_pixel_top_bottom_faces(
     pixels: Set[Tuple[int, int]],
@@ -203,12 +215,14 @@ def _create_pixel_walls(
 **Issue:** The validation is good, but could add a few more checks:
 
 **Current validation:**
+
 - Positive values for sizes/heights
 - RGB tuple format
 - Color naming mode
 - Connectivity mode
 
 **Additional validations to consider:**
+
 ```python
 # Warn if max_size_mm is very large (might exceed printer bed)
 if self.max_size_mm > 500:
@@ -233,6 +247,7 @@ if max_pixels > 1000000:  # 1M pixels
 **Issue:** When an image has too many colors, the error message is good but could be more actionable.
 
 **Current:**
+
 ```python
 raise ValueError(
     f"Image has {num_colors} unique colors, but maximum allowed is {effective_max_colors} {color_status_msg}.\n"
@@ -256,6 +271,7 @@ raise ValueError(
 **Current:** Progress shows "Region 1/44", "Region 2/44", etc.
 
 **Potential Enhancement:** Add sub-progress for complex regions:
+
 ```python
 _progress("mesh", f"Region {i}/{len(regions)}: Generating vertices...")
 _progress("mesh", f"Region {i}/{len(regions)}: Generating triangles...")
@@ -273,6 +289,7 @@ _progress("mesh", f"Region {i}/{len(regions)}: Validating geometry...")
 **Issue:** The constants file has excellent comments, but could benefit from a module-level docstring explaining the organization.
 
 **Recommendation:** Add a more detailed module docstring:
+
 ```python
 """
 Configuration constants for pixel art to 3MF conversion.
@@ -301,6 +318,7 @@ functions use these constants automatically.
 **Issue:** The function accepts a `connectivity` parameter but assumes it's one of the valid values (0, 4, 8). If an invalid value is passed, it falls through without error.
 
 **Current:**
+
 ```python
 if connectivity == 8:
     neighbors = [...]
@@ -309,6 +327,7 @@ else:  # connectivity == 4
 ```
 
 **Improvement:** Add validation at the start:
+
 ```python
 if connectivity not in (0, 4, 8):
     raise ValueError(f"connectivity must be 0, 4, or 8, got {connectivity}")
@@ -325,11 +344,13 @@ if connectivity not in (0, 4, 8):
 **Issue:** Connectivity modes are represented as integers (0, 4, 8), which isn't very self-documenting.
 
 **Current:**
+
 ```python
 connectivity: int = 8  # 0 (no merge), 4 (edge only), or 8 (includes diagonals)
 ```
 
 **Potential improvement:**
+
 ```python
 from enum import IntEnum
 
@@ -344,11 +365,13 @@ connectivity: ConnectivityMode = ConnectivityMode.EIGHT
 ```
 
 **Pros:**
+
 - More self-documenting
 - Better IDE autocomplete
 - Type-safe
 
 **Cons:**
+
 - Adds complexity
 - Integer values are clear enough with comments
 - Would require updates to CLI parsing
@@ -366,6 +389,7 @@ connectivity: ConnectivityMode = ConnectivityMode.EIGHT
 **Issue:** The main() function is quite long, handling argument parsing, configuration, batch mode, single-file mode, progress tracking, error handling, and output display.
 
 **Recommendation:** Consider extracting logical sections into helper functions:
+
 ```python
 def parse_arguments() -> argparse.Namespace:
     """Parse and validate command-line arguments."""
@@ -449,7 +473,8 @@ def run_batch_conversion(args: argparse.Namespace, config: ConversionConfig):
 **Location:** README.md or docs/
 
 **Recommendation:** Add a visual diagram showing:
-```
+
+```text
 Input Image → Image Processor → Region Merger → Mesh Generator → 3MF Writer → Output
                 ↓                    ↓                ↓              ↓
            PixelData            Regions           Meshes      3MF Archive
@@ -466,6 +491,7 @@ Input Image → Image Processor → Region Merger → Mesh Generator → 3MF Wri
 **Current:** The README shows CLI examples.
 
 **Recommendation:** Add a section showing programmatic usage:
+
 ```python
 from pixel_to_3mf import convert_image_to_3mf, ConversionConfig
 
@@ -499,12 +525,14 @@ print(f"Generated {stats['num_regions']} regions from {stats['num_colors']} colo
 **Location:** README.md or docs/PERFORMANCE.md
 
 **Recommendation:** Document typical performance:
+
 - Processing time vs image size
 - File size vs number of regions
 - Memory usage
 - When to use polygon optimization
 
 **Example:**
+
 ```markdown
 ## Performance
 
@@ -529,6 +557,7 @@ Use --optimize-mesh for 50-90% reduction in file size.
 ## Summary
 
 The codebase is **extremely well-written** with:
+
 - ✅ Excellent separation of concerns (CLI vs business logic)
 - ✅ Comprehensive type hints throughout
 - ✅ Clear, explanatory docstrings
@@ -537,11 +566,13 @@ The codebase is **extremely well-written** with:
 - ✅ Thorough test coverage (115 tests, all passing)
 
 **Most significant improvements:**
+
 1. Fix `dict[...]` to `Dict[...]` for Python 3.7 compatibility (#7)
 2. Split `import os, math` to separate lines (#2)
 3. Consider extracting CLI helper functions (#15)
 
 **Everything else is either:**
+
 - Already excellent (docstrings, error messages, validation)
 - Nice-to-have but not necessary (enums, architecture diagrams)
 - Inherent complexity that's well-handled (nested loops in mesh generation)

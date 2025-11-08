@@ -13,6 +13,7 @@ This document contains suggestions for new custom agents that could help improve
 **Rationale:** Large images and complex meshes can be slow to process. A specialist could identify bottlenecks and suggest optimizations.
 
 **Capabilities:**
+
 - Profile code to find performance bottlenecks
 - Suggest algorithmic improvements
 - Identify inefficient NumPy usage
@@ -21,11 +22,13 @@ This document contains suggestions for new custom agents that could help improve
 - Suggest parallel processing opportunities
 
 **Example Usage:**
-```
+
+```text
 Use the performance-optimizer to improve mesh generation speed for large images
 ```
 
 **Implementation Notes:**
+
 - Should use Python profiling tools (cProfile, timeit)
 - Must maintain code correctness
 - Should measure before/after performance
@@ -40,6 +43,7 @@ Use the performance-optimizer to improve mesh generation speed for large images
 **Rationale:** As the project grows, configuration management becomes more complex. A specialist could ensure consistent configuration patterns.
 
 **Capabilities:**
+
 - Manage constants.py organization
 - Add new configuration options
 - Ensure proper defaults
@@ -48,11 +52,13 @@ Use the performance-optimizer to improve mesh generation speed for large images
 - Document configuration options
 
 **Example Usage:**
-```
+
+```text
 Use the config-specialist to add support for custom color palettes
 ```
 
 **Implementation Notes:**
+
 - Must update constants.py
 - Should update CLI arguments
 - Must add validation
@@ -67,6 +73,7 @@ Use the config-specialist to add support for custom color palettes
 **Rationale:** 3MF format is complex with many optional features. A specialist could ensure spec compliance and add advanced features.
 
 **Capabilities:**
+
 - Deep understanding of 3MF specification
 - Implement advanced 3MF features
 - Ensure slicer compatibility
@@ -75,11 +82,13 @@ Use the config-specialist to add support for custom color palettes
 - Optimize 3MF file size
 
 **Example Usage:**
-```
+
+```text
 Use the 3mf-format-specialist to add support for textures in the 3MF output
 ```
 
 **Implementation Notes:**
+
 - Must maintain slicer compatibility
 - Should validate against 3MF spec
 - Must test with multiple slicers
@@ -94,6 +103,7 @@ Use the 3mf-format-specialist to add support for textures in the 3MF output
 **Rationale:** Keeping dependencies up to date and compatible is important but tedious. A specialist could automate this.
 
 **Capabilities:**
+
 - Update requirements.txt
 - Check for security vulnerabilities
 - Ensure version compatibility
@@ -102,11 +112,13 @@ Use the 3mf-format-specialist to add support for textures in the 3MF output
 - Test after dependency updates
 
 **Example Usage:**
-```
+
+```text
 Use the dependency-manager to update Pillow to the latest version
 ```
 
 **Implementation Notes:**
+
 - Must run tests after updates
 - Should check security advisories
 - Must verify compatibility
@@ -123,6 +135,7 @@ Use the dependency-manager to update Pillow to the latest version
 **Rationale:** Good error messages improve user experience. A specialist could ensure all errors are clear and actionable.
 
 **Capabilities:**
+
 - Review and improve error messages
 - Add helpful tips to errors
 - Ensure consistent error format
@@ -131,7 +144,8 @@ Use the dependency-manager to update Pillow to the latest version
 - Validate error message clarity
 
 **Example Usage:**
-```
+
+```text
 Use the error-message-specialist to improve validation error messages
 ```
 
@@ -144,6 +158,7 @@ Use the error-message-specialist to improve validation error messages
 **Rationale:** Good examples help users understand features. A specialist could generate varied examples.
 
 **Capabilities:**
+
 - Create sample pixel art images
 - Generate example code snippets
 - Create batch processing examples
@@ -152,7 +167,8 @@ Use the error-message-specialist to improve validation error messages
 - Update README with examples
 
 **Example Usage:**
-```
+
+```text
 Use the example-generator to create examples for the new quantization feature
 ```
 
@@ -165,6 +181,7 @@ Use the example-generator to create examples for the new quantization feature
 **Rationale:** Python evolves, and keeping code modern is important. A specialist could handle migrations systematically.
 
 **Capabilities:**
+
 - Update to newer Python syntax
 - Replace deprecated patterns
 - Modernize type hints
@@ -173,7 +190,8 @@ Use the example-generator to create examples for the new quantization feature
 - Test migration changes
 
 **Example Usage:**
-```
+
+```text
 Use the migration-specialist to update code to Python 3.12 syntax
 ```
 
@@ -186,6 +204,7 @@ Use the migration-specialist to update code to Python 3.12 syntax
 **Rationale:** Batch processing is a key feature that could be enhanced with better error handling, parallelization, and reporting.
 
 **Capabilities:**
+
 - Improve batch processing logic
 - Add parallel processing support
 - Enhance error handling for batches
@@ -194,7 +213,8 @@ Use the migration-specialist to update code to Python 3.12 syntax
 - Add batch configuration options
 
 **Example Usage:**
-```
+
+```text
 Use the batch-processing-specialist to add parallel processing for batch conversions
 ```
 
@@ -207,6 +227,7 @@ Use the batch-processing-specialist to add parallel processing for batch convers
 **Rationale:** Robust validation prevents errors and improves user experience. A specialist could ensure thorough validation.
 
 **Capabilities:**
+
 - Add input validation
 - Create validation functions
 - Ensure consistent validation patterns
@@ -215,7 +236,8 @@ Use the batch-processing-specialist to add parallel processing for batch convers
 - Test validation edge cases
 
 **Example Usage:**
-```
+
+```text
 Use the validation-specialist to add comprehensive input validation for image files
 ```
 
@@ -230,6 +252,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Good logging helps with debugging and monitoring. Currently minimal logging exists.
 
 **Capabilities:**
+
 - Add Python logging framework
 - Configure log levels
 - Add strategic log points
@@ -246,6 +269,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Global users would benefit from translated UI. Currently English-only.
 
 **Capabilities:**
+
 - Extract translatable strings
 - Implement i18n framework
 - Create translation templates
@@ -262,6 +286,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Users with screen readers or color blindness need accessible output.
 
 **Capabilities:**
+
 - Ensure screen reader compatibility
 - Provide text alternatives to emojis
 - Support --no-color mode
@@ -278,6 +303,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** File processing applications can have security vulnerabilities. Need systematic review.
 
 **Capabilities:**
+
 - Audit for security issues
 - Validate user inputs
 - Check file operations safety
@@ -294,6 +320,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Making the application easy to install and distribute is important for users.
 
 **Capabilities:**
+
 - Create PyPI package
 - Write setup.py/pyproject.toml
 - Create installation instructions
@@ -312,6 +339,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Mesh generation is complex and errors can cause slicer failures. Deep expertise needed.
 
 **Capabilities:**
+
 - Ensure manifold meshes
 - Fix topology errors
 - Optimize mesh structure
@@ -328,6 +356,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Color matching and naming is complex. Delta E calculations could be improved.
 
 **Capabilities:**
+
 - Improve color matching algorithms
 - Support different color spaces
 - Enhance color quantization
@@ -344,6 +373,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Image processing is core functionality. Specialist could optimize and enhance.
 
 **Capabilities:**
+
 - Optimize image loading
 - Improve color extraction
 - Enhance transparency handling
@@ -360,6 +390,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** The polygon_optimizer.py module needs expertise in computational geometry.
 
 **Capabilities:**
+
 - Improve Douglas-Peucker algorithm
 - Add other simplification methods
 - Optimize for 3D printing
@@ -376,6 +407,7 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Rationale:** Output needs to work well in various slicers. Specialist could ensure compatibility.
 
 **Capabilities:**
+
 - Test with multiple slicers
 - Ensure compatibility
 - Optimize for slicer performance
@@ -390,32 +422,37 @@ Use the validation-specialist to add comprehensive input validation for image fi
 **Note:** Test Generator and Implementation Planner have been implemented as **test-specialist** and **implementation-planner**.
 
 ### Immediate Value
+
 1. Performance Optimizer - Addresses user pain points with large images
 2. Config Specialist - Growing configuration complexity
 3. 3MF Format Specialist - Core functionality enhancement
 
 ### Short Term
+
 4. Error Message Specialist - Improves user experience
 5. Example Generator - Helps users understand features
 6. Batch Processing Specialist - Enhances key feature
 
 ### Medium Term
+
 7. Validation Specialist - Improves robustness
 8. Migration Specialist - Keeps code modern
 9. Dependency Manager - Maintains security and compatibility
 
 ### Long Term
+
 10. All others as needed based on project evolution
 
 ## Creating These Agents
 
 To create any of these suggested agents, use the **custom-agent-generator**:
 
-```
+```text
 Use the custom-agent-generator to create a [suggested-agent-name] based on the suggestions in SUGGESTED_CUSTOM_AGENTS.md
 ```
 
 The generator will:
+
 1. Review the suggestion
 2. Design the complete agent
 3. Create the agent definition file

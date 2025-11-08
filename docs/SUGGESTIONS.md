@@ -11,6 +11,7 @@ This document contains feature ideas and enhancements that align with the pixel 
 **Description:** Automatically reduce image colors when they exceed max_colors, eliminating the need for manual preprocessing in external applications.
 
 **Implementation:**
+
 - Added `--quantize` flag to enable automatic color reduction
 - Added `--quantize-algo` flag with options: `none` (simple nearest color) or `floyd` (Floyd-Steinberg dithering)
 - Added `--quantize-colors` flag to specify target color count (defaults to max_colors)
@@ -18,6 +19,7 @@ This document contains feature ideas and enhancements that align with the pixel 
 - Full test coverage with 16 new unit tests
 
 **Usage:**
+
 ```bash
 # Automatically quantize to 16 colors when image has too many
 python run_converter.py image.png --quantize
@@ -40,6 +42,7 @@ python run_converter.py image.png --quantize --quantize-colors 8
 **Use Case:** A user has 4 AMS slots with specific colors loaded. They want to automatically map image colors to their available filaments.
 
 **Implementation:**
+
 ```python
 # New file: pixel_to_3mf/filament_mapping.py
 
@@ -92,6 +95,7 @@ class FilamentMapping:
 ```
 
 **Benefits:**
+
 - Helps users plan which filaments to load
 - Warns if image colors don't match available filaments
 - Generates accurate color names for slicer
@@ -108,6 +112,7 @@ class FilamentMapping:
 **Use Case:** User wants to visualize the final model before printing.
 
 **Implementation:**
+
 ```python
 # New file: pixel_to_3mf/preview.py
 
@@ -141,6 +146,7 @@ def generate_preview(
 ```
 
 **Benefits:**
+
 - Helps users verify region merging worked correctly
 - Shows actual dimensions in mm
 - Visual confirmation before starting print
@@ -157,6 +163,7 @@ def generate_preview(
 **Use Case:** User has a 32-color image but printer only supports 16 filaments.
 
 **Implementation:**
+
 ```python
 # In image_processor.py
 
@@ -186,6 +193,7 @@ def reduce_colors(
 ```
 
 **Benefits:**
+
 - Automatic handling of high-color images
 - No need for manual editing
 - Maintains visual quality
@@ -202,6 +210,7 @@ def reduce_colors(
 **Use Case:** User wants to use a slicer that doesn't support multi-material 3MF files.
 
 **Implementation:**
+
 ```python
 # New file: pixel_to_3mf/stl_writer.py
 
@@ -230,11 +239,13 @@ def write_stl(
 ```
 
 **Benefits:**
+
 - Wider slicer compatibility
 - Single-color models still useful
 - Could export regions as separate STL files
 
 **Drawbacks:**
+
 - Loses color information
 - Less useful for multi-color prints
 
@@ -249,6 +260,7 @@ def write_stl(
 **Use Case:** User has a sheet of pixel art icons and wants to convert them all at once.
 
 **Implementation:**
+
 ```python
 # New file: pixel_to_3mf/sprite_sheet.py
 
@@ -284,6 +296,7 @@ def process_sprite_sheet(
 ```
 
 **Benefits:**
+
 - Batch process entire sprite sheets
 - Automatic naming
 - Skip empty/transparent sprites
@@ -300,6 +313,7 @@ def process_sprite_sheet(
 **Use Case:** Create models with varying depths based on image brightness.
 
 **Implementation:**
+
 ```python
 # In config.py
 class ConversionConfig:
@@ -326,11 +340,13 @@ def generate_region_mesh_relief(
 ```
 
 **Benefits:**
+
 - Create embossed/relief models
 - Add depth to flat pixel art
 - Artistic possibilities
 
 **Drawbacks:**
+
 - More complex mesh generation
 - Loses flat, clean aesthetic
 - May not work well with pixel art
@@ -348,6 +364,7 @@ def generate_region_mesh_relief(
 **Use Case:** A character sprite where you want "Head", "Body", "Arms" as separate objects in the slicer instead of individual color regions.
 
 **Implementation:**
+
 ```python
 # New file: grouping_config.json
 {
@@ -368,6 +385,7 @@ def generate_region_mesh_relief(
 ```
 
 **Benefits:**
+
 - Better organization in slicer
 - Logical grouping for complex models
 - Easier to assign filaments
@@ -383,6 +401,7 @@ def generate_region_mesh_relief(
 **Use Case:** Convert photos or high-color images while maintaining detail.
 
 **Implementation:**
+
 ```python
 # In image_processor.py
 def apply_dithering(
@@ -400,11 +419,13 @@ def apply_dithering(
 ```
 
 **Benefits:**
+
 - Better photo conversion
 - Preserves gradients and details
 - Creates interesting pixel art effects
 
 **Drawbacks:**
+
 - May create very complex regions
 - Larger file sizes
 - Pixel art loses clean edges
@@ -420,6 +441,7 @@ def apply_dithering(
 **Use Case:** Large models where solid fill wastes material.
 
 **Implementation:**
+
 ```python
 # In config.py
 class ConversionConfig:
@@ -439,11 +461,13 @@ def generate_hollow_mesh(region, pixel_data, config):
 ```
 
 **Benefits:**
+
 - Saves filament
 - Faster prints
 - Good for large decorative pieces
 
 **Drawbacks:**
+
 - More complex geometry
 - May need supports
 - Less structurally sound
@@ -459,6 +483,7 @@ def generate_hollow_mesh(region, pixel_data, config):
 **Use Case:** Create a 3D model from multiple 2D layers (like animation frames).
 
 **Implementation:**
+
 ```python
 # New file: pixel_to_3mf/layered.py
 
@@ -488,6 +513,7 @@ def convert_layered_image_to_3mf(
 ```
 
 **Benefits:**
+
 - Create true 3D models from 2D layers
 - Interesting artistic possibilities
 - Animation frame visualization
@@ -505,6 +531,7 @@ def convert_layered_image_to_3mf(
 **Implementation:** Flask/FastAPI backend + simple HTML frontend
 
 **Benefits:**
+
 - No installation required
 - Easy to use for non-technical users
 - Could show preview immediately
@@ -562,6 +589,7 @@ def convert_layered_image_to_3mf(
 **Description:** Common size presets (keychain, coaster, wall art, etc.)
 
 **Implementation:**
+
 ```python
 # In constants.py
 SCALING_PRESETS = {
@@ -630,24 +658,28 @@ SCALING_PRESETS = {
 ## Feature Implementation Priority
 
 ### Immediate Value (Should Consider)
+
 1. **Filament Mapping** (#1) - High value for multi-material printing
 2. **Preview Rendering** (#2) - Helps users verify results
 3. **Auto Color Reduction** (#3) - Solves common problem
 4. **Scaling Presets** (#16) - Quick win, easy implementation
 
 ### Medium-Term (Nice to Have)
+
 5. **Sprite Sheet Processing** (#5) - Great for game developers
 6. **STL Export** (#4) - Wider compatibility
 7. **Custom Grouping** (#7) - Better organization
 8. **Material Cost Estimation** (#18) - Practical utility
 
 ### Long-Term (If Requested)
+
 9. **Height Map/Relief** (#6) - Artistic applications
 10. **Hollow Mode** (#9) - Material savings
 11. **Multi-Layer** (#10) - Advanced 3D modeling
 12. **Dithering** (#8) - Photo conversion
 
 ### Future/Experimental
+
 13. **Web Interface** (#11) - Accessibility
 14. **Edge Smoothing** (#14) - Aesthetic option
 15. **CAD Export** (#13) - Advanced users
@@ -658,18 +690,21 @@ SCALING_PRESETS = {
 ## Technical Debt Items
 
 ### Performance Optimization
+
 - Profile mesh generation for large images
 - Consider Cython for hot paths
 - Parallel processing for batch mode
 - Incremental progress saving for very large conversions
 
 ### Code Organization
+
 - Extract CLI helpers into separate modules
 - Create shared utilities module
 - Add more integration tests
 - Document plugin architecture for extensions
 
 ### Build/Distribution
+
 - Create PyPI package
 - Add GUI launcher (pyinstaller/cx_Freeze)
 - Docker container for web service
@@ -677,7 +712,7 @@ SCALING_PRESETS = {
 
 ---
 
-## Community Suggestions Welcome!
+## Community Suggestions Welcome
 
 This document should be a living document. If you have feature ideas:
 
@@ -687,6 +722,7 @@ This document should be a living document. If you have feature ideas:
 4. Suggest implementation approach if possible
 
 **Selection Criteria:**
+
 - ✅ Aligns with pixel art → 3D printing workflow
 - ✅ Provides clear value to users
 - ✅ Feasible with current architecture
@@ -694,6 +730,7 @@ This document should be a living document. If you have feature ideas:
 - ✅ Has real-world use cases
 
 **Out of Scope:**
+
 - ❌ General 3D modeling (use Blender)
 - ❌ Full photo editing (use GIMP/Photoshop)
 - ❌ Slicer functionality (use Bambu Studio/PrusaSlicer)

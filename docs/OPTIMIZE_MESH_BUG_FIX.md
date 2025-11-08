@@ -6,18 +6,21 @@
 ## Problem Statement
 
 The `--optimize-mesh` flag was causing the converter to crash with segmentation faults:
+
 - Would say it's going to generate N objects
 - Would process a few objects successfully
-- Would then exit silently with exit code 139 (SIGSEGV) 
+- Would then exit silently with exit code 139 (SIGSEGV)
 - No error messages or helpful debugging information
 - According to issue #10, ChatGPT codex connector identified two issues in the code
 
 ## Root Causes Identified
 
 ### 1. MultiPolygon Handling Bug
+
 **Location:** `polygon_optimizer.py::pixels_to_polygon()`
 
 **Issue:** When `shapely.unary_union()` produced a MultiPolygon (disconnected parts), the code was:
+
 - Taking only the **largest** polygon by area
 - **Silently discarding** all other parts
 - This was fundamentally wrong - we were throwing away pixels that should be in the region!
@@ -27,9 +30,11 @@ The `--optimize-mesh` flag was causing the converter to crash with segmentation 
 **Fix:** Now raises `ValueError` when MultiPolygon is detected, triggering fallback to original implementation instead of discarding data.
 
 ### 2. Triangle Library Segfaults
+
 **Location:** `polygon_optimizer.py::triangulate_polygon_2d()`
 
 **Issue:** The C-based `triangle` library was segfaulting on certain polygon configurations:
+
 - Polygons with multiple holes
 - Complex non-convex shapes
 - Near-degenerate geometries
@@ -37,30 +42,36 @@ The `--optimize-mesh` flag was causing the converter to crash with segmentation 
 **Why fallback didn't work:** Python's try/except cannot catch segmentation faults - they crash the entire process before the exception handler can run.
 
 **Fix:** Added pre-validation to detect problematic geometries before passing them to the triangle library:
+
 - Check for degenerate polygons (zero/negative area, too thin)
 - Reject polygons with > 10 holes
 - Validate exterior ring has enough vertices
 - Improved hole point calculation using `representative_point()`
 
 ### 3. Circular Recursion in Fallback
+
 **Location:** `mesh_generator.py::generate_region_mesh()` and `polygon_optimizer.py::generate_region_mesh_optimized()`
 
 **Issue:** When optimization failed and tried to fall back:
-- `generate_region_mesh_optimized()` would call `generate_region_mesh()` 
+
+- `generate_region_mesh_optimized()` would call `generate_region_mesh()`
 - `generate_region_mesh()` would dispatch back to `generate_region_mesh_optimized()` (because flag was set)
 - Infinite recursion until stack overflow
 
 **Fix:** Refactored dispatch logic:
-- Created `_generate_region_mesh_original()` and `_generate_backing_plate_original()` 
+
+- Created `_generate_region_mesh_original()` and `_generate_backing_plate_original()`
 - Public functions handle dispatch
 - Fallback calls the `_original()` functions directly, bypassing dispatch
 
 ### 4. Lack of Debugging Information
+
 **Location:** `polygon_optimizer.py` throughout
 
 **Issue:** No logging made it impossible to diagnose where crashes occurred.
 
 **Fix:** Added comprehensive logging:
+
 - DEBUG level logs for each step of the optimization pipeline
 - INFO level logs for region processing
 - WARNING logs for fallback triggers
@@ -102,6 +113,7 @@ The `--optimize-mesh` flag was causing the converter to crash with segmentation 
 ## Behavior After Fix
 
 ### Successful Conversion Flow
+
 1. User runs: `python run_converter.py image.png --optimize-mesh`
 2. For each region:
    - Logging shows: "Starting optimized mesh generation for region with N pixels"
@@ -119,7 +131,8 @@ The `--optimize-mesh` flag was causing the converter to crash with segmentation 
 4. 3MF file is generated successfully
 
 ### Example Log Output
-```
+
+```text
 [OPTIMIZE] Starting optimized mesh generation for region with 15 pixels, color=RGB(216, 40, 0)
 [OPTIMIZE] Step 1: Converting pixels to polygon...
 [OPTIMIZE] Converting 15 pixels to polygon (pixel_size=6.25mm)
@@ -130,12 +143,14 @@ The `--optimize-mesh` flag was causing the converter to crash with segmentation 
 ```
 
 ### Geometries That Work Well
+
 - Simple connected regions (squares, rectangles, L-shapes)
 - Single-polygon results from unary_union
 - Polygons with 0-10 holes
 - Valid, non-degenerate geometries
 
 ### Geometries That Trigger Fallback
+
 - Regions producing MultiPolygon (disconnected components)
 - Polygons with > 10 holes
 - Degenerate polygons (zero area, too thin)
@@ -144,6 +159,7 @@ The `--optimize-mesh` flag was causing the converter to crash with segmentation 
 ## Testing
 
 ### Manual Testing
+
 ```bash
 # Test without optimization (baseline)
 python run_converter.py samples/input/nes-samus.png --output test1.3mf
@@ -156,6 +172,7 @@ python run_converter.py /tmp/simple_square.png --output test3.3mf --optimize-mes
 ```
 
 ### Unit Tests
+
 ```bash
 # All polygon optimizer tests pass
 python -m unittest tests.test_polygon_optimizer -v
@@ -167,12 +184,14 @@ python -m unittest tests.test_mesh_generator -v
 ## Impact
 
 ### Before Fix
+
 - ❌ --optimize-mesh would crash on many images
 - ❌ No error messages to help diagnose issues  
 - ❌ Lost work when conversion crashed partway through
 - ❌ Silently discarding pixels (data loss)
 
 ### After Fix
+
 - ✅ --optimize-mesh completes successfully on all tested images
 - ✅ Comprehensive logging shows exactly what's happening
 - ✅ Automatic fallback for unsuitable geometries

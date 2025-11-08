@@ -9,6 +9,7 @@
 This document identifies bugs and potential issues found during a comprehensive code review of the Pixel Art to 3MF Converter. Bugs are categorized by severity and module.
 
 **Severity Levels:**
+
 - **CRITICAL:** Causes crashes, data corruption, or completely broken features
 - **HIGH:** Major user-facing issues, incorrect output, or significant usability problems
 - **MEDIUM:** Edge cases, minor incorrect behavior, or code quality issues
@@ -25,6 +26,7 @@ This document identifies bugs and potential issues found during a comprehensive 
 **Issue:** The `write_3mf()` function contains `print()` statements directly in business logic code. This violates the stated architecture where all CLI output should be in `cli.py`.
 
 **Code:**
+
 ```python
 def write_3mf(...):
     # ... conversion logic ...
@@ -38,12 +40,14 @@ def write_3mf(...):
 ```
 
 **Impact:**
+
 - Breaks the separation of concerns between CLI and business logic
 - Makes the library unusable in non-CLI contexts (web apps, GUIs, etc.)
 - Cannot suppress output when using programmatically
 - Inconsistent with the design principle stated in documentation
 
 **Suggested Fix:**
+
 ```python
 # Remove print statements and use progress_callback instead
 def write_3mf(...):
@@ -69,6 +73,7 @@ The CLI layer should handle formatting and displaying these messages, not the bu
 **Issue:** Comment claims "Fix: Use POSITIVE offsets - we were backwards!" but the actual offset calculation appears incorrect. All regions are placed at the same position (model center), which may not be the intended behavior.
 
 **Code:**
+
 ```python
 for obj_id, (mesh_idx, rgb, color_name) in enumerate(region_data, start=1):
     object_names.append((obj_id, color_name))
@@ -78,17 +83,20 @@ for obj_id, (mesh_idx, rgb, color_name) in enumerate(region_data, start=1):
 ```
 
 **Impact:**
+
 - All regions are transformed to the exact same position
 - This might work if meshes already have absolute coordinates, but it's unclear
 - The comment suggests there was a previous bug, but the fix may be incomplete
 - Potential for overlapping or incorrectly positioned meshes
 
 **Investigation Needed:**
+
 - Determine if mesh vertices are in absolute or relative coordinates
 - Verify if centering transform is correct
 - Check if this causes issues with multi-region models
 
 **Suggested Investigation:**
+
 1. Review mesh generation code to understand coordinate system
 2. Test with multi-region images to verify correct placement
 3. Consider if each region should have its own bounding box transform
@@ -102,11 +110,13 @@ for obj_id, (mesh_idx, rgb, color_name) in enumerate(region_data, start=1):
 **Issue:** The backing plate is generated with negative Z coordinates (from `-base_height_mm` to `0`). Some slicers may not handle models with negative Z coordinates correctly.
 
 **Code:**
+
 ```python
 vertices.append((cx * ps, cy * ps, -config.base_height_mm))  # Line 310
 ```
 
 **Impact:**
+
 - Some slicers may ignore geometry below Z=0
 - Model might appear floating or incorrect in slicer preview
 - 3D printing convention is usually Z >= 0
@@ -125,6 +135,7 @@ Generate the backing plate from Z=0 to Z=base_height_mm, and shift colored regio
 **Issue:** The color limit enforcement logic has a potential off-by-one error and confusing message formatting.
 
 **Code:**
+
 ```python
 if backing_in_image:
     # Backing color is already in the image, no reservation needed
@@ -145,11 +156,13 @@ if num_colors > effective_max_colors:
 ```
 
 **Issues:**
+
 1. When backing color IS in the image, the second line of the error message still says "Backing color ... is not in the image" which is incorrect
 2. The error message always mentions reservation even when it doesn't apply
 3. Off-by-one potential: should it be `>` or `>=` for the check?
 
 **Suggested Fix:**
+
 ```python
 if num_colors > effective_max_colors:
     backing_name = f"RGB{config.backing_color}"
@@ -176,6 +189,7 @@ if num_colors > effective_max_colors:
 **Issue:** The `prettify_xml()` function uses `toprettyxml()` which adds an XML declaration (`<?xml version="1.0" ?>`), but some callers may not want this.
 
 **Code:**
+
 ```python
 def prettify_xml(elem: ET.Element) -> str:
     rough_string = ET.tostring(elem, encoding='unicode')
@@ -184,11 +198,13 @@ def prettify_xml(elem: ET.Element) -> str:
 ```
 
 **Impact:**
+
 - Multiple XML declarations might appear in a single file
 - 3MF spec may require specific XML declaration format
 - Comments in code say "Don't add extra XML declaration - prettify_xml will add it" but this is misleading
 
 **Suggested Fix:**
+
 ```python
 def prettify_xml(elem: ET.Element, xml_declaration: bool = True) -> str:
     """
@@ -223,17 +239,20 @@ def prettify_xml(elem: ET.Element, xml_declaration: bool = True) -> str:
 **Issue:** Vertex and triangle indices are stored as regular Python `int`, which is fine, but when written to XML they're not validated to fit in 32-bit integers (which some 3MF parsers might expect).
 
 **Code Example:**
+
 ```python
 top_vertex_map[key] = len(vertices)  # No validation of max value
 ```
 
 **Impact:**
+
 - Very large images (>10000x10000 pixels) could exceed 2^31-1 vertices
 - Some parsers might fail with large indices
 - No user feedback about model being too complex
 
 **Suggested Fix:**
 Add a validation check after mesh generation:
+
 ```python
 MAX_VERTICES = 2147483647  # 2^31 - 1 for 32-bit signed integer
 
@@ -255,6 +274,7 @@ if len(mesh.vertices) > MAX_VERTICES:
 **Issue:** Module imports `os` and `math` but `math` is only used in `format_filesize()` which could use integer division instead.
 
 **Code:**
+
 ```python
 import os, math  # Line 11
 
@@ -265,10 +285,12 @@ def format_filesize(size_bytes):
 ```
 
 **Impact:**
+
 - Code clarity (unused imports are confusing)
 - Minor: using `math.pow()` for integer exponentiation is slower than `**`
 
 **Suggested Fix:**
+
 ```python
 import os
 
@@ -292,6 +314,7 @@ def format_filesize(size_bytes):
 **Issue:** If an image is completely transparent, `merge_regions()` will return an empty list, but the code doesn't check for this before generating meshes.
 
 **Code:**
+
 ```python
 regions = merge_regions(pixel_data)
 _progress("merge", f"Found {len(regions)} connected regions")
@@ -303,11 +326,13 @@ for i, region in enumerate(regions, start=1):
 ```
 
 **Impact:**
+
 - Creates a 3MF file with only a backing plate (if enabled)
 - If backing plate is disabled (base_height=0), creates empty 3MF file
 - Empty 3MF files might not load in some slicers
 
 **Suggested Fix:**
+
 ```python
 regions = merge_regions(pixel_data)
 _progress("merge", f"Found {len(regions)} connected regions")
@@ -331,16 +356,19 @@ if len(regions) == 0:
 **Issue:** `SUPPORTED_IMAGE_EXTENSIONS` includes `.webp` but WebP may not be reliably supported by all PIL/Pillow versions.
 
 **Code:**
+
 ```python
 SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
 ```
 
 **Impact:**
+
 - Batch mode might fail on `.webp` files if Pillow doesn't support it
 - No graceful error handling for unsupported formats
 - Missing `.tiff`/`.tif` which are mentioned in README
 
 **Suggested Fix:**
+
 ```python
 # Core formats (guaranteed by Pillow)
 SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif'}
@@ -363,16 +391,19 @@ except:
 **Issue:** `SUPPORTED_IMAGE_EXTENSIONS` includes `.webp` but WebP support in Pillow varies by installation and platform. Some users might not have WebP support compiled in their Pillow installation.
 
 **Code:**
+
 ```python
 SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
 ```
 
 **Impact:**
+
 - Batch mode might fail unexpectedly on `.webp` files
 - Error messages won't be clear about WebP support
 - Different behavior on different systems
 
 **Suggested Fix:**
+
 ```python
 # Core formats (guaranteed by Pillow)
 SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif'}
@@ -397,6 +428,7 @@ except:
 **Issue:** Some functions use `dict` instead of `Dict` from typing, mixing old and new style type hints.
 
 **Examples:**
+
 - `mesh_generator.py` line 113: `top_vertex_map: dict[Tuple[int, int], int] = {}`
 - Should be: `top_vertex_map: Dict[Tuple[int, int], int] = {}`
 
@@ -411,6 +443,7 @@ except:
 **Issue:** Default build plate center `(128.0, 128.0)` is hardcoded in function signature.
 
 **Code:**
+
 ```python
 def generate_main_model_xml(
     num_objects: int, 
@@ -421,6 +454,7 @@ def generate_main_model_xml(
 
 **Suggested Fix:**
 Move to constants.py:
+
 ```python
 # In constants.py
 BUILD_PLATE_CENTER_X_MM = 128.0
@@ -445,12 +479,14 @@ def generate_main_model_xml(
 **Issue:** Function `format_filesize` has a brief docstring but doesn't follow the detailed style of other functions.
 
 **Current:**
+
 ```python
 def format_filesize(size_bytes):
     """Converts a file size in bytes to a human-readable format."""
 ```
 
 **Suggested:**
+
 ```python
 def format_filesize(size_bytes: int) -> str:
     """
@@ -483,6 +519,7 @@ def format_filesize(size_bytes: int) -> str:
 **Issue:** Using `queue.pop(0)` on a list is O(n) operation. For large regions, this could be slow.
 
 **Code:**
+
 ```python
 while queue:
     # Pop the first pixel from queue
@@ -490,10 +527,12 @@ while queue:
 ```
 
 **Impact:**
+
 - Slow performance on large regions (10,000+ pixels)
 - Not a bug, but inefficient
 
 **Suggested Fix:**
+
 ```python
 from collections import deque
 
@@ -513,6 +552,7 @@ while queue:
 **Issue:** No check for absurdly small or large image dimensions.
 
 **Suggested Addition:**
+
 ```python
 # After loading image
 width, height = img.size
@@ -553,11 +593,13 @@ if width > 10000 or height > 10000:
 **Constants:** `SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}`
 
 **Impact:**
+
 - Documentation promises TIFF support but code doesn't support it
 - Users with TIFF files in batch folders will be confused why they're ignored
 - Pillow fully supports TIFF format
 
 **Fix:** Add TIFF extensions to the supported list:
+
 ```python
 SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.webp'}
 ```
@@ -569,12 +611,14 @@ SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', 
 ### 18. No Tests for Error Conditions
 
 **Observation:** Test files test happy paths but minimal error condition testing:
+
 - No test for completely transparent image
 - No test for image with too many colors
 - No test for very large images
 - No test for invalid backing color in config
 
 **Suggested Tests:**
+
 1. `test_empty_image_error` - All transparent pixels
 2. `test_too_many_colors_error` - Exceeds max_colors
 3. `test_invalid_backing_color` - RGB values out of range
@@ -588,12 +632,14 @@ SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', 
 **Total Issues Found:** 18
 
 **Breakdown by Severity:**
+
 - Critical: 3
 - High: 6  
 - Medium: 6
 - Low: 3
 
 **Priority Fixes (Recommended Order):**
+
 1. Fix print statements in business logic (#1) - Breaks API contract
 2. Fix color limit error messages (#4) - User-facing confusion
 3. Validate negative Z coordinates issue (#3) - Potential slicer incompatibility
@@ -603,11 +649,12 @@ SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', 
 7. Fix file extension handling (#9) - Batch mode reliability
 
 **Quick Wins:**
+
 - Fix unused imports (#7)
 - Add missing type hints consistency (#11)
 - Move magic numbers to constants (#12)
 - Update documentation (#16, #17)
 
 **Performance Improvements:**
-- Use deque for BFS in flood fill (#14)
 
+- Use deque for BFS in flood fill (#14)

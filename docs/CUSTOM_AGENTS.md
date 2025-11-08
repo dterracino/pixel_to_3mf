@@ -15,6 +15,7 @@ Custom agents are specialized AI assistants with domain-specific expertise. They
 **Purpose:** Identifies and fixes bugs, detects code smells, creates bug reports, and ensures code quality.
 
 **When to Use:**
+
 - Debugging issues or errors
 - Fixing failing tests
 - Investigating unexpected behavior
@@ -24,6 +25,7 @@ Custom agents are specialized AI assistants with domain-specific expertise. They
 - Detecting separation of concerns violations
 
 **Capabilities:**
+
 - Root cause analysis of bugs
 - Detection of common code smells:
   - Magic numbers not in constants
@@ -37,7 +39,8 @@ Custom agents are specialized AI assistants with domain-specific expertise. They
 - Code quality improvements
 
 **Example Usage:**
-```
+
+```text
 Use the bug-specialist to investigate why the mesh generator is producing non-manifold geometry
 ```
 
@@ -50,6 +53,7 @@ Use the bug-specialist to investigate why the mesh generator is producing non-ma
 **Purpose:** Cleans up messy code, removes duplication, and improves maintainability.
 
 **When to Use:**
+
 - Removing dead code
 - Eliminating duplicate code
 - Cleaning up documentation
@@ -57,6 +61,7 @@ Use the bug-specialist to investigate why the mesh generator is producing non-ma
 - Standardizing code style
 
 **Capabilities:**
+
 - Identifying and removing unused code
 - Consolidating duplicate logic
 - Simplifying overly complex functions
@@ -64,7 +69,8 @@ Use the bug-specialist to investigate why the mesh generator is producing non-ma
 - Improving code organization
 
 **Example Usage:**
-```
+
+```text
 Use the cleanup-specialist to remove duplicate color validation code across modules
 ```
 
@@ -77,11 +83,13 @@ Use the cleanup-specialist to remove duplicate color validation code across modu
 **Purpose:** Creates new custom agent definition files following project conventions.
 
 **When to Use:**
+
 - Creating new custom agents
 - Updating existing agent definitions
 - Designing agent workflows and capabilities
 
 **Capabilities:**
+
 - Understanding agent file structure and conventions
 - Designing focused, single-purpose agents
 - Selecting appropriate tools and permissions
@@ -89,7 +97,8 @@ Use the cleanup-specialist to remove duplicate color validation code across modu
 - Writing actionable guidance
 
 **Example Usage:**
-```
+
+```text
 Use the custom-agent-generator to create a new agent specialized in mesh optimization
 ```
 
@@ -102,12 +111,14 @@ Use the custom-agent-generator to create a new agent specialized in mesh optimiz
 **Purpose:** Creates and updates docstring comments that explain WHY over WHAT.
 
 **When to Use:**
+
 - Adding docstrings to new functions
 - Improving existing documentation
 - Explaining complex algorithms
 - Documenting design decisions
 
 **Capabilities:**
+
 - Writing WHY-focused docstrings
 - Following Google-style docstring format
 - Explaining design decisions and trade-offs
@@ -116,7 +127,8 @@ Use the custom-agent-generator to create a new agent specialized in mesh optimiz
 - Understanding Python 3.10+ features
 
 **Example Usage:**
-```
+
+```text
 Use the docstring-specialist to add comprehensive docstrings to the polygon optimizer module
 ```
 
@@ -129,6 +141,7 @@ Use the docstring-specialist to add comprehensive docstrings to the polygon opti
 **Purpose:** Creates detailed implementation plans for new features and complex changes.
 
 **When to Use:**
+
 - Planning new features
 - Breaking down complex changes
 - Designing architecture for new functionality
@@ -136,6 +149,7 @@ Use the docstring-specialist to add comprehensive docstrings to the polygon opti
 - Creating roadmaps for major work
 
 **Capabilities:**
+
 - Breaking down requirements into actionable tasks
 - Identifying dependencies and ordering work
 - Planning for testing at each stage
@@ -144,7 +158,8 @@ Use the docstring-specialist to add comprehensive docstrings to the polygon opti
 - Ensuring alignment with project architecture
 
 **Example Usage:**
-```
+
+```text
 Use the implementation-planner to create a plan for adding image preprocessing support
 ```
 
@@ -157,19 +172,22 @@ Use the implementation-planner to create a plan for adding image preprocessing s
 **Purpose:** Creates and improves README files and project documentation.
 
 **When to Use:**
+
 - Creating or updating README.md
 - Writing project documentation
 - Creating usage examples
 - Documenting features
 
 **Capabilities:**
+
 - Writing clear, comprehensive documentation
 - Creating effective examples
 - Structuring documentation logically
 - Maintaining consistent tone
 
 **Example Usage:**
-```
+
+```text
 Use the readme-specialist to update the README with the new quantization feature
 ```
 
@@ -182,6 +200,7 @@ Use the readme-specialist to update the README with the new quantization feature
 **Purpose:** Expert in Python refactoring, code cleanup, bug fixes, documentation, and unit testing with deep knowledge of this project's architecture.
 
 **When to Use:**
+
 - Large-scale refactoring
 - Improving code structure
 - Extracting common patterns
@@ -189,6 +208,7 @@ Use the readme-specialist to update the README with the new quantization feature
 - Adding or improving tests
 
 **Capabilities:**
+
 - Deep understanding of project architecture
 - Knowledge of all design patterns used
 - Expertise in Python 3.10+ features
@@ -197,7 +217,8 @@ Use the readme-specialist to update the README with the new quantization feature
 - Following DRY principles
 
 **Example Usage:**
-```
+
+```text
 Use the refactoring-specialist to refactor the mesh generation pipeline for better maintainability
 ```
 
@@ -210,6 +231,7 @@ Use the refactoring-specialist to refactor the mesh generation pipeline for bett
 **Purpose:** Expert in creating comprehensive unit tests and ensuring thorough test coverage.
 
 **When to Use:**
+
 - Writing tests for new features
 - Adding regression tests for bug fixes
 - Improving test coverage
@@ -217,6 +239,7 @@ Use the refactoring-specialist to refactor the mesh generation pipeline for bett
 - Creating test fixtures and helpers
 
 **Capabilities:**
+
 - Expertise in unittest framework
 - Test design patterns (AAA, Given-When-Then)
 - Edge case identification
@@ -226,7 +249,8 @@ Use the refactoring-specialist to refactor the mesh generation pipeline for bett
 - Coverage analysis
 
 **Example Usage:**
-```
+
+```text
 Use the test-specialist to create comprehensive tests for the new quantization module
 ```
 
@@ -239,12 +263,14 @@ Use the test-specialist to create comprehensive tests for the new quantization m
 **Purpose:** Expert in Python type hinting and static type checking with Pylance/Pyright.
 
 **When to Use:**
+
 - Adding type hints to code
 - Fixing type errors from Pylance/Pyright
 - Ensuring type safety
 - Modernizing type hints to Python 3.10+ syntax
 
 **Capabilities:**
+
 - Modern Python 3.10+ type syntax (str | None, list[str])
 - Pyright/Pylance error resolution
 - Type narrowing and type guards
@@ -253,7 +279,8 @@ Use the test-specialist to create comprehensive tests for the new quantization m
 - Running and fixing pyright errors
 
 **Example Usage:**
-```
+
+```text
 Use the type-specialist to add type hints to the new configuration module
 ```
 
@@ -266,6 +293,7 @@ Use the type-specialist to add type hints to the new configuration module
 **Purpose:** Creates and reviews application UI, progress reporting, text output, and command-line interfaces.
 
 **When to Use:**
+
 - Adding new CLI arguments
 - Improving user feedback
 - Standardizing error messages
@@ -274,6 +302,7 @@ Use the type-specialist to add type hints to the new configuration module
 - Fixing UI inconsistencies
 
 **Capabilities:**
+
 - CLI design with argparse
 - Progress reporting patterns
 - Error message formatting
@@ -283,7 +312,8 @@ Use the type-specialist to add type hints to the new configuration module
 - Consistent terminology and messaging
 
 **Example Usage:**
-```
+
+```text
 Use the ui-specialist to improve the progress reporting during mesh generation
 ```
 
@@ -292,12 +322,14 @@ Use the ui-specialist to improve the progress reporting during mesh generation
 ### When to Use Custom Agents
 
 **Use custom agents when:**
+
 - Working in their area of expertise
 - Need specialized knowledge of project patterns
 - Want consistent, high-quality results
 - Task aligns with agent's purpose
 
 **Don't use custom agents when:**
+
 - Task is outside their scope
 - Need general programming help
 - Simple one-line changes
@@ -308,11 +340,13 @@ Use the ui-specialist to improve the progress reporting during mesh generation
 Custom agents can be invoked by explicitly mentioning them or through context-based automatic triggering:
 
 **Explicit Invocation:**
-```
+
+```text
 Use the [agent-name] to [specific task]
 ```
 
 **Context-Based (Automatic):**
+
 - Editing Python code → Consider type-specialist for type hints
 - Adding CLI arguments → UI specialist
 - Fixing bugs → Bug specialist
@@ -325,7 +359,7 @@ Use the [agent-name] to [specific task]
 
 For complex tasks, multiple agents can work sequentially:
 
-```
+```text
 1. Use implementation-planner to break down a complex feature
 2. Use bug-specialist to fix the mesh topology issue
 3. Use type-specialist to add proper type hints to the fixed code
@@ -339,17 +373,20 @@ For complex tasks, multiple agents can work sequentially:
 All custom agents understand these project principles:
 
 ### Architecture
+
 - **Separation of Concerns**: CLI layer (cli.py) vs business logic (all other modules)
 - **DRY Principles**: No duplicate code, extract common patterns
 - **Constants Centralization**: All magic numbers in constants.py
 
 ### Python Standards
+
 - **Version**: Python 3.10+ (use modern syntax)
 - **Type Hints**: Required on all functions (str | None, list[str])
 - **Docstrings**: Explain WHY, not just WHAT (Google-style)
 - **Testing**: unittest framework
 
 ### Critical Conventions
+
 1. NO print statements in business logic modules
 2. ALL magic numbers must be in constants.py
 3. Type hints required on ALL function signatures
@@ -360,11 +397,12 @@ All custom agents understand these project principles:
 
 To create a new custom agent, use the **custom-agent-generator**:
 
-```
+```text
 Use the custom-agent-generator to create a new agent for [specific purpose]
 ```
 
 The generator will:
+
 1. Design an appropriate agent structure
 2. Define the agent's scope and capabilities
 3. Select necessary tools
@@ -375,16 +413,19 @@ The generator will:
 ## Troubleshooting
 
 **Agent not understanding project context?**
+
 - Ensure the agent's definition file is up to date
 - Provide additional context in your request
 - Check that the agent is the right one for the task
 
 **Agent making changes outside its scope?**
+
 - Be more specific in your request
 - Use a different agent better suited for the task
 - Review the agent's capabilities in this document
 
 **Need a new agent?**
+
 - Use the custom-agent-generator to create one
 - Document the new agent in this file
 - Update .github/copilot-instructions.md with triggering rules

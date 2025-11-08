@@ -7,7 +7,9 @@ Successfully implemented polygon-based mesh optimization as specified in OPTIMIZ
 ## Key Components
 
 ### 1. New Module: `polygon_optimizer.py`
+
 Complete implementation of polygon-based mesh optimization:
+
 - `pixels_to_polygon()` - Merges pixel squares using shapely's unary_union
 - `triangulate_polygon_2d()` - Constrained Delaunay triangulation via triangle library
 - `extrude_polygon_to_mesh()` - 3D mesh generation with top/bottom faces and perimeter walls
@@ -15,17 +17,21 @@ Complete implementation of polygon-based mesh optimization:
 - `generate_backing_plate_optimized()` - Optimized backing plate generation
 
 ### 2. Modified: `mesh_generator.py`
+
 - Added `USE_OPTIMIZED_MESH_GENERATION` feature flag (default: False)
 - Added dispatch logic in `generate_region_mesh()` and `generate_backing_plate()`
 - Maintains backward compatibility - original path unchanged
 
 ### 3. Modified: `cli.py`
+
 - Added `--optimize-mesh` command-line flag
 - Enables optimization feature when flag is present
 - Works in both single-file and batch modes
 
 ### 4. New Tests: `test_polygon_optimizer.py`
+
 Comprehensive test coverage (22 tests):
+
 - Polygon creation from pixel sets
 - 2D triangulation validation
 - 3D mesh extrusion
@@ -34,6 +40,7 @@ Comprehensive test coverage (22 tests):
 - All tests pass ✅
 
 ### 5. Documentation
+
 - Updated README.md with experimental feature section
 - Created POLYGON_OPTIMIZATION_NOTES.md with implementation details
 - Documented known limitations and workarounds
@@ -54,6 +61,7 @@ Benchmarked reductions on typical cases:
 ## How to Use
 
 ### Command Line
+
 ```bash
 # Enable optimization for single file
 python run_converter.py image.png --optimize-mesh
@@ -63,6 +71,7 @@ python run_converter.py --batch --optimize-mesh
 ```
 
 ### Python API
+
 ```python
 import pixel_to_3mf.mesh_generator as mg
 mg.USE_OPTIMIZED_MESH_GENERATION = True
@@ -74,10 +83,13 @@ stats = convert_image_to_3mf("image.png", "output.3mf")
 ## Design Decisions
 
 ### Why Disabled by Default?
+
 The triangle library (C library) can segfault on certain complex polygon configurations. Since segfaults cannot be caught by Python's exception handling, we made optimization **opt-in** to ensure stability.
 
 ### Fallback Strategy
+
 When optimization fails with a Python exception:
+
 ```python
 try:
     # Attempt optimized mesh generation
@@ -89,11 +101,13 @@ except Exception as e:
 ```
 
 ### No Config Changes
+
 The feature flag is module-level (not in ConversionConfig) to maintain simplicity and avoid breaking existing code that uses the library programmatically.
 
 ## Known Limitations
 
 ### Triangle Library Segfaults
+
 - **Issue:** The triangle library can crash on certain polygon geometries
 - **Manifestation:** "Segmentation fault (core dumped)"
 - **Cannot be caught:** C library crashes bypass Python exception handling
@@ -101,11 +115,13 @@ The feature flag is module-level (not in ConversionConfig) to maintain simplicit
 - **Future fix:** Replace triangle library or use subprocess isolation
 
 ### When Optimization Helps Least
+
 - Many small regions (1-5 pixels each)
 - Complex irregular shapes
 - Images with hundreds of tiny regions
 
 ### When Optimization Helps Most
+
 - Large uniform regions (>20 pixels)
 - Simple rectangular/square shapes
 - Images with few regions but many pixels per region
@@ -113,6 +129,7 @@ The feature flag is module-level (not in ConversionConfig) to maintain simplicit
 ## Testing Results
 
 All tests pass (72 total):
+
 - ✅ 22 new tests in test_polygon_optimizer.py
 - ✅ 50 existing tests (no regression)
 - ✅ Manifold properties verified for optimized meshes
@@ -121,12 +138,14 @@ All tests pass (72 total):
 ## Files Changed/Added
 
 **New Files:**
+
 - `pixel_to_3mf/polygon_optimizer.py` (389 lines)
 - `tests/test_polygon_optimizer.py` (457 lines)
 - `POLYGON_OPTIMIZATION_NOTES.md` (documentation)
 - This summary
 
 **Modified Files:**
+
 - `pixel_to_3mf/mesh_generator.py` (added feature flag + dispatch)
 - `pixel_to_3mf/cli.py` (added --optimize-mesh argument)
 - `README.md` (documented experimental feature)
