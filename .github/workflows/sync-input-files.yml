@@ -1,0 +1,101 @@
+name: Sync sample inputs to batch inputs
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SOURCE_DIR: samples/input
+  TARGET_DIR: batch/input
+  KEEP_FILE: batch/input/.sync-keep
+
+jobs:
+  sync-folders:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync ${{ env.SOURCE_DIR }} → ${{ env.TARGET_DIR }}
+        run: |
+          set -e
+
+          echo "Syncing from ${SOURCE_DIR} to ${TARGET_DIR}"
+
+          # Ensure target directory exists
+          mkdir -p "${TARGET_DIR}"
+
+          # 1) Copy/update all files from SOURCE -> TARGET (no deletes yet)
+          rsync -av "${SOURCE_DIR}/" "${TARGET_DIR}/"
+
+          # 2) Remove stale mirrored files from TARGET:
+          #    - Only remove files/dirs whose relative path no longer exists in SOURCE
+          #    - But respect patterns in .sync-keep (if present)
+          keep_file="${KEEP_FILE}"
+
+          should_keep() {
+            local rel="$1"
+            # Never delete the keep file itself
+            if [[ "$rel" == ".sync-keep" ]]; then
+              return 0
+            fi
+
+            if [[ -f "$keep_file" ]]; then
+              while IFS= read -r pattern; do
+                # skip comments/blank lines
+                [[ -z "$pattern" || "$pattern" == \#* ]] && continue
+                # glob match
+                if [[ "$rel" == $pattern ]]; then
+                  return 0
+                fi
+              done < "$keep_file"
+            fi
+
+            return 1
+          }
+
+          if [[ -d "${TARGET_DIR}" ]]; then
+            # Walk all files/dirs under TARGET_DIR
+            while IFS= read -r -d '' path; do
+              rel="${path#${TARGET_DIR}/}"
+
+              # If there's a corresponding path in SOURCE, it's part of the mirror; keep it
+              if [[ -e "${SOURCE_DIR}/${rel}" ]]; then
+                continue
+              fi
+
+              # If not in SOURCE, check if it's protected by .sync-keep
+              if should_keep "$rel"; then
+                echo "Keeping extra: ${rel}"
+              else
+                echo "Removing stale: ${rel}"
+                rm -rf "$path"
+              fi
+            done < <(find "${TARGET_DIR}" -mindepth 1 -print0)
+          fi
+
+      - name: Commit and push changes if any
+        run: |
+          # Only look for changes under TARGET_DIR
+          if [[ -n "$(git status --porcelain "${TARGET_DIR}")" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add "${TARGET_DIR}"
+
+            # Add a diffstat summary as the commit body
+            summary="$(git diff --cached --stat)"
+            git commit -m "Sync sample inputs to batch inputs" -m "$summary"
+            git push
+          else
+            echo "No changes to commit."
+          fi
