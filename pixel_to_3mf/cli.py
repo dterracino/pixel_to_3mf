@@ -369,6 +369,24 @@ The program will:
     )
     
     parser.add_argument(
+        "--auto-crop",
+        action="store_true",
+        help="Automatically crop away fully transparent edges before processing"
+    )
+    
+    parser.add_argument(
+        "--connectivity",
+        type=int,
+        choices=[0, 4, 8],
+        default=8,
+        help="Pixel connectivity mode: "
+             "0 (no merging, each pixel separate - for debugging), "
+             "4 (edge-connected only - classic, simple geometry), "
+             "8 (includes diagonals - fewer objects, may be complex). "
+             "Default: 8"
+    )
+    
+    parser.add_argument(
         "--optimize-mesh",
         action="store_true",
         help="Use optimized polygon-based mesh generation (50-90%% reduction in vertices/triangles). "
@@ -427,7 +445,9 @@ The program will:
             color_naming_mode=args.color_mode,
             filament_maker=args.filament_maker,
             filament_type=args.filament_type,
-            filament_finish=filament_finish
+            filament_finish=filament_finish,
+            auto_crop=args.auto_crop,
+            connectivity=args.connectivity
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")

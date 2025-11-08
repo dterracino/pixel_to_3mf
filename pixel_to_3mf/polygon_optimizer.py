@@ -107,7 +107,7 @@ def pixels_to_polygon(
     return merged
 
 
-def _validate_polygon_for_triangulation(poly: Polygon) -> None:
+def _validate_polygon_for_triangulation(poly: Polygon) -> Tuple[bool, str]:
     """
     Validate polygon geometry before passing to triangle library.
     
@@ -117,25 +117,27 @@ def _validate_polygon_for_triangulation(poly: Polygon) -> None:
     Args:
         poly: Polygon to validate
         
-    Raises:
-        ValueError: If polygon has known problematic characteristics
+    Returns:
+        (bool, str): (is_valid, error_message)
+                     If valid: (True, "")
+                     If invalid: (False, "reason for failure")
     """
     # Check basic validity
     if not poly.is_valid:
-        raise ValueError(f"Invalid polygon: {poly.explain_validity()}")
+        return (False, f"Invalid polygon: {poly.explain_validity()}")
     
     # Check for degenerate cases
     if poly.area <= 0:
-        raise ValueError(f"Polygon has zero or negative area: {poly.area}")
+        return (False, f"Polygon has zero or negative area: {poly.area}")
     
     # Check exterior ring
     exterior_coords = list(poly.exterior.coords[:-1])
     if len(exterior_coords) < 3:
-        raise ValueError(f"Polygon exterior has fewer than 3 vertices: {len(exterior_coords)}")
+        return (False, f"Polygon exterior has fewer than 3 vertices: {len(exterior_coords)}")
     
     # Check for too many vertices (complex geometries more likely to segfault)
     if len(exterior_coords) > 100:
-        raise ValueError(f"Polygon exterior has too many vertices ({len(exterior_coords)}). This geometry is not suitable for optimization.")
+        return (False, f"Polygon exterior has too many vertices ({len(exterior_coords)}). This geometry is not suitable for optimization.")
     
     # Check for collinear points in exterior (can cause triangulation issues)
     # Simple heuristic: if all points have very similar coordinates, it might be degenerate
@@ -147,30 +149,33 @@ def _validate_polygon_for_triangulation(poly: Polygon) -> None:
         
         # If polygon is essentially a line (very thin), it's problematic
         if x_range < 1e-6 or y_range < 1e-6:
-            raise ValueError(f"Polygon is degenerate (too thin): x_range={x_range}, y_range={y_range}")
+            return (False, f"Polygon is degenerate (too thin): x_range={x_range}, y_range={y_range}")
     
     # Check holes
     num_holes = len(list(poly.interiors))
     for i, interior in enumerate(poly.interiors):
         hole_coords = list(interior.coords[:-1])
         if len(hole_coords) < 3:
-            raise ValueError(f"Hole {i} has fewer than 3 vertices: {len(hole_coords)}")
+            return (False, f"Hole {i} has fewer than 3 vertices: {len(hole_coords)}")
         # Check hole complexity
         if len(hole_coords) > 50:
-            raise ValueError(f"Hole {i} has too many vertices ({len(hole_coords)}). This geometry is not suitable for optimization.")
+            return (False, f"Hole {i} has too many vertices ({len(hole_coords)}). This geometry is not suitable for optimization.")
     
     # Stricter check: if the polygon has holes AND complex exterior, reject it
     # Empirical observation: polygons with holes and > 20 exterior vertices often segfault
     if num_holes > 0 and len(exterior_coords) > 20:
-        raise ValueError(f"Polygon has {num_holes} holes and complex exterior ({len(exterior_coords)} vertices). This geometry is not suitable for optimization.")
+        return (False, f"Polygon has {num_holes} holes and complex exterior ({len(exterior_coords)} vertices). This geometry is not suitable for optimization.")
     
     # Additional check: if the polygon has many holes, it might be problematic
     if num_holes > 5:
         logger.warning(f"Polygon has {num_holes} holes, which may cause triangulation issues")
-        raise ValueError(f"Polygon has too many holes ({num_holes}). This geometry is not suitable for optimization.")
+        return (False, f"Polygon has too many holes ({num_holes}). This geometry is not suitable for optimization.")
     
     logger.debug(f"Polygon validation passed: exterior={len(exterior_coords)} vertices, "
                 f"holes={num_holes}")
+    
+    # All checks passed!
+    return (True, "")
 
 
 def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], List[Tuple[int, int, int]]]:
@@ -205,11 +210,10 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     logger.debug(f"Starting triangulation of polygon with {len(poly.exterior.coords)-1} exterior vertices")
     
     # Validate polygon before attempting triangulation
-    try:
-        _validate_polygon_for_triangulation(poly)
-    except ValueError as e:
-        logger.error(f"Polygon validation failed: {e}")
-        raise
+    is_valid, error_msg = _validate_polygon_for_triangulation(poly)
+    if not is_valid:
+        logger.error(f"Polygon validation failed: {error_msg}")
+        raise ValueError(error_msg)
     
     def is_ccw(coords):
         """Check if coordinates are counter-clockwise using shoelace formula."""
@@ -518,6 +522,22 @@ def generate_region_mesh_optimized(
         poly = pixels_to_polygon(region.pixels, pixel_data.pixel_size_mm)
         logger.debug(f"Polygon created successfully")
         
+        # Step 1.5: Validate polygon (no longer raises exception!)
+        is_valid, error_msg = _validate_polygon_for_triangulation(poly)
+        
+        if not is_valid:
+            # Clean single warning, no traceback!
+            logger.warning(
+                f"Optimized mesh generation failed for region with {len(region.pixels)} pixels: {error_msg}"
+            )
+            warnings.warn(
+                f"Optimized mesh generation failed for region with {len(region.pixels)} pixels, "
+                f"falling back to original: {error_msg}"
+            )
+            # Import the original implementation to avoid circular dependency
+            from .mesh_generator import _generate_region_mesh_original
+            return _generate_region_mesh_original(region, pixel_data, config)
+        
         # Step 2: Triangulate the polygon
         logger.debug("Step 2: Triangulating polygon...")
         vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
@@ -538,14 +558,14 @@ def generate_region_mesh_optimized(
         return mesh
         
     except Exception as e:
-        # Log warning and fall back to original implementation
+        # Only catch truly unexpected errors
         logger.warning(
-            f"Optimized mesh generation failed for region with {len(region.pixels)} pixels, "
+            f"Unexpected error during optimization for region with {len(region.pixels)} pixels, "
             f"falling back to original implementation. Error: {e}",
             exc_info=True
         )
         warnings.warn(
-            f"Optimized mesh generation failed for region with {len(region.pixels)} pixels, "
+            f"Unexpected error during optimization for region with {len(region.pixels)} pixels, "
             f"falling back to original: {e}"
         )
         
@@ -586,6 +606,15 @@ def generate_backing_plate_optimized(
         # Step 1: Convert all pixels to polygon
         poly = pixels_to_polygon(all_pixels, pixel_data.pixel_size_mm)
         
+        # Step 1.5: Validate polygon (returns result instead of raising)
+        is_valid, error_msg = _validate_polygon_for_triangulation(poly)
+        
+        if not is_valid:
+            warnings.warn(f"Optimized backing plate generation failed, falling back to original: {error_msg}")
+            # Import the original implementation to avoid circular dependency
+            from .mesh_generator import _generate_backing_plate_original
+            return _generate_backing_plate_original(pixel_data, config)
+        
         # Step 2: Triangulate the polygon
         vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
         
@@ -601,9 +630,9 @@ def generate_backing_plate_optimized(
         return mesh
         
     except Exception as e:
-        # Log warning and fall back to original implementation
+        # Only catch truly unexpected errors
         warnings.warn(
-            f"Optimized backing plate generation failed, falling back to original: {e}"
+            f"Unexpected error during backing plate optimization, falling back to original: {e}"
         )
         
         # Import the original implementation to avoid circular dependency

@@ -45,6 +45,8 @@ class ConversionConfig:
         filament_maker: Filament maker filter (for filament mode)
         filament_type: Filament type filter (for filament mode)
         filament_finish: Filament finish filter(s) (for filament mode) - can be str or list
+        auto_crop: If True, automatically crop away fully transparent edges before processing
+        connectivity: Pixel connectivity mode - 0 (no merge), 4 (edge-connected only), or 8 (includes diagonals)
     """
 
     max_size_mm: float = MAX_MODEL_SIZE_MM
@@ -59,6 +61,10 @@ class ConversionConfig:
     filament_maker: str = DEFAULT_FILAMENT_MAKER
     filament_type: str = DEFAULT_FILAMENT_TYPE
     filament_finish: Union[str, List[str]] = None  # Will be set in __post_init__
+    
+    # Processing options
+    auto_crop: bool = False
+    connectivity: int = 8  # 0 (no merge), 4 (edge only), or 8 (includes diagonals)
 
     def __post_init__(self):
         """Validate configuration parameters."""
@@ -81,6 +87,10 @@ class ConversionConfig:
         valid_modes = {"color", "filament", "hex"}
         if self.color_naming_mode not in valid_modes:
             raise ValueError(f"color_naming_mode must be one of {valid_modes}, got {self.color_naming_mode}")
+        
+        # Validate connectivity mode
+        if self.connectivity not in (0, 4, 8):
+            raise ValueError(f"connectivity must be 0, 4, or 8, got {self.connectivity}")
         
         # Set default filament_finish if None
         if self.filament_finish is None:

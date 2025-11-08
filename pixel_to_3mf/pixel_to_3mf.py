@@ -13,7 +13,7 @@ import os, math
 from typing import Optional, Callable, Dict, Any
 from pathlib import Path
 
-from .image_processor import load_image
+from .image_processor import load_image, auto_crop_transparency
 from .region_merger import merge_regions
 from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf
@@ -105,6 +105,17 @@ def convert_image_to_3mf(
     _progress("load", f"Loading image: {input_file.name}")
     pixel_data = load_image(str(input_path), config)
 
+    # Step 1.5: Auto-crop if requested
+    if config.auto_crop:
+        original_size = f"{pixel_data.width}x{pixel_data.height}"
+        pixel_data = auto_crop_transparency(pixel_data)
+        new_size = f"{pixel_data.width}x{pixel_data.height}"
+        
+        if original_size != new_size:
+            _progress("crop", f"Auto-cropped from {original_size} to {new_size}")
+        else:
+            _progress("crop", "No cropping needed (image already at bounds)")
+
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
                      f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel")
 
@@ -156,7 +167,7 @@ def convert_image_to_3mf(
     
     # Step 2: Merge regions
     _progress("merge", "Merging connected pixels into regions...")
-    regions = merge_regions(pixel_data)
+    regions = merge_regions(pixel_data, config)
     _progress("merge", f"Found {len(regions)} connected regions")
     
     # Step 3: Generate meshes

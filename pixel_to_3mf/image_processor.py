@@ -199,6 +199,57 @@ def load_image(
     )
 
 
+def auto_crop_transparency(pixel_data: PixelData) -> PixelData:
+    """
+    Crop away fully transparent edges.
+    
+    Finds the bounding box of all non-transparent pixels and crops
+    the image to just that area. This removes wasted space and can
+    enable optimizations like simple rectangle backing plates.
+    
+    Args:
+        pixel_data: The pixel data to crop
+    
+    Returns:
+        New PixelData with adjusted dimensions, or original if no cropping needed
+    """
+    if not pixel_data.pixels:
+        return pixel_data  # Empty image, nothing to crop
+    
+    # Find the actual bounds of non-transparent pixels
+    pixel_coords = pixel_data.pixels.keys()
+    min_x = min(x for x, y in pixel_coords)
+    max_x = max(x for x, y in pixel_coords)
+    min_y = min(y for x, y in pixel_coords)
+    max_y = max(y for x, y in pixel_coords)
+    
+    # If already at edges, no cropping needed
+    if (min_x == 0 and min_y == 0 and 
+        max_x == pixel_data.width - 1 and 
+        max_y == pixel_data.height - 1):
+        return pixel_data
+    
+    # Calculate new dimensions
+    new_width = max_x - min_x + 1
+    new_height = max_y - min_y + 1
+    
+    # Remap pixel coordinates to new origin (0, 0)
+    new_pixels = {}
+    for (x, y), color in pixel_data.pixels.items():
+        new_x = x - min_x
+        new_y = y - min_y
+        new_pixels[(new_x, new_y)] = color
+    
+    # Create new PixelData with cropped dimensions
+    # Pixel size stays the same!
+    return PixelData(
+        width=new_width,
+        height=new_height,
+        pixels=new_pixels,
+        pixel_size_mm=pixel_data.pixel_size_mm
+    )
+
+
 def get_pixel_bounds_mm(
     pixel_data: PixelData,
     x: int,
