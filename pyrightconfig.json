@@ -1,0 +1,9 @@
+{
+  "include": ["pixel_to_3mf", "tests"],
+  "exclude": ["**/color_tools/**", "**/node_modules", "**/__pycache__"],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "pythonVersion": "3.7",
+  "pythonPlatform": "All"
+}
