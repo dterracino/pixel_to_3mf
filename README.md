@@ -382,7 +382,8 @@ python run_converter.py --batch \
 ```
 
 **Input folder structure:**
-```
+
+```text
 game_assets/
 ├── characters/
 │   ├── hero.png
@@ -395,7 +396,8 @@ game_assets/
 ```
 
 **Output folder structure:**
-```
+
+```text
 3d_assets/
 ├── characters/
 │   ├── hero_model.3mf
@@ -437,7 +439,7 @@ python run_converter.py sprite.png --auto-crop --padding-size 5
 
 - **Effect:** Adds an outline around non-transparent pixels, tracing both outer edges and internal holes
 - **Result:** Canvas expands to accommodate padding (e.g., 50x50 → 60x60 with 5px padding)
-- **Use case:** 
+- **Use case:**
   - Filling gaps between diagonally-connected pixels for better 3D printability
   - Adding structural support around thin features
   - Creating visible borders around sprites
@@ -537,11 +539,13 @@ Color Naming → 3MF Export
 When using multiple processing options (`--auto-crop`, `--padding-size`, `--quantize`), the order of operations is critical for best results:
 
 **Operation Order:**
+
 1. **Auto-Crop** - Removes fully transparent edges from original image
 2. **Padding** - Adds outline around remaining content (expands canvas)
 3. **Quantization** - Reduces colors if needed (includes padding color in palette)
 
 **Why This Order Matters:**
+
 - Auto-crop must happen first to remove wasted space from the original image
 - Padding must happen after cropping so we pad the actual content, not the wasted space
 - Quantization must happen last so the padding color gets included in the color palette
@@ -549,9 +553,11 @@ When using multiple processing options (`--auto-crop`, `--padding-size`, `--quan
 - If quantization happened before padding, the padding color might not be in the reduced palette
 
 **Example workflow with all options:**
+
 ```bash
 python run_converter.py sprite.png --auto-crop --padding-size 5 --quantize
 ```
+
 1. Crops transparent edges: 100×100 → 60×80
 2. Adds 5px white padding: 60×80 → 70×90
 3. Reduces to 16 colors (including the white padding)
