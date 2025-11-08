@@ -10,7 +10,7 @@ indices each). This is the universal format for 3D meshes - STL, OBJ,
 3MF all use this approach! 🎲
 """
 
-from typing import List, Tuple, Set, TYPE_CHECKING
+from typing import List, Tuple, Set, Dict, TYPE_CHECKING
 from .region_merger import Region
 from .image_processor import PixelData
 
@@ -124,7 +124,7 @@ def _generate_region_mesh_original(
     # For each pixel, create 2 triangles to form a square
 
     # Map from (x, y) pixel coords to vertex index for top face
-    top_vertex_map: dict[Tuple[int, int], int] = {}
+    top_vertex_map: Dict[Tuple[int, int], int] = {}
 
     for x, y in region.pixels:
         # Each pixel square has 4 corners
@@ -165,7 +165,7 @@ def _generate_region_mesh_original(
     # ========================================================================
     # Same as top face, but at z=0 and with reversed winding (for correct normals)
     
-    bottom_vertex_map: dict[Tuple[int, int], int] = {}
+    bottom_vertex_map: Dict[Tuple[int, int], int] = {}
     
     for x, y in region.pixels:
         corners = [
@@ -278,8 +278,8 @@ def _generate_backing_plate_original(
     # Similar to region generation, but simpler - we create a slab for each pixel
     # Top face (z = 0) and bottom face (z = -config.base_height_mm)
     
-    top_vertex_map: dict[Tuple[int, int], int] = {}
-    bottom_vertex_map: dict[Tuple[int, int], int] = {}
+    top_vertex_map: Dict[Tuple[int, int], int] = {}
+    bottom_vertex_map: Dict[Tuple[int, int], int] = {}
     
     # Get all non-transparent pixel positions
     pixel_positions = set(pixel_data.pixels.keys())
