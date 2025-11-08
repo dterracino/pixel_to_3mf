@@ -22,7 +22,9 @@ from .constants import (
     DEFAULT_FILAMENT_FINISH,
     ENABLE_QUANTIZATION,
     QUANTIZATION_ALGORITHM,
-    QUANTIZATION_COLORS
+    QUANTIZATION_COLORS,
+    PADDING_SIZE_PX,
+    PADDING_COLOR
 )
 
 
@@ -50,6 +52,8 @@ class ConversionConfig:
         filament_finish: Filament finish filter(s) (for filament mode) - can be str or list
         auto_crop: If True, automatically crop away fully transparent edges before processing
         connectivity: Pixel connectivity mode - 0 (no merge), 4 (edge-connected only), or 8 (includes diagonals)
+        padding_size: Size of padding in pixels (0 = disabled, >0 = enabled)
+        padding_color: RGB color for the padding outline
         quantize: If True, automatically reduce colors when image exceeds max_colors
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
         quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
@@ -71,6 +75,10 @@ class ConversionConfig:
     # Processing options
     auto_crop: bool = False
     connectivity: int = 8  # 0 (no merge), 4 (edge only), or 8 (includes diagonals)
+    
+    # Padding options
+    padding_size: int = 0  # 0 = disabled, >0 = padding size in pixels
+    padding_color: Tuple[int, int, int] = PADDING_COLOR
     
     # Color quantization options
     quantize: bool = ENABLE_QUANTIZATION
@@ -111,6 +119,16 @@ class ConversionConfig:
         # Validate quantize_colors if set
         if self.quantize_colors is not None and self.quantize_colors <= 0:
             raise ValueError(f"quantize_colors must be positive, got {self.quantize_colors}")
+        
+        # Validate padding parameters
+        if self.padding_size < 0:
+            raise ValueError(f"padding_size must be non-negative, got {self.padding_size}")
+        
+        if not isinstance(self.padding_color, tuple) or len(self.padding_color) != 3:
+            raise ValueError(f"padding_color must be an RGB tuple, got {self.padding_color}")
+        
+        if not all(0 <= c <= 255 for c in self.padding_color):
+            raise ValueError(f"padding_color RGB values must be 0-255, got {self.padding_color}")
         
         # Set default filament filters if None
         if self.filament_maker is None:

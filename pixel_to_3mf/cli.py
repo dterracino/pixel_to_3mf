@@ -34,7 +34,8 @@ from .constants import (
     COLOR_NAMING_MODE,
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
-    DEFAULT_FILAMENT_FINISH
+    DEFAULT_FILAMENT_FINISH,
+    PADDING_COLOR
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
@@ -410,6 +411,24 @@ The program will:
     )
     
     parser.add_argument(
+        "--padding-size",
+        type=int,
+        default=0,
+        help="Add padding/outline around non-transparent pixels (in pixels). "
+             "Helps with diagonally-connected pixels in 3D printing. "
+             "0 = disabled (default), >0 = padding size. "
+             "Canvas will be expanded to accommodate padding."
+    )
+    
+    parser.add_argument(
+        "--padding-color",
+        type=str,
+        default=None,
+        help=f"Padding color as R,G,B (e.g., '255,255,255' for white). "
+             f"Default: {PADDING_COLOR}. Only used when --padding-size > 0."
+    )
+    
+    parser.add_argument(
         "--connectivity",
         type=int,
         choices=[0, 4, 8],
@@ -484,6 +503,22 @@ The program will:
             error_console.print(f"[red]❌ Error: Invalid backing color '{args.backing_color}': {e}[/red]")
             error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
             sys.exit(1)
+    
+    # Parse padding color if provided
+    padding_color = PADDING_COLOR
+    if args.padding_color:
+        try:
+            parts = args.padding_color.split(',')
+            if len(parts) != 3:
+                raise ValueError("Must have exactly 3 values (R,G,B)")
+            r, g, b = (int(p.strip()) for p in parts)
+            padding_color = (r, g, b)  # Explicitly create 3-tuple
+            if not all(0 <= c <= 255 for c in padding_color):
+                raise ValueError("RGB values must be 0-255")
+        except Exception as e:
+            error_console.print(f"[red]❌ Error: Invalid padding color '{args.padding_color}': {e}[/red]")
+            error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
+            sys.exit(1)
 
     # Parse filament filters if provided (can be comma-separated)
     filament_maker = DEFAULT_FILAMENT_MAKER
@@ -515,6 +550,8 @@ The program will:
             filament_finish=filament_finish,
             auto_crop=args.auto_crop,
             connectivity=args.connectivity,
+            padding_size=args.padding_size,
+            padding_color=padding_color,
             quantize=args.quantize,
             quantize_algo=args.quantize_algo,
             quantize_colors=args.quantize_colors
@@ -658,6 +695,12 @@ The program will:
     config_table.add_row("Auto-Crop", "Enabled" if config.auto_crop else "Disabled")
     connectivity_map = {0: "None (separate pixels)", 4: "4-connected (edges only)", 8: "8-connected (includes diagonals)"}
     config_table.add_row("Connectivity", connectivity_map.get(config.connectivity, str(config.connectivity)))
+    
+    # Padding options
+    if config.padding_size > 0:
+        config_table.add_row("Padding", f"{config.padding_size}px, RGB{config.padding_color}")
+    else:
+        config_table.add_row("Padding", "Disabled")
     
     # Mesh optimization
     import pixel_to_3mf.mesh_generator as mg

@@ -20,7 +20,8 @@ from tests import (
     test_threemf_writer,
     test_pixel_to_3mf,
     test_cli,
-    test_quantization
+    test_quantization,
+    test_padding
 )
 
 
@@ -37,6 +38,7 @@ def run_tests():
     suite.addTests(loader.loadTestsFromModule(test_pixel_to_3mf))
     suite.addTests(loader.loadTestsFromModule(test_cli))
     suite.addTests(loader.loadTestsFromModule(test_quantization))
+    suite.addTests(loader.loadTestsFromModule(test_padding))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

@@ -3,6 +3,7 @@ Image processing module for pixel art to 3MF conversion.
 
 This module handles:
 - Loading images with transparency support
+- Applying padding to create outlines around sprites
 - Calculating appropriate scaling for print bed sizing
 - Extracting pixel data in a convenient format for further processing
 """
@@ -11,6 +12,7 @@ from PIL import Image
 from typing import Tuple, Dict, Set, TYPE_CHECKING
 import numpy as np
 from .constants import MAX_MODEL_SIZE_MM
+from .padding_processor import add_padding, should_apply_padding
 
 # Import for type checking only (avoids circular imports)
 if TYPE_CHECKING:
@@ -177,7 +179,8 @@ def load_image(
     Load an image file and extract pixel data with automatic scaling.
 
     This is the main entry point for image processing. It loads the image,
-    calculates exact scaling to fit the print bed, and packages everything up nicely.
+    applies padding if enabled, calculates exact scaling to fit the print bed,
+    and packages everything up nicely.
 
     Args:
         image_path: Path to the image file (PNG, JPG, etc.)
@@ -197,6 +200,12 @@ def load_image(
     # Convert to RGBA to ensure we have alpha channel
     # (some formats like JPG don't have transparency, so we add it)
     img = img.convert('RGBA')
+    
+    # Apply padding if enabled
+    # This must happen BEFORE Y-flip and pixel extraction to properly
+    # trace edges and expand the canvas
+    if should_apply_padding(config.padding_size):
+        img = add_padding(img, config.padding_size, config.padding_color)
 
     # Get image dimensions
     width, height = img.size
