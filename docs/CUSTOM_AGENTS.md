@@ -122,6 +122,34 @@ Use the docstring-specialist to add comprehensive docstrings to the polygon opti
 
 ---
 
+### Implementation Planner
+
+**File:** `.github/agents/implementation-planner.md`
+
+**Purpose:** Creates detailed implementation plans for new features and complex changes.
+
+**When to Use:**
+- Planning new features
+- Breaking down complex changes
+- Designing architecture for new functionality
+- Assessing risks and dependencies
+- Creating roadmaps for major work
+
+**Capabilities:**
+- Breaking down requirements into actionable tasks
+- Identifying dependencies and ordering work
+- Planning for testing at each stage
+- Anticipating edge cases and risks
+- Creating comprehensive task checklists
+- Ensuring alignment with project architecture
+
+**Example Usage:**
+```
+Use the implementation-planner to create a plan for adding image preprocessing support
+```
+
+---
+
 ### README Specialist
 
 **File:** `.github/agents/readme-specialist.md`
@@ -171,6 +199,35 @@ Use the readme-specialist to update the README with the new quantization feature
 **Example Usage:**
 ```
 Use the refactoring-specialist to refactor the mesh generation pipeline for better maintainability
+```
+
+---
+
+### Test Specialist
+
+**File:** `.github/agents/test-specialist.md`
+
+**Purpose:** Expert in creating comprehensive unit tests and ensuring thorough test coverage.
+
+**When to Use:**
+- Writing tests for new features
+- Adding regression tests for bug fixes
+- Improving test coverage
+- Testing edge cases
+- Creating test fixtures and helpers
+
+**Capabilities:**
+- Expertise in unittest framework
+- Test design patterns (AAA, Given-When-Then)
+- Edge case identification
+- Testing exceptions and callbacks
+- Using test helpers and fixtures
+- Integration vs unit test decisions
+- Coverage analysis
+
+**Example Usage:**
+```
+Use the test-specialist to create comprehensive tests for the new quantization module
 ```
 
 ---
@@ -261,16 +318,20 @@ Use the [agent-name] to [specific task]
 - Fixing bugs → Bug specialist
 - Writing docstrings → Docstring specialist
 - Creating new agent → Custom-agent-generator
+- Planning new features → Implementation planner
+- Writing tests → Test specialist
 
 ### Combining Multiple Agents
 
 For complex tasks, multiple agents can work sequentially:
 
 ```
-1. Use bug-specialist to fix the mesh topology issue
-2. Use type-specialist to add proper type hints to the fixed code
-3. Use docstring-specialist to document why the fix works
-4. Use refactoring-specialist to clean up and test the changes
+1. Use implementation-planner to break down a complex feature
+2. Use bug-specialist to fix the mesh topology issue
+3. Use type-specialist to add proper type hints to the fixed code
+4. Use test-specialist to create comprehensive tests
+5. Use docstring-specialist to document why the fix works
+6. Use refactoring-specialist to clean up the final code
 ```
 
 ## Project-Specific Context

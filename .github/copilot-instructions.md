@@ -21,8 +21,10 @@ See [docs/CUSTOM_AGENTS.md](../docs/CUSTOM_AGENTS.md) for detailed documentation
 - **cleanup-specialist**: Removes dead code, eliminates duplication, improves maintainability
 - **custom-agent-generator**: Creates new custom agent definition files
 - **docstring-specialist**: Creates/updates docstrings that explain WHY over WHAT
+- **implementation-planner**: Creates detailed implementation plans for new features
 - **readme-specialist**: Maintains README and project documentation
 - **refactoring-specialist**: Large-scale refactoring with deep architecture knowledge
+- **test-specialist**: Expert in creating comprehensive unit tests and test coverage
 - **type-specialist**: Adds type hints, fixes Pyright/Pylance errors (Python 3.10+)
 - **ui-specialist**: CLI design, progress reporting, error messages, user communication
 
@@ -38,15 +40,19 @@ See [docs/CUSTOM_AGENTS.md](../docs/CUSTOM_AGENTS.md) for detailed documentation
 - **Creating new agents**: Use **custom-agent-generator** for agent definitions
 - **Updating README**: Use **readme-specialist** for documentation
 - **Cleaning up code**: Use **cleanup-specialist** for removing duplication
+- **Planning features**: Use **implementation-planner** for breaking down complex work
+- **Writing tests**: Use **test-specialist** for comprehensive test coverage
 
 ### Using Multiple Custom Agents
 
 For complex tasks, use agents sequentially:
 
-1. **bug-specialist** to fix the issue
-2. **type-specialist** to add type hints
-3. **docstring-specialist** to document the changes
-4. **refactoring-specialist** to clean up and test
+1. **implementation-planner** to break down the feature
+2. **bug-specialist** to fix the issue
+3. **type-specialist** to add type hints
+4. **test-specialist** to create comprehensive tests
+5. **docstring-specialist** to document the changes
+6. **refactoring-specialist** to clean up and finalize
 
 **Example:**
 ```

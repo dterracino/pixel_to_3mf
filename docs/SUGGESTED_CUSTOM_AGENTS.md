@@ -2,36 +2,11 @@
 
 This document contains suggestions for new custom agents that could help improve development efficiency and code quality for this project. These are ideas that haven't been implemented yet but would be valuable additions.
 
+**Note:** We now have **test-specialist** and **implementation-planner** agents implemented, so those suggestions have been removed from this list.
+
 ## High Priority Suggestions
 
-### 1. Test Generator
-
-**Purpose:** Automatically generate comprehensive unit tests for Python code.
-
-**Rationale:** While we have good test coverage, adding tests for new features is time-consuming. A specialized agent could generate unittest-based tests following our existing patterns.
-
-**Capabilities:**
-- Generate test cases for new functions/classes
-- Follow unittest framework patterns
-- Use test_helpers.py utilities
-- Create test fixtures programmatically
-- Cover edge cases and error conditions
-- Follow project's test structure and naming
-
-**Example Usage:**
-```
-Use the test-generator to create comprehensive tests for the new quantization module
-```
-
-**Implementation Notes:**
-- Should understand unittest framework
-- Must use test_helpers.py for image creation
-- Should create both success and failure test cases
-- Must include proper setUp/tearDown
-
----
-
-### 2. Performance Optimizer
+### 1. Performance Optimizer
 
 **Purpose:** Analyze and optimize code performance, particularly for image processing and mesh generation.
 
@@ -58,7 +33,7 @@ Use the performance-optimizer to improve mesh generation speed for large images
 
 ---
 
-### 3. Config Specialist
+### 2. Config Specialist
 
 **Purpose:** Manage configuration files, constants, and user-configurable options.
 
@@ -85,7 +60,7 @@ Use the config-specialist to add support for custom color palettes
 
 ---
 
-### 4. 3MF Format Specialist
+### 3. 3MF Format Specialist
 
 **Purpose:** Expert in the 3MF file format specification and implementation.
 
@@ -112,7 +87,7 @@ Use the 3mf-format-specialist to add support for textures in the 3MF output
 
 ---
 
-### 5. Dependency Manager
+### 4. Dependency Manager
 
 **Purpose:** Manage project dependencies, versions, and compatibility.
 
@@ -141,7 +116,7 @@ Use the dependency-manager to update Pillow to the latest version
 
 ## Medium Priority Suggestions
 
-### 6. Error Message Specialist
+### 5. Error Message Specialist
 
 **Purpose:** Create helpful, user-friendly error messages throughout the application.
 
@@ -162,7 +137,7 @@ Use the error-message-specialist to improve validation error messages
 
 ---
 
-### 7. Example Generator
+### 6. Example Generator
 
 **Purpose:** Create comprehensive usage examples and sample files.
 
@@ -183,7 +158,7 @@ Use the example-generator to create examples for the new quantization feature
 
 ---
 
-### 8. Migration Specialist
+### 7. Migration Specialist
 
 **Purpose:** Help migrate code between Python versions or update deprecated patterns.
 
@@ -412,20 +387,22 @@ Use the validation-specialist to add comprehensive input validation for image fi
 
 ## Implementation Priority
 
+**Note:** Test Generator and Implementation Planner have been implemented as **test-specialist** and **implementation-planner**.
+
 ### Immediate Value
-1. Test Generator - Most impactful for development speed
-2. Performance Optimizer - Addresses user pain points
-3. Config Specialist - Growing configuration complexity
+1. Performance Optimizer - Addresses user pain points with large images
+2. Config Specialist - Growing configuration complexity
+3. 3MF Format Specialist - Core functionality enhancement
 
 ### Short Term
-4. 3MF Format Specialist - Core functionality enhancement
-5. Error Message Specialist - Improves user experience
-6. Example Generator - Helps users understand features
+4. Error Message Specialist - Improves user experience
+5. Example Generator - Helps users understand features
+6. Batch Processing Specialist - Enhances key feature
 
 ### Medium Term
-7. Batch Processing Specialist - Enhances key feature
-8. Validation Specialist - Improves robustness
-9. Migration Specialist - Keeps code modern
+7. Validation Specialist - Improves robustness
+8. Migration Specialist - Keeps code modern
+9. Dependency Manager - Maintains security and compatibility
 
 ### Long Term
 10. All others as needed based on project evolution
