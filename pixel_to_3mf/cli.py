@@ -470,6 +470,13 @@ The program will:
         help="Number of colors to quantize to. Defaults to max-colors if not specified. "
              "Only used when --quantize is enabled."
     )
+    
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Generate a summary file listing all colors/filaments used in the conversion. "
+             "Summary is saved as {output_name}.summary.txt in the same location as the output file."
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -554,7 +561,8 @@ The program will:
             padding_color=padding_color,
             quantize=args.quantize,
             quantize_algo=args.quantize_algo,
-            quantize_colors=args.quantize_colors
+            quantize_colors=args.quantize_colors,
+            generate_summary=args.summary
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
@@ -869,6 +877,10 @@ The program will:
     stats_table.add_row("Pixel size:", f"{round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
     stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
     stats_table.add_row("Output:", f"{stats['output_path']} ({stats['file_size']})")
+    
+    # Add summary path if generated
+    if 'summary_path' in stats:
+        stats_table.add_row("Summary:", stats['summary_path'])
     
     console.print(stats_table)
     console.print()

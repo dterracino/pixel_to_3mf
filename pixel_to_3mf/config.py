@@ -57,6 +57,7 @@ class ConversionConfig:
         quantize: If True, automatically reduce colors when image exceeds max_colors
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
         quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
+        generate_summary: If True, generate a summary file listing colors/filaments used
     """
 
     max_size_mm: float = MAX_MODEL_SIZE_MM
@@ -84,6 +85,9 @@ class ConversionConfig:
     quantize: bool = ENABLE_QUANTIZATION
     quantize_algo: str = QUANTIZATION_ALGORITHM
     quantize_colors: Union[int, None] = QUANTIZATION_COLORS
+    
+    # Summary file options
+    generate_summary: bool = False
 
     def __post_init__(self):
         """Validate configuration parameters."""
