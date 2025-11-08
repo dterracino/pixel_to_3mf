@@ -9,6 +9,210 @@
 - When refactoring code, ensure that the functionality remains unchanged unless explicitly requested by the user.
 - Do not jump ahead and make code changes if the user has not yet requested them; instead, offer suggestions or ask clarifying questions first.
 
+## Custom AI Agents
+
+This project has specialized custom agents for specific tasks. **Always consider using the appropriate custom agent** when working in their domain. Custom agents have deep expertise in their area and understand project conventions.
+
+### Available Custom Agents
+
+See [docs/CUSTOM_AGENTS.md](../docs/CUSTOM_AGENTS.md) for detailed documentation.
+
+- **bug-specialist**: Fixes bugs, detects code smells, creates bug reports, ensures type hints
+- **cleanup-specialist**: Removes dead code, eliminates duplication, improves maintainability
+- **custom-agent-generator**: Creates new custom agent definition files
+- **docstring-specialist**: Creates/updates docstrings that explain WHY over WHAT
+- **readme-specialist**: Maintains README and project documentation
+- **refactoring-specialist**: Large-scale refactoring with deep architecture knowledge
+- **type-specialist**: Adds type hints, fixes Pyright/Pylance errors (Python 3.10+)
+- **ui-specialist**: CLI design, progress reporting, error messages, user communication
+
+### When to Trigger Custom Agents
+
+**Context-based triggering** - Use the appropriate agent when working on:
+
+- **Editing Python code**: Consider **type-specialist** for type hints, **bug-specialist** for code smells
+- **Fixing bugs**: Use **bug-specialist** for root cause analysis and fixes
+- **Adding CLI arguments**: Use **ui-specialist** for argument design and user feedback
+- **Writing docstrings**: Use **docstring-specialist** for WHY-focused documentation
+- **Large refactoring**: Use **refactoring-specialist** for architectural changes
+- **Creating new agents**: Use **custom-agent-generator** for agent definitions
+- **Updating README**: Use **readme-specialist** for documentation
+- **Cleaning up code**: Use **cleanup-specialist** for removing duplication
+
+### Using Multiple Custom Agents
+
+For complex tasks, use agents sequentially:
+
+1. **bug-specialist** to fix the issue
+2. **type-specialist** to add type hints
+3. **docstring-specialist** to document the changes
+4. **refactoring-specialist** to clean up and test
+
+**Example:**
+```
+Use bug-specialist to fix the mesh topology issue, then use type-specialist to add proper type hints to the changes.
+```
+
+## Python Version and Standards
+
+### Python Version
+
+This project requires **Python 3.10+** and uses modern Python syntax:
+
+**Modern Type Syntax (Python 3.10+):**
+```python
+# ✅ Modern syntax (use this)
+def process(value: str | None) -> list[str]:
+    pass
+
+# ❌ Old syntax (don't use)
+from typing import Optional, List
+def process(value: Optional[str]) -> List[str]:
+    pass
+```
+
+**Key Features to Use:**
+- Union types with `|` instead of `Union[]` or `Optional[]`
+- Built-in generics: `list[str]`, `dict[str, int]`, `tuple[int, int]`
+- Pattern matching (if beneficial)
+- Parenthesized context managers
+- Precise exception types in except clauses
+
+### Type Hinting Standards
+
+**Required on ALL functions:**
+```python
+def my_function(param1: str, param2: int | None = None) -> bool:
+    """Docstring explaining WHY this function exists."""
+    pass
+```
+
+**For complex types:**
+```python
+from typing import Callable, TypedDict, Literal
+
+# Callbacks
+ProgressCallback = Callable[[str, str], None]
+
+# Structured dicts
+class ConversionStats(TypedDict):
+    num_regions: int
+    num_colors: int
+    model_width_mm: float
+
+# Literal values
+ColorMode = Literal["color", "filament", "hex"]
+```
+
+### Docstring Standards
+
+**Explain WHY, not just WHAT:**
+
+```python
+# ❌ Bad - just states the obvious
+def flip_image(img):
+    """Flip image vertically."""
+    return img.transpose(Image.FLIP_TOP_BOTTOM)
+
+# ✅ Good - explains WHY
+def flip_image(img: Image.Image) -> Image.Image:
+    """
+    Flip image vertically so Y=0 is at bottom instead of top.
+    
+    Images have origin at top-left (Y=0 at top), but 3D coordinate
+    systems have origin at bottom-left (Y=0 at bottom). We flip during
+    image loading so the 3D model appears right-side-up in slicers.
+    
+    Without this flip, models would be upside-down when imported.
+    """
+    return img.transpose(Image.FLIP_TOP_BOTTOM)
+```
+
+**Follow Google-style format:**
+- Brief one-line summary
+- Detailed explanation of WHY and HOW
+- Args section with parameter descriptions
+- Returns section
+- Raises section if applicable
+- Examples for complex functions
+
+### Separation of Concerns and DRY Principles
+
+**CRITICAL: Strict Separation of Concerns**
+
+The architecture **strictly separates** CLI/presentation from business logic:
+
+```
+CLI Layer (cli.py):
+✅ All print statements
+✅ All argparse code
+✅ All user interaction
+✅ Progress callbacks
+✅ Error display
+✅ Output formatting
+
+Business Logic (all other modules):
+❌ NO print statements
+❌ NO argparse
+❌ NO user interaction
+✅ Progress via callbacks
+✅ Raise exceptions
+✅ Return data
+```
+
+**This separation must NEVER be violated.**
+
+**DRY Principles:**
+
+1. **No duplicate code** - Extract to shared functions
+2. **No magic numbers** - ALL constants in `constants.py`
+3. **No duplicate validation** - Create validation functions
+4. **No duplicate formatting** - Create formatting functions
+5. **No duplicate error messages** - Use message templates
+
+**Example of proper separation:**
+```python
+# ✅ Business logic (pixel_to_3mf.py)
+def convert_image(
+    path: str,
+    callback: Callable[[str, str], None] | None = None
+) -> dict:
+    """Convert image to 3MF format."""
+    if callback:
+        callback("Loading", "Reading image file")
+    # ... do work
+    if callback:
+        callback("Processing", "Merging regions")
+    return stats
+
+# ✅ CLI layer (cli.py)
+def progress_callback(stage: str, message: str) -> None:
+    """Display progress to user."""
+    print(f"[{stage}] {message}")
+
+result = convert_image(args.input, callback=progress_callback)
+print(f"✅ Successfully converted {args.input}")
+```
+
+**Example of DRY violations to avoid:**
+```python
+# ❌ Bad - duplicate validation
+if not user.email or '@' not in user.email:
+    raise ValueError("Invalid email")
+# ... later in same file
+if not admin.email or '@' not in admin.email:
+    raise ValueError("Invalid email")
+
+# ✅ Good - extract to function
+def validate_email(email: str) -> None:
+    """Validate email format."""
+    if not email or '@' not in email:
+        raise ValueError("Invalid email")
+
+validate_email(user.email)
+validate_email(admin.email)
+```
+
 ## Project Overview
 
 This tool converts pixel art images into 3D-printable 3MF files. It performs region merging (flood-fill with 8-connectivity), color naming via perceptual Delta E 2000 matching, and generates **manifold** 3MF meshes with proper topology.
@@ -176,11 +380,43 @@ class TestMyFeature(unittest.TestCase):
 
 ## Critical Conventions
 
+These conventions are **non-negotiable** and must be followed in all code:
+
 1. **No business logic in CLI**: Keep `cli.py` purely presentational
-2. **Type hints everywhere**: Function signatures must have types
-3. **Docstrings matter**: Explain WHY, not just WHAT (see existing style)
-4. **Coordinate precision**: Use `COORDINATE_PRECISION` from constants (3 decimal places = 0.001mm)
-5. **Progress callbacks**: Optional parameter for library users, used by CLI for pretty output
+   - NO print statements in business logic modules
+   - Use progress callbacks for user feedback
+   - Raise exceptions instead of printing errors
+
+2. **Type hints everywhere** (Python 3.10+ syntax):
+   - ALL function signatures must have type hints
+   - Use modern syntax: `str | None`, `list[str]`, `dict[str, int]`
+   - Don't use `Optional[]`, `Union[]`, `List[]`, `Dict[]` from typing module
+
+3. **All magic numbers in constants.py**:
+   - NO hardcoded numbers in business logic
+   - Extract ALL defaults and configuration to `constants.py`
+   - Use descriptive constant names
+
+4. **Docstrings explain WHY, not WHAT**:
+   - Don't just describe what code does (code already shows that)
+   - Explain WHY it exists and WHY it works this way
+   - Document design decisions and trade-offs
+   - Follow Google-style docstring format
+
+5. **DRY Principles**:
+   - No duplicate code - extract to shared functions
+   - No duplicate validation - create validation functions
+   - No duplicate messages - use message templates
+
+6. **Coordinate precision**: Use `COORDINATE_PRECISION` from constants (3 decimal places = 0.001mm)
+
+7. **Progress callbacks**: Optional parameter for library users, used by CLI for pretty output
+
+8. **Testing required**:
+   - Add tests for new features
+   - Use unittest framework
+   - Follow existing test patterns
+   - All tests must pass before committing
 
 ## Dependencies
 
