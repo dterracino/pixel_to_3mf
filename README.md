@@ -133,14 +133,21 @@ python run_converter.py --batch \
   --max-size 150 \
   --max-colors 20 \
   --skip-checks
+
+# Process subfolders recursively, preserving folder structure
+python run_converter.py --batch \
+  --batch-input game_assets \
+  --batch-output 3d_assets \
+  --recurse
 ```
 
 **Batch mode features:**
 
-- ✅ Processes all PNG, JPG, JPEG, GIF, BMP, and WEBP images.
+- ✅ Processes all PNG, JPG, JPEG, GIF, BMP, and WEBP images
 - ✅ Generates timestamped Markdown summary with statistics
 - ✅ Continues processing if individual files fail
 - ✅ Use `--skip-checks` to bypass resolution warnings
+- ✅ Use `--recurse` to process subfolders and maintain folder structure in output
 
 ### Command-Line Options Reference
 
@@ -175,6 +182,7 @@ python run_converter.py --batch \
 | `--batch-input` | Input folder with images | `batch/input` |
 | `--batch-output` | Output folder for 3MF files | `batch/output` |
 | `--skip-checks` | Skip resolution warnings | Off |
+| `--recurse` | Process subfolders recursively, maintaining folder structure in output | Off |
 
 > **Note:** All single file options apply to batch mode
 
@@ -361,6 +369,47 @@ python run_converter.py --batch \
 - **Output:** Individual 3MF files in `3d_models/`
 - **Size:** All scaled to 100mm max
 - **Summary:** Creates timestamped report in output folder
+
+#### Recursive Batch Processing with Folder Structure
+
+```bash
+python run_converter.py --batch \
+  --batch-input game_assets \
+  --batch-output 3d_assets \
+  --recurse \
+  --max-size 150
+```
+
+**Input folder structure:**
+```
+game_assets/
+├── characters/
+│   ├── hero.png
+│   └── villain.png
+├── items/
+│   ├── sword.png
+│   └── shield.png
+└── backgrounds/
+    └── castle.png
+```
+
+**Output folder structure:**
+```
+3d_assets/
+├── characters/
+│   ├── hero_model.3mf
+│   └── villain_model.3mf
+├── items/
+│   ├── sword_model.3mf
+│   └── shield_model.3mf
+└── backgrounds/
+    └── castle_model.3mf
+```
+
+- **Process:** All images in `game_assets/` and all subfolders recursively
+- **Output:** Maintains original folder structure in `3d_assets/`
+- **Paths:** Relative paths shown in console and batch summary
+- **Use case:** Organized asset libraries, maintaining project structure
 
 #### Auto-Crop Transparent Edges
 
