@@ -10,6 +10,7 @@ Think of it like the paint bucket tool in Photoshop - we're finding all
 the connected areas of the same color! 🎨
 """
 
+from collections import deque
 from typing import Dict, List, Set, Tuple, TYPE_CHECKING
 from .image_processor import PixelData
 
@@ -76,14 +77,15 @@ def flood_fill(
     region_pixels: Set[Tuple[int, int]] = set()
     
     # Queue of pixels to process (breadth-first search)
-    queue: List[Tuple[int, int]] = [(start_x, start_y)]
+    # Using deque for O(1) popleft() instead of list.pop(0) which is O(n)
+    queue: deque[Tuple[int, int]] = deque([(start_x, start_y)])
     
     # Mark starting pixel as visited
     visited.add((start_x, start_y))
     
     while queue:
-        # Pop the first pixel from queue
-        x, y = queue.pop(0)
+        # Pop the first pixel from queue - O(1) with deque
+        x, y = queue.popleft()
         
         # Add it to our region
         region_pixels.add((x, y))
