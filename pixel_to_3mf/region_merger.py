@@ -207,3 +207,98 @@ def get_region_bounds(region: Region) -> Tuple[int, int, int, int]:
     ys = [y for x, y in region.pixels]
     
     return (min(xs), max(xs), min(ys), max(ys))
+
+
+def is_pixel_disconnected(
+    x: int,
+    y: int,
+    region_pixels: Set[Tuple[int, int]]
+) -> bool:
+    """
+    Check if a pixel is disconnected (only connects via corners/diagonals).
+    
+    A pixel is considered disconnected if it has NO edge-connected neighbors
+    (up/down/left/right) that are also in the same region. These pixels only
+    touch other pixels at corners, making them unreliable for 3D printing.
+    
+    Example:
+        BBBBBBX
+        BBBBXXB  <-- This B is disconnected (no edge neighbors in region)
+        BBBBXXX
+    
+    Args:
+        x, y: Pixel coordinates to check
+        region_pixels: Set of all pixels in this region
+    
+    Returns:
+        True if pixel is disconnected, False if it has edge connections
+    """
+    # Check all 4 edge-connected neighbors (not diagonals)
+    edge_neighbors = [
+        (x + 1, y),  # right
+        (x - 1, y),  # left
+        (x, y + 1),  # down
+        (x, y - 1),  # up
+    ]
+    
+    # If any edge neighbor is in the region, pixel is NOT disconnected
+    for nx, ny in edge_neighbors:
+        if (nx, ny) in region_pixels:
+            return False
+    
+    # No edge neighbors found - pixel is disconnected (only corner connections)
+    return True
+
+
+def trim_disconnected_pixels(regions: List[Region]) -> List[Region]:
+    """
+    Remove disconnected pixels from regions.
+    
+    Disconnected pixels are those that only connect to the rest of the region
+    via corners (diagonally). These are problematic for 3D printing because:
+    1. The physical connection is too weak to print reliably
+    2. In the 3D mesh, they only share a vertex with neighbors, not an edge
+    
+    This function iteratively removes disconnected pixels until none remain.
+    We use iteration because removing one disconnected pixel might expose
+    another pixel that becomes disconnected.
+    
+    Example:
+        Before:  BBBBBBX       After:   BBBBBBX
+                 BBBBXXB  -->          BBBBXXX
+                 BBBBXXX               BBBBXXX
+                 
+        The middle B pixel is removed because it only touches via corners.
+    
+    Args:
+        regions: List of Region objects to process
+    
+    Returns:
+        List of Region objects with disconnected pixels removed.
+        Empty regions (if all pixels were disconnected) are filtered out.
+    """
+    trimmed_regions: List[Region] = []
+    
+    for region in regions:
+        # Keep removing disconnected pixels until none remain
+        region_pixels = set(region.pixels)
+        
+        while True:
+            # Find all disconnected pixels in current region
+            disconnected = {
+                (x, y) for x, y in region_pixels
+                if is_pixel_disconnected(x, y, region_pixels)
+            }
+            
+            # If no disconnected pixels found, we're done
+            if not disconnected:
+                break
+            
+            # Remove disconnected pixels
+            region_pixels -= disconnected
+        
+        # Only keep regions that still have pixels
+        if region_pixels:
+            trimmed_regions.append(Region(color=region.color, pixels=region_pixels))
+    
+    return trimmed_regions

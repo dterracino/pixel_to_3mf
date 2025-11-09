@@ -22,7 +22,9 @@ from tests import (
     test_cli,
     test_quantization,
     test_padding,
-    test_operation_order
+    test_operation_order,
+    test_trim_disconnected,
+    test_trim_integration
 )
 
 
@@ -41,6 +43,8 @@ def run_tests():
     suite.addTests(loader.loadTestsFromModule(test_quantization))
     suite.addTests(loader.loadTestsFromModule(test_padding))
     suite.addTests(loader.loadTestsFromModule(test_operation_order))
+    suite.addTests(loader.loadTestsFromModule(test_trim_disconnected))
+    suite.addTests(loader.loadTestsFromModule(test_trim_integration))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

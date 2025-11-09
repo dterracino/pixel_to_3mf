@@ -441,6 +441,13 @@ The program will:
     )
     
     parser.add_argument(
+        "--trim",
+        action="store_true",
+        help="Remove disconnected pixels (pixels that only connect via corners/diagonals). "
+             "These pixels are unreliable for 3D printing as they share only a vertex, not an edge."
+    )
+    
+    parser.add_argument(
         "--optimize-mesh",
         action="store_true",
         help="Use optimized polygon-based mesh generation (50-90%% reduction in vertices/triangles). "
@@ -477,6 +484,7 @@ The program will:
         help="Generate a summary file listing all colors/filaments used in the conversion. "
              "Summary is saved as {output_name}.summary.txt in the same location as the output file."
     )
+
 
     # Parse arguments
     args = parser.parse_args()
@@ -557,6 +565,7 @@ The program will:
             filament_finish=filament_finish,
             auto_crop=args.auto_crop,
             connectivity=args.connectivity,
+            trim_disconnected=args.trim,
             padding_size=args.padding_size,
             padding_color=padding_color,
             quantize=args.quantize,

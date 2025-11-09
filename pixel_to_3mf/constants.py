@@ -99,6 +99,15 @@ QUANTIZATION_COLORS = None
 SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
 
 # ============================================================================
+# Geometry Processing
+# ============================================================================
+
+# Trim disconnected pixels (pixels connected only via corner/diagonal)
+# These pixels are unreliable for 3D printing as they only share a vertex
+# with neighboring pixels, not an edge
+TRIM_DISCONNECTED_PIXELS = False
+
+# ============================================================================
 # 3MF File Generation
 # ============================================================================
 
