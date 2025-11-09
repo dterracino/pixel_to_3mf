@@ -236,17 +236,24 @@ The codebase strictly separates **CLI layer** from **business logic**:
 
 **Pipeline flow**:
 ```
-Image Load → Y-Flip → Color Validation → Exact Scaling → Region Merging (8-connectivity flood-fill) 
-→ Manifold Mesh Generation → 3MF Export
+Image Load → Auto-Crop (optional) → Padding (optional) → Y-Flip → Color Validation → 
+Quantization (optional) → Exact Scaling → Region Merging (configurable connectivity) → 
+Trim Disconnected Pixels (optional) → Manifold Mesh Generation (Original or Optimized) → 
+Color Naming → 3MF Export → Summary Generation (optional)
 ```
 
 ### Module Responsibilities
 
-- **`constants.py`**: ALL magic numbers live here (defaults, precision, line width, color limits)
-- **`image_processor.py`**: PIL loading, Y-axis flipping, color validation, exact scaling (no rounding)
-- **`region_merger.py`**: Flood-fill with **8-connectivity** (includes diagonals), bounds calculation
-- **`mesh_generator.py`**: Generates **manifold** meshes (shared vertices, CCW winding, proper topology)
+- **`constants.py`**: ALL magic numbers live here (defaults, precision, line width, color limits, padding defaults)
+- **`config.py`**: ConversionConfig dataclass that holds all conversion parameters - keeps function signatures clean and API maintainable
+- **`image_processor.py`**: PIL loading, auto-crop, padding integration, Y-axis flipping, color validation, exact scaling (no rounding), quantization
+- **`padding_processor.py`**: Smart padding implementation - traces outer edges and internal holes, uses circular distance (Euclidean) for smooth outlines, expands canvas
+- **`region_merger.py`**: Flood-fill with **configurable connectivity** (0/4/8), bounds calculation, trim disconnected pixels feature
+- **`mesh_generator.py`**: Generates **manifold** meshes (shared vertices, CCW winding, proper topology) - original per-pixel path
+- **`polygon_optimizer.py`**: Polygon-based mesh optimization using shapely and triangle - merges pixel squares into polygons, constrained Delaunay triangulation, 20-77% reduction
 - **`threemf_writer.py`**: Creates ZIP with XML files (3MF spec compliance)
+- **`summary_writer.py`**: Generates .summary.txt files listing colors/filaments used in conversion
+- **`find_filament_by_color.py`**: Filament color matching utilities with maker/type/finish filters
 
 ## Key Design Patterns
 
@@ -257,29 +264,54 @@ All defaults in `constants.py`. Change defaults there, NOT in function signature
 def my_func(height: float = COLOR_LAYER_HEIGHT_MM, max_colors: int = MAX_COLORS):
 ```
 
-### 2. PixelData Container
+### 2. ConversionConfig Dataclass
+`config.py` defines a ConversionConfig dataclass that holds all conversion parameters. This keeps function signatures clean and makes the API maintainable as new features are added. Pass config objects instead of individual parameters.
+
+### 3. PixelData Container
 `image_processor.py` returns a `PixelData` object bundling all image info. Pass this around instead of separate width/height/pixels variables.
 
-### 3. Manifold Mesh Generation
+### 4. Manifold Mesh Generation
 **Critical**: Meshes MUST be manifold for slicers:
 - **Shared vertices**: Adjacent pixels share corner vertices (no duplicates)
 - **Edge connectivity**: Every edge shared by exactly 2 triangles
 - **CCW winding**: All triangles use counter-clockwise winding for outward normals
 - **No degenerate triangles**: All triangles have non-zero area
 
-### 4. Y-Axis Coordinate Flipping
+### 5. Y-Axis Coordinate Flipping
 Images have Y=0 at top (origin: top-left). We flip during loading so Y=0 is at bottom (origin: bottom-left), matching 3D coordinate systems. This ensures models appear right-side-up in slicers.
 
-### 5. Flood-Fill with 8-Connectivity
-`region_merger.py` uses **iterative BFS** with **8-connectivity** (includes diagonals) to avoid creating too many separate objects. Without diagonal connectivity, a diagonal line would be N separate regions instead of 1.
+### 6. Configurable Connectivity
+`region_merger.py` uses **iterative BFS** with configurable connectivity:
+- **0 (per-pixel)**: No merging - each pixel becomes separate object (debugging/special effects)
+- **4 (edge-only)**: Pixels connected via edges only - simpler geometry, more regions
+- **8 (diagonal, default)**: Includes diagonal connections - fewer objects, may create complex shapes
 
-### 6. Exact Scaling (No Rounding)
+Without diagonal connectivity (8), a diagonal line would be N separate regions instead of 1.
+
+### 7. Padding with Circular Distance
+`padding_processor.py` adds outlines using circular (Euclidean) distance for smooth results. Traces both outer edges and internal holes. Canvas expands to accommodate padding - original pixels are never overwritten.
+
+### 8. Polygon Optimization
+`polygon_optimizer.py` provides an alternative mesh generation path:
+- Merges pixel squares into larger polygons using shapely
+- Triangulates using constrained Delaunay (triangle library)
+- 20-77% reduction in vertices/triangles
+- 100% reliable - never crashes, fills holes if needed
+- Maintains all manifold properties
+- Enabled with `--optimize-mesh` flag
+
+**When to use**: Large images with many pixels per region (>20), solid color areas, when smaller file sizes are desired.
+
+### 9. Exact Scaling (No Rounding)
 Pixel size calculation is exact: `pixel_size_mm = max_size_mm / max_dimension_px`. The largest dimension equals max_size exactly. **No rounding** - this was removed for predictable scaling.
 
-### 7. Line Width Validation
+### 10. Line Width Validation
 The converter warns if pixel size < line width (unreliable printing). Uses `LINE_WIDTH_MM` constant (default 0.42mm).
 
-### 8. 3MF Format
+### 11. Summary File Generation
+`summary_writer.py` can generate .summary.txt files listing all colors/filaments used. Enabled with `--summary` flag. Written to same location as 3MF with pattern: `{output_name}.summary.txt`.
+
+### 12. 3MF Format
 `threemf_writer.py` generates a ZIP containing XML files. The 3MF is NOT a single XML file - it's a structured archive:
 ```
 .3mf (ZIP archive)
@@ -309,14 +341,42 @@ python run_converter.py image.png --max-size 200 --color-height 1.0 --max-colors
 **Programmatic usage** (for tests/scripts):
 ```python
 from pixel_to_3mf import convert_image_to_3mf
+from pixel_to_3mf.config import ConversionConfig
+
+# Option 1: Use defaults
+stats = convert_image_to_3mf(
+    input_path="test.png",
+    output_path="test.3mf",
+    progress_callback=lambda stage, msg: print(f"{stage}: {msg}")
+)
+
+# Option 2: Custom configuration with ConversionConfig
+config = ConversionConfig(
+    max_size_mm=150,
+    color_height_mm=1.5,
+    base_height_mm=2.0,
+    max_colors=16,
+    backing_color=(255, 255, 255),
+    auto_crop=True,
+    padding_size=5,
+    padding_color=(255, 255, 255),
+    connectivity=8,
+    trim_disconnected=False,
+    color_naming_mode="filament",
+    filament_maker=["Bambu Lab", "Polymaker"],
+    filament_type=["PLA", "PETG"],
+    filament_finish=["Basic", "Matte"],
+    optimize_mesh=True,
+    generate_summary=True
+)
 
 stats = convert_image_to_3mf(
     input_path="test.png",
     output_path="test.3mf",
-    max_size_mm=150,
-    max_colors=16,
+    config=config,
     progress_callback=lambda stage, msg: print(f"{stage}: {msg}")
 )
+
 print(f"Generated {stats['num_regions']} regions from {stats['num_colors']} colors")
 print(f"Model: {stats['model_width_mm']:.1f}x{stats['model_height_mm']:.1f}mm")
 print(f"Pixel size: {stats['pixel_size_mm']:.3f}mm")
@@ -341,22 +401,37 @@ python tests/run_tests.py
 ## Common Tasks
 
 ### Adding a New Parameter
-1. Add constant to `constants.py`
-2. Add parameter to `convert_image_to_3mf()` in `pixel_to_3mf.py` (business logic)
-3. Add argparse argument in `cli.py` (CLI layer)
-4. Add test cases in appropriate test file
-5. Update README examples
+1. Add constant to `constants.py` (if it needs a default value)
+2. Add field to `ConversionConfig` dataclass in `config.py`
+3. Add parameter to `convert_image_to_3mf()` in `pixel_to_3mf.py` (business logic)
+4. Add argparse argument in `cli.py` (CLI layer)
+5. Add test cases in appropriate test file
+6. Update README examples
+7. Update .github/copilot-instructions.md
 
 ### Modifying Mesh Generation
-- Edit `mesh_generator.py` - see `generate_region_mesh()` and `generate_backing_plate()`
+- Edit `mesh_generator.py` - see `generate_region_mesh()` and `generate_backing_plate()` for original path
+- Edit `polygon_optimizer.py` for polygon-based optimization path
 - Meshes use vertex list + triangle index list (standard 3D format)
 - Triangle winding: counter-clockwise = outward normal
 - **Add tests** in `test_mesh_generator.py` to verify manifold properties
 
 ### Changing Region Merging Logic
 - Edit `region_merger.py` flood-fill algorithm
-- Current: 8-connectivity (includes diagonals) - changing this affects output significantly
+- Current: Configurable connectivity (0/4/8) - changing this affects output significantly
 - **Add tests** in `test_region_merger.py` for new connectivity patterns
+
+### Adding Padding Features
+- Edit `padding_processor.py` for padding algorithm changes
+- Uses circular distance (Euclidean) for smooth outlines
+- Traces both outer edges and internal holes
+- **Remember**: Padding happens AFTER auto-crop but BEFORE quantization in pipeline
+
+### Modifying Polygon Optimization
+- Edit `polygon_optimizer.py` for optimization algorithm changes
+- Uses shapely for polygon merging, triangle for Delaunay triangulation
+- Must maintain 100% reliability - never crash, always produce valid manifold output
+- **Add tests** to verify mesh quality and manifold properties
 
 ### Changing 3MF Output Format
 - Edit `threemf_writer.py` XML generation functions
@@ -429,6 +504,9 @@ These conventions are **non-negotiable** and must be followed in all code:
 
 - **Pillow**: Image loading (PIL.Image)
 - **NumPy**: Fast pixel array operations
+- **Rich**: Beautiful terminal output for CLI
+- **Shapely**: Geometric operations for polygon optimization
+- **Triangle**: Constrained Delaunay triangulation for mesh optimization
 - Built-in: zipfile, xml.etree.ElementTree, argparse
 
 Install: `pip install -r requirements.txt`
