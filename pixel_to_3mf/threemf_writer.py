@@ -22,7 +22,7 @@ import uuid
 
 from .mesh_generator import Mesh
 from .constants import COORDINATE_PRECISION
-from .color_tools import Palette, FilamentPalette, rgb_to_lab, rgb_to_hex
+from color_tools import Palette, FilamentPalette, rgb_to_lab, rgb_to_hex
 
 # Import for type checking only (avoids circular imports)
 if TYPE_CHECKING:

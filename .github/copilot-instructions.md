@@ -324,12 +324,15 @@ The converter warns if pixel size < line width (unreliable printing). Uses `LINE
 
 ## Color Tools Integration
 
-The `color_tools/` subpackage is an **external library** (embedded but not part of this project):
+The `color-match-tools` package is a **published external dependency**:
 
-- **DO NOT MODIFY** - Treat as read-only third-party dependency
-- **Import pattern**: `from .color_tools import Palette, rgb_to_lab`
+- **Package name**: `color-match-tools` (PyPI)
+- **Import name**: `color_tools` (Python module)
+- **DO NOT MODIFY** - This is a published third-party package
+- **Import pattern**: `from color_tools import Palette, FilamentPalette, rgb_to_lab`
 - **Usage**: `Palette.from_css()` loads 147 CSS colors, `find_nearest()` uses Delta E 2000
 - **Color space**: RGB → LAB → Delta E 2000 for perceptual distance
+- **Installation**: Listed in `requirements.txt`
 
 ## Running & Testing
 

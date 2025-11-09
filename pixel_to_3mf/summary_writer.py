@@ -9,7 +9,7 @@ file alongside the output 3MF file.
 from pathlib import Path
 from typing import List, Tuple, TYPE_CHECKING
 
-from .color_tools import rgb_to_hex
+from color_tools import rgb_to_hex
 
 # Import for type checking only (avoids circular imports)
 if TYPE_CHECKING:

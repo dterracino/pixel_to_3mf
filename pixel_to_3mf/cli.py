@@ -35,7 +35,8 @@ from .constants import (
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
     DEFAULT_FILAMENT_FINISH,
-    PADDING_COLOR
+    PADDING_COLOR,
+    __version__
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
@@ -281,6 +282,14 @@ The program will:
   4. Generate 3D geometry (extruded regions + backing plate)
   5. Export to 3MF with color names for easy slicer setup
         """
+    )
+    
+    # Version argument
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show program's version number and exit"
     )
     
     # Positional argument: input file (optional if using batch mode)
