@@ -24,7 +24,8 @@ from .constants import (
     QUANTIZATION_ALGORITHM,
     QUANTIZATION_COLORS,
     PADDING_SIZE_PX,
-    PADDING_COLOR
+    PADDING_COLOR,
+    TRIM_DISCONNECTED_PIXELS
 )
 
 
@@ -54,6 +55,7 @@ class ConversionConfig:
         connectivity: Pixel connectivity mode - 0 (no merge), 4 (edge-connected only), or 8 (includes diagonals)
         padding_size: Size of padding in pixels (0 = disabled, >0 = enabled)
         padding_color: RGB color for the padding outline
+        trim_disconnected: If True, remove pixels that only connect via corners (diagonals)
         quantize: If True, automatically reduce colors when image exceeds max_colors
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
         quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
@@ -76,6 +78,7 @@ class ConversionConfig:
     # Processing options
     auto_crop: bool = False
     connectivity: int = 8  # 0 (no merge), 4 (edge only), or 8 (includes diagonals)
+    trim_disconnected: bool = TRIM_DISCONNECTED_PIXELS
     
     # Padding options
     padding_size: int = 0  # 0 = disabled, >0 = padding size in pixels
