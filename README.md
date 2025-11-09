@@ -26,6 +26,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Smart Padding**: Add outlines around sprites to fill gaps between diagonally-connected pixels and improve printability
 - **Automatic Color Quantization**: Reduce image colors on-the-fly when exceeding limits - no external preprocessing needed!
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
+- **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used (use `--summary`)
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations
 - **Transparent Pixel Support**: Transparent areas become holes in the model
 - **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable)
@@ -169,6 +170,8 @@ python run_converter.py --batch \
 | `--quantize-algo` | Quantization algorithm: `none` (fast/sharp), `floyd` (smooth) | `none` |
 | `--quantize-colors` | Target color count for quantization (defaults to max-colors) | `max-colors` |
 | `--auto-crop` | Automatically crop away fully transparent edges | Off |
+| `--padding-size` | Add outline padding around sprites (in pixels) | 0 (disabled) |
+| `--padding-color` | Padding color as R,G,B | `255,255,255` (white) |
 | `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
 | `--trim` | Remove disconnected pixels (only corner-connected, no edge connections) | Off |
 | `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
@@ -176,6 +179,7 @@ python run_converter.py --batch \
 | `--filament-type` | Filament type filter(s), comma-separated (for `filament` mode) | `PLA` |
 | `--filament-finish` | Filament finish filter(s), comma-separated (for `filament` mode) | `Basic, Matte` |
 | `--optimize-mesh` | Use polygon-based mesh optimization | Off |
+| `--summary` | Generate summary file listing colors/filaments used | Off |
 
 #### Batch Mode
 
@@ -241,12 +245,16 @@ config = ConversionConfig(
     max_colors=16,
     backing_color=(255, 255, 255),  # RGB tuple
     auto_crop=True,                  # Crop transparent edges
+    padding_size=5,                  # Add 5px outline padding
+    padding_color=(255, 255, 255),   # White padding
     connectivity=8,                   # 0, 4, or 8
-    color_mode="filament",            # "color", "filament", or "hex"
+    trim_disconnected=False,          # Remove corner-only pixels
+    color_naming_mode="filament",     # "color", "filament", or "hex"
     filament_maker="Bambu Lab",       # Single maker or ["Bambu Lab", "Polymaker"]
     filament_type="PLA",              # Single type or ["PLA", "PETG"]
     filament_finish=["Basic", "Matte"],  # Single finish or list
-    optimize_mesh=False
+    optimize_mesh=False,              # Use polygon optimization
+    generate_summary=True             # Generate .summary.txt file
 )
 
 stats = convert_image_to_3mf(
@@ -547,14 +555,43 @@ python run_converter.py image.png --color-mode hex
 - Filter by your available filament inventory (supports multiple makers/types/finishes)
 - Plan multi-color prints with real products in mind
 
+#### Generate Summary File
+
+```bash
+# Generate summary file listing all colors/filaments used
+python run_converter.py image.png --summary
+
+# Combine with filament mode for detailed filament list
+python run_converter.py image.png \
+  --color-mode filament \
+  --filament-maker "Bambu Lab" \
+  --summary
+```
+
+- **Effect:** Creates a `.summary.txt` file alongside the 3MF output
+- **Contents:** Lists all colors/filaments used with hex codes
+- **Use case:** Planning filament changes, tracking color usage, documentation
+- **Example output:**
+  ```
+  3MF Conversion Summary
+  ======================
+  3MF File: sprite_model.3mf
+  
+  Colors/Filaments Used:
+  1. Red (#FF0000)
+  2. Blue (#0000FF)
+  3. White (#FFFFFF)
+  ```
+
 ## How It Works 🔧
 
 The converter follows a precise pipeline to transform 2D images into 3D printable files:
 
 ```text
 Image Loading → Auto-Crop (optional) → Padding (optional) → Color Validation → 
-Quantization (optional) → Exact Scaling → Region Merging → Mesh Generation → 
-Color Naming → 3MF Export
+Quantization (optional) → Exact Scaling → Region Merging → Trim (optional) → 
+Mesh Generation (Original or Optimized) → Color Naming → 3MF Export → 
+Summary Generation (optional)
 ```
 
 ### Image Processing Pipeline Order
@@ -1004,19 +1041,23 @@ The converter generates valid manifold meshes, but edge cases may exist.
 
 ```text
 pixel_to_3mf/
-├── __init__.py           # Package entry point
-├── constants.py          # All default values (edit here to change defaults)
-├── config.py             # ConversionConfig dataclass
-├── cli.py                # Command-line interface (argparse, output)
-├── pixel_to_3mf.py      # Core conversion logic (main pipeline)
-├── image_processor.py    # Image loading, Y-flip, scaling, validation
-├── region_merger.py      # Flood-fill algorithm (8-connectivity)
-├── mesh_generator.py     # 3D geometry generation (manifold meshes)
-├── threemf_writer.py     # 3MF file export (ZIP + XML)
-└── color_tools/          # External color matching library
+├── __init__.py              # Package entry point
+├── constants.py             # All default values (edit here to change defaults)
+├── config.py                # ConversionConfig dataclass for managing parameters
+├── cli.py                   # Command-line interface (argparse, output, batch processing)
+├── pixel_to_3mf.py         # Core conversion logic (main pipeline)
+├── image_processor.py       # Image loading, Y-flip, scaling, validation, auto-crop, quantization
+├── padding_processor.py     # Smart padding with circular distance (outline tracing)
+├── region_merger.py         # Flood-fill algorithm (configurable connectivity), trim disconnected
+├── mesh_generator.py        # 3D geometry generation (manifold meshes), original path
+├── polygon_optimizer.py     # Polygon-based mesh optimization (shapely + triangle)
+├── threemf_writer.py        # 3MF file export (ZIP + XML)
+├── summary_writer.py        # Summary file generation (.summary.txt)
+├── find_filament_by_color.py # Filament color matching utilities
+└── color_tools/             # External color matching library
     ├── __init__.py
-    ├── palette.py        # CSS color database
-    └── conversions.py    # RGB ↔ LAB conversions
+    ├── palette.py           # CSS color database
+    └── conversions.py       # RGB ↔ LAB conversions
 ```
 
 ### Architecture: Clean Separation
