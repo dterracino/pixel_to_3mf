@@ -14,12 +14,54 @@ import os
 from typing import Optional, Callable, Dict, Any
 from pathlib import Path
 
-from .image_processor import load_image
-from .region_merger import merge_regions
+from .image_processor import load_image, PixelData
+from .region_merger import merge_regions, Region
 from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
+from typing import List, Set, Tuple
+
+def _create_filtered_pixel_data(regions: List[Region], original_pixel_data: PixelData) -> PixelData:
+    """
+    Create a PixelData object filtered to only include pixels from the given regions.
+    
+    This ensures the backing plate matches the actual colored regions, excluding
+    any pixels that were filtered out during region merging or optimization.
+    
+    WHY: When regions are filtered (e.g., disconnected pixels removed during
+    polygon optimization), the backing plate must stay in sync with the colored
+    layers above. Otherwise, isolated pixels appear in the backing plate but not
+    in the colored regions, creating unprintable geometry.
+    
+    Args:
+        regions: List of Region objects that will be included in the final model
+        original_pixel_data: Original PixelData with all pixels
+    
+    Returns:
+        New PixelData with only pixels that exist in the provided regions
+    """
+    # Collect all pixel coordinates from all regions
+    included_pixels: Set[Tuple[int, int]] = set()
+    for region in regions:
+        included_pixels.update(region.pixels)
+    
+    # Filter original pixels to only those in regions
+    filtered_pixels = {
+        coord: rgba
+        for coord, rgba in original_pixel_data.pixels.items()
+        if coord in included_pixels
+    }
+    
+    # Create new PixelData with filtered pixels
+    # Width, height, and pixel_size_mm remain the same
+    return PixelData(
+        width=original_pixel_data.width,
+        height=original_pixel_data.height,
+        pixel_size_mm=original_pixel_data.pixel_size_mm,
+        pixels=filtered_pixels
+    )
+
 
 def format_filesize(size_bytes: int) -> str:
     """
@@ -191,7 +233,11 @@ def convert_image_to_3mf(
     # Generate backing plate (if base_height > 0)
     if config.base_height_mm > 0:
         _progress("mesh", "Generating backing plate...")
-        backing_mesh = generate_backing_plate(pixel_data, config)
+        # CRITICAL FIX: Filter pixel_data to only include pixels from regions
+        # This ensures backing plate matches the colored regions exactly,
+        # even if some pixels were filtered out during region merging/optimization
+        filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
+        backing_mesh = generate_backing_plate(filtered_pixel_data, config)
         meshes.append((backing_mesh, "backing_plate"))
     else:
         _progress("mesh", "Skipping backing plate (base height is 0)")
