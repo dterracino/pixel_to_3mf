@@ -10,6 +10,7 @@ The optimization reduces vertex and triangle counts by 50-90% for typical
 pixel art while maintaining all manifold properties.
 """
 
+from collections import deque
 from typing import List, Tuple, Set, Optional, Dict, TYPE_CHECKING, cast, Sequence
 from shapely.geometry import Polygon, box, MultiPolygon
 from shapely.ops import unary_union
@@ -56,11 +57,12 @@ def _is_4_connected(pixels: Set[Tuple[int, int]]) -> bool:
     # Start BFS from arbitrary pixel
     visited: Set[Tuple[int, int]] = set()
     start = next(iter(pixels))
-    queue = [start]
+    # Using deque for O(1) popleft() instead of list.pop(0) which is O(n)
+    queue: deque[Tuple[int, int]] = deque([start])
     visited.add(start)
     
     while queue:
-        x, y = queue.pop(0)
+        x, y = queue.popleft()
         
         # Check only 4-connected neighbors (edge-sharing)
         neighbors_4 = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
