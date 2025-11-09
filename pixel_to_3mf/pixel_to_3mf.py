@@ -11,16 +11,15 @@ No print statements, no argparse, just clean conversion logic! 🎯
 import math
 import os
 
-from typing import Optional, Callable, Dict, Any
+from typing import Optional, Callable, Dict, Any, List, Set, Tuple
 from pathlib import Path
 
-from .image_processor import load_image
-from .region_merger import merge_regions, trim_disconnected_pixels
+from .image_processor import load_image, PixelData
+from .region_merger import merge_regions, trim_disconnected_pixels, Region
 from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
-from typing import List, Set, Tuple
 
 def _create_filtered_pixel_data(regions: List[Region], original_pixel_data: PixelData) -> PixelData:
     """
