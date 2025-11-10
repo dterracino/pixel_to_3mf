@@ -465,8 +465,8 @@ class TestGenerateBatchSummary(unittest.TestCase):
         # Check file was created
         self.assertTrue(Path(summary_path).exists())
         
-        # Read and verify content
-        content = Path(summary_path).read_text()
+        # Read and verify content (specify UTF-8 to handle emojis)
+        content = Path(summary_path).read_text(encoding='utf-8')
         self.assertIn("Batch Conversion Summary", content)
         self.assertIn("2025-01-01", content)
         self.assertIn("30.0 seconds", content)
@@ -506,7 +506,7 @@ class TestGenerateBatchSummary(unittest.TestCase):
         
         summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
         
-        content = Path(summary_path).read_text()
+        content = Path(summary_path).read_text(encoding='utf-8')
         self.assertIn("**Successful:** 2 files", content)
         self.assertIn("test1.png", content)
         self.assertIn("test2.png", content)
@@ -533,7 +533,7 @@ class TestGenerateBatchSummary(unittest.TestCase):
         
         summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
         
-        content = Path(summary_path).read_text()
+        content = Path(summary_path).read_text(encoding='utf-8')
         self.assertIn("**Skipped:** 1 files", content)
         self.assertIn("highres.png", content)
         self.assertIn("resolution too high", content)
@@ -556,7 +556,7 @@ class TestGenerateBatchSummary(unittest.TestCase):
         
         summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
         
-        content = Path(summary_path).read_text()
+        content = Path(summary_path).read_text(encoding='utf-8')
         self.assertIn("**Failed:** 1 files", content)
         self.assertIn("bad.png", content)
         self.assertIn("Too many unique colors", content)
@@ -594,7 +594,7 @@ class TestGenerateBatchSummary(unittest.TestCase):
         
         summary_path = generate_batch_summary(results, self.output_dir, start_time, end_time)
         
-        content = Path(summary_path).read_text()
+        content = Path(summary_path).read_text(encoding='utf-8')
         self.assertIn("**Successful:** 1 files", content)
         self.assertIn("**Skipped:** 1 files", content)
         self.assertIn("**Failed:** 1 files", content)
