@@ -77,16 +77,6 @@ def render_meshes_to_file(
         # Each triangle is defined by 3 vertex indices
         vertices_array = np.array(mesh.vertices)
         
-        # Apply small Z-offset to backing plate to prevent Z-fighting
-        # The backing plate top face is at Z=0, same as the colored regions' bottom face.
-        # This causes Z-fighting in matplotlib. We shift the backing plate down slightly
-        # ONLY in the render (not in the actual 3MF geometry).
-        if name == "backing_plate":
-            # Shift backing plate down by a tiny amount (0.01mm = 10 microns)
-            # This is purely visual - the actual 3MF geometry remains unchanged
-            vertices_array = vertices_array.copy()  # Don't modify original
-            vertices_array[:, 2] -= 0.01  # Shift Z coordinate down
-        
         # Create list of triangular faces for Poly3DCollection
         faces = []
         for tri in mesh.triangles:
