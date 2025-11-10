@@ -24,7 +24,8 @@ from tests import (
     test_padding,
     test_operation_order,
     test_trim_disconnected,
-    test_trim_integration
+    test_trim_integration,
+    test_render_model
 )
 
 
@@ -45,6 +46,7 @@ def run_tests():
     suite.addTests(loader.loadTestsFromModule(test_operation_order))
     suite.addTests(loader.loadTestsFromModule(test_trim_disconnected))
     suite.addTests(loader.loadTestsFromModule(test_trim_integration))
+    suite.addTests(loader.loadTestsFromModule(test_render_model))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

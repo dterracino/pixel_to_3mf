@@ -106,12 +106,15 @@ def render_meshes_to_file(
     ax.set_xlim([0 - margin, model_width_mm + margin])
     ax.set_ylim([0 - margin, model_height_mm + margin])
     
-    # Z limit depends on the maximum Z coordinate in the meshes
+    # Z limit depends on the min/max Z coordinates in the meshes
+    # Need to track both because backing plate has negative Z values
+    min_z = 0
     max_z = 0
     for mesh, _ in meshes:
         for vertex in mesh.vertices:
+            min_z = min(min_z, vertex[2])
             max_z = max(max_z, vertex[2])
-    ax.set_zlim([0, max_z + margin])
+    ax.set_zlim([min_z - margin, max_z + margin])
     
     # Set labels
     ax.set_xlabel('X (mm)', fontsize=10)
