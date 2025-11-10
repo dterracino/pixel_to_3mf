@@ -271,6 +271,23 @@ def convert_image_to_3mf(
     summary_path = write_3mf(output_path, meshes, region_colors, pixel_data, config, progress_callback)
     _progress("export", f"3MF written to: {output_path}")
     
+    # Step 5: Render model if requested
+    render_path = None
+    if config.render_model:
+        _progress("render", "Rendering 3D model preview...")
+        from .render_model import render_meshes_to_file, generate_render_path
+        
+        render_path = generate_render_path(output_path)
+        render_meshes_to_file(
+            meshes=meshes,
+            region_colors=region_colors,
+            output_path=render_path,
+            model_width_mm=pixel_data.model_width_mm,
+            model_height_mm=pixel_data.model_height_mm,
+            backing_color=config.backing_color
+        )
+        _progress("render", f"Render saved to: {render_path}")
+    
     # Count mesh statistics
     total_vertices, total_triangles = count_mesh_stats(meshes)
     
@@ -293,5 +310,9 @@ def convert_image_to_3mf(
     # Add summary path if generated
     if summary_path:
         stats['summary_path'] = summary_path
+    
+    # Add render path if generated
+    if render_path:
+        stats['render_path'] = render_path
     
     return stats

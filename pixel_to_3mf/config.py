@@ -91,6 +91,9 @@ class ConversionConfig:
     
     # Summary file options
     generate_summary: bool = False
+    
+    # Rendering options
+    render_model: bool = False
 
     def __post_init__(self):
         """Validate configuration parameters."""
