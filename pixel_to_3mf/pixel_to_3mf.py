@@ -222,7 +222,7 @@ def convert_image_to_3mf(
     if config.trim_disconnected:
         _progress("merge", "Trimming disconnected pixels...")
         original_count = len(regions)
-        regions = trim_disconnected_pixels(regions)
+        regions = trim_disconnected_pixels(regions, pixel_data.pixels)
         if len(regions) < original_count:
             _progress("merge", f"Trimmed to {len(regions)} regions (removed {original_count - len(regions)} empty regions)")
     
