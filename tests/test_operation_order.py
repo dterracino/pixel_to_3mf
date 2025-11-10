@@ -41,6 +41,7 @@ class TestOperationOrder(unittest.TestCase):
         """
         img = Image.new('RGBA', (20, 20), (0, 0, 0, 0))
         pixels = img.load()
+        assert pixels is not None  # Type narrowing for Pyright
         
         # Fill center 10x10 with red
         for y in range(5, 15):
@@ -98,6 +99,7 @@ class TestOperationOrder(unittest.TestCase):
         # Create image with multiple colors
         img = Image.new('RGBA', (10, 10))
         pixels = img.load()
+        assert pixels is not None  # Type narrowing for Pyright
         
         # Create a gradient of 20 different colors
         for i in range(10):
@@ -184,6 +186,7 @@ class TestOperationOrder(unittest.TestCase):
         # Create image with MANY distinct colors and transparent padding
         img = Image.new('RGBA', (20, 20), (0, 0, 0, 0))
         pixels = img.load()
+        assert pixels is not None  # Type narrowing for Pyright
         
         # Fill center with many distinct colors (100 different colors)
         # This ensures we definitely exceed the quantization target
@@ -200,7 +203,14 @@ class TestOperationOrder(unittest.TestCase):
         self.test_files.append(test_path)
         
         # Count original colors before processing
-        original_colors = len(set(pixels[x, y][:3] for y in range(5, 15) for x in range(5, 15)))
+        # Note: pixels[x, y] returns RGBA tuple for RGBA images
+        pixel_colors = set()
+        for y in range(5, 15):
+            for x in range(5, 15):
+                pixel = pixels[x, y]
+                assert isinstance(pixel, tuple) and len(pixel) >= 3
+                pixel_colors.add(pixel[:3])
+        original_colors = len(pixel_colors)
         
         config = ConversionConfig(
             auto_crop=True,        # Remove transparent border

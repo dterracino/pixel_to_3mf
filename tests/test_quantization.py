@@ -38,14 +38,14 @@ class TestQuantizeImage(unittest.TestCase):
         img.putdata(pixels)
         
         # Verify it has 100 unique colors
-        unique_before = len(set(img.getdata()))
+        unique_before = len(set(img.getdata()))  # type: ignore[arg-type]
         self.assertEqual(unique_before, 100)
         
         # Quantize to 10 colors
         quantized = quantize_image(img, 10, "none")
         
         # Check it now has <= 10 unique colors
-        unique_after = len(set(quantized.getdata()))
+        unique_after = len(set(quantized.getdata()))  # type: ignore[arg-type]
         self.assertLessEqual(unique_after, 10)
     
     def test_quantize_preserves_alpha(self):
@@ -65,8 +65,10 @@ class TestQuantizeImage(unittest.TestCase):
         quantized = quantize_image(img, 2, "none")
         
         # Extract alpha values
-        original_alphas = [p[3] for p in img.getdata()]
-        quantized_alphas = [p[3] for p in quantized.getdata()]
+        img_data = img.getdata()
+        quantized_data = quantized.getdata()
+        original_alphas = [p[3] for p in img_data]  # type: ignore[index]
+        quantized_alphas = [p[3] for p in quantized_data]  # type: ignore[index]
         
         # Alpha channel should be exactly the same
         self.assertEqual(original_alphas, quantized_alphas)
@@ -92,8 +94,8 @@ class TestQuantizeImage(unittest.TestCase):
         self.assertEqual(quantized_floyd.mode, 'RGBA')
         
         # Both should have reduced colors
-        unique_none = len(set(quantized_none.getdata()))
-        unique_floyd = len(set(quantized_floyd.getdata()))
+        unique_none = len(set(quantized_none.getdata()))  # type: ignore[arg-type]
+        unique_floyd = len(set(quantized_floyd.getdata()))  # type: ignore[arg-type]
         self.assertLessEqual(unique_none, 10)  # Should be much less than original
         self.assertLessEqual(unique_floyd, 10)  # Should be much less than original
     

@@ -6,12 +6,25 @@ pixels in pixel art images.
 """
 
 import unittest
+from typing import Tuple
 from PIL import Image
 import numpy as np
 from pathlib import Path
 
 from pixel_to_3mf.padding_processor import add_padding, should_apply_padding
 from tests.test_helpers import cleanup_test_file
+
+
+def _get_rgba_pixel(img: Image.Image, x: int, y: int) -> Tuple[int, int, int, int]:
+    """
+    Get RGBA pixel values from image.
+    
+    Helper to work around Pyright's inability to infer getpixel() return type.
+    """
+    pixel = img.getpixel((x, y))
+    assert isinstance(pixel, tuple) and len(pixel) == 4
+    r, g, b, a = pixel
+    return (int(r), int(g), int(b), int(a))
 
 
 class TestShouldApplyPadding(unittest.TestCase):
@@ -52,11 +65,11 @@ class TestAddPadding(unittest.TestCase):
         
         # Not a tuple
         with self.assertRaises(ValueError):
-            add_padding(img, 5, [255, 255, 255])
+            add_padding(img, 5, [255, 255, 255])  # type: ignore[arg-type]
         
         # Wrong length
         with self.assertRaises(ValueError):
-            add_padding(img, 5, (255, 255))
+            add_padding(img, 5, (255, 255))  # type: ignore[arg-type]
         
         # Out of range
         with self.assertRaises(ValueError):
@@ -84,7 +97,10 @@ class TestAddPadding(unittest.TestCase):
         
         # Should return original since there's nothing to pad
         self.assertEqual(result.size, img.size)
-        self.assertEqual(list(result.getdata()), list(img.getdata()))
+        # Type assertion for ImagingCore - convert to list explicitly
+        result_data: list = list(result.getdata())  # type: ignore[arg-type]
+        img_data: list = list(img.getdata())  # type: ignore[arg-type]
+        self.assertEqual(result_data, img_data)
     
     def test_expands_canvas(self):
         """Test that canvas is expanded by padding_size on all sides."""
@@ -112,17 +128,17 @@ class TestAddPadding(unittest.TestCase):
         self.assertEqual(result.size, (14, 14))
         
         # Original pixel should be at (5+2, 5+2) = (7, 7)
-        r, g, b, a = result.getpixel((7, 7))
+        r, g, b, a = _get_rgba_pixel(result, 7, 7)
         self.assertEqual((r, g, b, a), (255, 0, 0, 255))
         
         # Padding pixels should exist around it
         # Check a few positions that should have white padding
         # At distance 1 from center (should have padding)
-        r, g, b, a = result.getpixel((6, 7))  # Left
+        r, g, b, a = _get_rgba_pixel(result, 6, 7)  # Left
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
         
-        r, g, b, a = result.getpixel((8, 7))  # Right
+        r, g, b, a = _get_rgba_pixel(result, 8, 7)  # Right
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
     
@@ -142,13 +158,13 @@ class TestAddPadding(unittest.TestCase):
         
         # Center of square should still be red (not padded over)
         # Original (5, 5) -> shifted to (6, 6)
-        r, g, b, a = result.getpixel((6, 6))
+        r, g, b, a = _get_rgba_pixel(result, 6, 6)
         self.assertEqual((r, g, b, a), (255, 0, 0, 255))
         
         # Just outside the square should be white padding
         # Original (3, 5) was transparent, should now have padding
         # -> shifted to (4, 6)
-        r, g, b, a = result.getpixel((4, 6))
+        r, g, b, a = _get_rgba_pixel(result, 4, 6)
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
     
@@ -170,7 +186,7 @@ class TestAddPadding(unittest.TestCase):
         
         # The hole should have padding around its edges
         # Original hole at (5, 5) -> shifted to (6, 6)
-        r, g, b, a = result.getpixel((6, 6))
+        r, g, b, a = _get_rgba_pixel(result, 6, 6)
         # The hole itself should have padding
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
@@ -191,7 +207,7 @@ class TestAddPadding(unittest.TestCase):
         
         # Check that padding exists between them
         # The pixel at (6, 7) should be either red or white (filled)
-        r, g, b, a = result.getpixel((6, 7))
+        r, g, b, a = _get_rgba_pixel(result, 6, 7)
         self.assertGreater(a, 0)  # Should not be transparent
     
     def test_padding_color_is_correct(self):
@@ -203,7 +219,7 @@ class TestAddPadding(unittest.TestCase):
         result = add_padding(img, 2, (0, 0, 255))
         
         # Check that padding pixels are blue
-        r, g, b, a = result.getpixel((6, 7))  # Should be padding
+        r, g, b, a = _get_rgba_pixel(result, 6, 7)  # Should be padding
         self.assertEqual((r, g, b), (0, 0, 255))
         self.assertEqual(a, 255)
     
@@ -218,13 +234,13 @@ class TestAddPadding(unittest.TestCase):
         result = add_padding(img, 2, (255, 255, 255))
         
         # Original pixels should be preserved (shifted by padding_size)
-        r, g, b, a = result.getpixel((3 + 2, 3 + 2))
+        r, g, b, a = _get_rgba_pixel(result, 3 + 2, 3 + 2)
         self.assertEqual((r, g, b, a), (255, 0, 0, 255))
         
-        r, g, b, a = result.getpixel((3 + 2, 4 + 2))
+        r, g, b, a = _get_rgba_pixel(result, 3 + 2, 4 + 2)
         self.assertEqual((r, g, b, a), (0, 255, 0, 255))
         
-        r, g, b, a = result.getpixel((4 + 2, 3 + 2))
+        r, g, b, a = _get_rgba_pixel(result, 4 + 2, 3 + 2)
         self.assertEqual((r, g, b, a), (0, 0, 255, 255))
     
     def test_transparent_outer_edges_with_padding(self):
@@ -247,7 +263,7 @@ class TestAddPadding(unittest.TestCase):
         self.assertEqual(result.size, (14, 14))
         
         # Original cross center at (5, 5) -> shifted to (7, 7)
-        r, g, b, a = result.getpixel((7, 7))
+        r, g, b, a = _get_rgba_pixel(result, 7, 7)
         self.assertEqual((r, g, b, a), (255, 0, 0, 255))
         
         # Padding should surround the cross shape
@@ -255,7 +271,7 @@ class TestAddPadding(unittest.TestCase):
         # Original (5, 2) was transparent, should have padding around (5, 3)
         # Shifted position of (5, 3) -> (7, 5)
         # Position (7, 4) should have padding (1px above the top of vertical bar)
-        r, g, b, a = result.getpixel((7, 4))
+        r, g, b, a = _get_rgba_pixel(result, 7, 4)
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
         
@@ -264,7 +280,7 @@ class TestAddPadding(unittest.TestCase):
         # Shifted to (5, 5) - should remain transparent or have less padding
         # Let's check a corner that's definitely outside padding range
         # Original (1, 1) -> (3, 3) should be transparent
-        r, g, b, a = result.getpixel((3, 3))
+        r, g, b, a = _get_rgba_pixel(result, 3, 3)
         self.assertEqual(a, 0)  # Should be transparent
     
     def test_internal_hole_gets_filled_by_padding(self):
@@ -290,19 +306,19 @@ class TestAddPadding(unittest.TestCase):
         
         # Check that the hole has padding filling it
         # Original hole pixel at (5, 5) -> shifted to (6, 6)
-        r, g, b, a = result.getpixel((6, 6))
+        r, g, b, a = _get_rgba_pixel(result, 6, 6)
         # This should have white padding (filling the hole)
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
         
         # Another hole pixel at (6, 6) -> shifted to (7, 7)
-        r, g, b, a = result.getpixel((7, 7))
+        r, g, b, a = _get_rgba_pixel(result, 7, 7)
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
         
         # The red ring should still be preserved
         # Original (4, 4) -> shifted to (5, 5)
-        r, g, b, a = result.getpixel((5, 5))
+        r, g, b, a = _get_rgba_pixel(result, 5, 5)
         self.assertEqual((r, g, b, a), (255, 0, 0, 255))
     
     def test_padding_follows_complex_shape(self):
@@ -326,29 +342,29 @@ class TestAddPadding(unittest.TestCase):
         
         # Original L-shape should be preserved (shifted by 1)
         # Check vertical part: (3, 3) -> (4, 4)
-        r, g, b, a = result.getpixel((4, 4))
+        r, g, b, a = _get_rgba_pixel(result, 4, 4)
         self.assertEqual((r, g, b, a), (255, 0, 0, 255))
         
         # Check horizontal part: (5, 7) -> (6, 8)
-        r, g, b, a = result.getpixel((6, 8))
+        r, g, b, a = _get_rgba_pixel(result, 6, 8)
         self.assertEqual((r, g, b, a), (255, 0, 0, 255))
         
         # Check padding on outer edge of vertical part
         # Left side of (3, 3) -> (4, 4): position (3, 4) should have padding
-        r, g, b, a = result.getpixel((3, 4))
+        r, g, b, a = _get_rgba_pixel(result, 3, 4)
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
         
         # Check padding on outer edge of horizontal part
         # Below (5, 7) -> (6, 8): position (6, 9) should have padding
-        r, g, b, a = result.getpixel((6, 9))
+        r, g, b, a = _get_rgba_pixel(result, 6, 9)
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
         
         # Check internal corner (inside the L) has padding
         # Position (4, 6) was transparent and next to L
         # Shifted to (5, 7) should have padding
-        r, g, b, a = result.getpixel((5, 7))
+        r, g, b, a = _get_rgba_pixel(result, 5, 7)
         self.assertEqual((r, g, b), (255, 255, 255))
         self.assertEqual(a, 255)
 

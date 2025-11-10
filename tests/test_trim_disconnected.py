@@ -6,10 +6,14 @@ to their region via corners (diagonally), as these are unreliable for 3D printin
 """
 
 import unittest
+from typing import Dict, Set, Tuple
 from pixel_to_3mf.region_merger import Region, is_pixel_disconnected, trim_disconnected_pixels
 
 
-def _pixels_to_dict(pixels: set, color=(255, 0, 0, 255)):
+def _pixels_to_dict(
+    pixels: Set[Tuple[int, int]], 
+    color: Tuple[int, int, int, int] = (255, 0, 0, 255)
+) -> Dict[Tuple[int, int], Tuple[int, int, int, int]]:
     """Helper to convert set of (x,y) tuples to dict format for all_pixels."""
     return {(x, y): color for x, y in pixels}
 
@@ -363,6 +367,8 @@ class TestTrimDisconnectedPixels(unittest.TestCase):
         # Both regions should exist
         self.assertIsNotNone(red_result)
         self.assertIsNotNone(blue_result)
+        assert red_result is not None  # Type narrowing for Pyright
+        assert blue_result is not None  # Type narrowing for Pyright
         
         # Red pixel should be preserved (has edge-connected blue neighbors)
         self.assertEqual(red_result.pixels, red_pixels)
@@ -396,6 +402,7 @@ class TestTrimDisconnectedPixels(unittest.TestCase):
         
         red_result = next((r for r in result if r.color == (255, 0, 0)), None)
         self.assertIsNotNone(red_result)
+        assert red_result is not None  # Type narrowing for Pyright
         
         # All red pixels should be preserved
         self.assertEqual(red_result.pixels, red_pixels)
