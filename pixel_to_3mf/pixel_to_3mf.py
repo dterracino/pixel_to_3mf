@@ -151,6 +151,15 @@ def convert_image_to_3mf(
     # Use default config if none provided
     if config is None:
         config = ConversionConfig()
+    
+    # Reset optimization statistics if optimization is enabled
+    from . import mesh_generator as mg
+    if mg.USE_OPTIMIZED_MESH_GENERATION:
+        try:
+            from .polygon_optimizer import reset_optimization_stats
+            reset_optimization_stats()
+        except ImportError:
+            pass  # Optimization not available
 
     # Validate input file exists
     input_file = Path(input_path)
@@ -236,6 +245,14 @@ def convert_image_to_3mf(
         mesh = generate_region_mesh(region, pixel_data, config)
         meshes.append((mesh, f"region_{i}"))
         region_colors.append(region.color)
+    
+    # Log optimization summary if optimization was enabled
+    if mg.USE_OPTIMIZED_MESH_GENERATION:
+        try:
+            from .polygon_optimizer import log_optimization_summary
+            log_optimization_summary()
+        except ImportError:
+            pass  # Optimization not available
 
     # Generate backing plate (if base_height > 0)
     if config.base_height_mm > 0:

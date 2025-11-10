@@ -15,7 +15,6 @@ from typing import List, Tuple, Set, Optional, Dict, TYPE_CHECKING, cast, Sequen
 from shapely.geometry import Polygon, box, MultiPolygon
 from shapely.ops import unary_union
 import triangle as tr
-import warnings
 import logging
 
 from .region_merger import Region
@@ -29,6 +28,68 @@ if TYPE_CHECKING:
 # Set up logging for this module
 # Note: Level will be configured by the application (see cli.py)
 logger = logging.getLogger(__name__)
+
+# Module-level statistics for tracking optimization results
+# Reset at the start of each conversion
+_optimization_stats = {
+    'total_regions': 0,
+    'optimized_success': 0,
+    'fallback_not_4_connected': 0,
+    'fallback_invalid_polygon': 0,
+    'fallback_triangulation_failed': 0,
+    'fallback_other_error': 0
+}
+
+
+def reset_optimization_stats() -> None:
+    """Reset optimization statistics for a new conversion."""
+    global _optimization_stats
+    _optimization_stats = {
+        'total_regions': 0,
+        'optimized_success': 0,
+        'fallback_not_4_connected': 0,
+        'fallback_invalid_polygon': 0,
+        'fallback_triangulation_failed': 0,
+        'fallback_other_error': 0
+    }
+
+
+def get_optimization_stats() -> Dict[str, int]:
+    """Get current optimization statistics."""
+    return _optimization_stats.copy()
+
+
+def log_optimization_summary() -> None:
+    """Log summary of optimization results."""
+    total = _optimization_stats['total_regions']
+    optimized = _optimization_stats['optimized_success']
+    fallback_total = (
+        _optimization_stats['fallback_not_4_connected'] +
+        _optimization_stats['fallback_invalid_polygon'] +
+        _optimization_stats['fallback_triangulation_failed'] +
+        _optimization_stats['fallback_other_error']
+    )
+    
+    if total == 0:
+        return  # No regions processed
+    
+    logger.info("=" * 70)
+    logger.info("OPTIMIZATION SUMMARY")
+    logger.info("=" * 70)
+    logger.info(f"Total regions processed: {total}")
+    logger.info(f"Successfully optimized: {optimized} ({optimized*100//total}%)")
+    logger.info(f"Fallback to original: {fallback_total} ({fallback_total*100//total}%)")
+    
+    if _optimization_stats['fallback_not_4_connected'] > 0:
+        logger.info(f"  - Not 4-connected: {_optimization_stats['fallback_not_4_connected']}")
+    if _optimization_stats['fallback_invalid_polygon'] > 0:
+        logger.info(f"  - Invalid polygon: {_optimization_stats['fallback_invalid_polygon']}")
+    if _optimization_stats['fallback_triangulation_failed'] > 0:
+        logger.info(f"  - Triangulation failed: {_optimization_stats['fallback_triangulation_failed']}")
+    if _optimization_stats['fallback_other_error'] > 0:
+        logger.info(f"  - Other errors: {_optimization_stats['fallback_other_error']}")
+    logger.info("=" * 70)
+
 
 
 def _is_4_connected(pixels: Set[Tuple[int, int]]) -> bool:
@@ -570,6 +631,10 @@ def generate_region_mesh_optimized(
     logger.info(f"Starting optimized mesh generation for region with {len(region.pixels)} pixels, "
                f"color=RGB{region.color}")
     
+    # Track this region
+    global _optimization_stats
+    _optimization_stats['total_regions'] += 1
+    
     try:
         # Step 0: Check if pixels are 4-connected (edge-sharing)
         # If pixels are only diagonally connected (8-connected but not 4-connected),
@@ -580,6 +645,8 @@ def generate_region_mesh_optimized(
                 f"Region has pixels that are only diagonally connected. "
                 f"Falling back to original implementation."
             )
+            # Track fallback reason
+            _optimization_stats['fallback_not_4_connected'] += 1
             # Don't warn here - this is an expected condition for 8-connected regions
             # The user chose 8-connectivity for region merging, which is fine
             from .mesh_generator import _generate_region_mesh_original
@@ -598,10 +665,9 @@ def generate_region_mesh_optimized(
             logger.warning(
                 f"Optimized mesh generation failed for region with {len(region.pixels)} pixels: {error_msg}"
             )
-            warnings.warn(
-                f"Optimized mesh generation failed for region with {len(region.pixels)} pixels, "
-                f"falling back to original: {error_msg}"
-            )
+            # Track fallback reason
+            _optimization_stats['fallback_invalid_polygon'] += 1
+            # Note: warnings.warn() removed - it breaks rich console output
             # Import the original implementation to avoid circular dependency
             from .mesh_generator import _generate_region_mesh_original
             return _generate_region_mesh_original(region, pixel_data, config)
@@ -622,6 +688,9 @@ def generate_region_mesh_optimized(
         )
         logger.debug(f"3D mesh created: {len(mesh.vertices)} vertices, {len(mesh.triangles)} triangles")
         
+        # Track successful optimization
+        _optimization_stats['optimized_success'] += 1
+        
         logger.info(f"Optimized mesh generation completed successfully for region")
         return mesh
         
@@ -632,10 +701,9 @@ def generate_region_mesh_optimized(
             f"falling back to original implementation. Error: {e}",
             exc_info=True
         )
-        warnings.warn(
-            f"Unexpected error during optimization for region with {len(region.pixels)} pixels, "
-            f"falling back to original: {e}"
-        )
+        # Track fallback reason
+        _optimization_stats['fallback_other_error'] += 1
+        # Note: warnings.warn() removed - it breaks rich console output
         
         # Import the original implementation to avoid circular dependency
         from .mesh_generator import _generate_region_mesh_original
@@ -687,7 +755,8 @@ def generate_backing_plate_optimized(
         is_valid, error_msg = _validate_polygon_for_triangulation(poly)
         
         if not is_valid:
-            warnings.warn(f"Optimized backing plate generation failed, falling back to original: {error_msg}")
+            logger.warning(f"Optimized backing plate generation failed, falling back to original: {error_msg}")
+            # Note: warnings.warn() removed - it breaks rich console output
             # Import the original implementation to avoid circular dependency
             from .mesh_generator import _generate_backing_plate_original
             return _generate_backing_plate_original(pixel_data, config)
@@ -708,9 +777,8 @@ def generate_backing_plate_optimized(
         
     except Exception as e:
         # Only catch truly unexpected errors
-        warnings.warn(
-            f"Unexpected error during backing plate optimization, falling back to original: {e}"
-        )
+        logger.warning(f"Unexpected error during backing plate optimization, falling back to original: {e}")
+        # Note: warnings.warn() removed - it breaks rich console output
         
         # Import the original implementation to avoid circular dependency
         from .mesh_generator import _generate_backing_plate_original

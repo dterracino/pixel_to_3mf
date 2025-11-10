@@ -496,10 +496,30 @@ The program will:
         help="Generate a summary file listing all colors/filaments used in the conversion. "
              "Summary is saved as {output_name}.summary.txt in the same location as the output file."
     )
+    
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        metavar="PATH",
+        help="Write debug/info log messages to a file (default: no logging). "
+             "Useful for debugging mesh optimization and seeing detailed processing information."
+    )
 
 
     # Parse arguments
     args = parser.parse_args()
+    
+    # Configure logging if log file specified
+    if args.log_file:
+        import logging
+        logging.basicConfig(
+            filename=args.log_file,
+            level=logging.DEBUG,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            filemode='w'  # Overwrite log file each run
+        )
+        logging.info("Logging initialized")
+        logging.info(f"Command: {' '.join(sys.argv)}")
     
     # Validate batch mode vs single-file mode
     if args.batch:

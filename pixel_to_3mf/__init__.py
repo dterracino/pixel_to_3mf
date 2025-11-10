@@ -17,6 +17,17 @@ from .config import ConversionConfig
 # Mesh utility functions for validation and statistics
 from .threemf_writer import count_mesh_stats, validate_triangle_winding
 
+# Optimization statistics functions (only available if polygon_optimizer is installed)
+try:
+    from .polygon_optimizer import (
+        reset_optimization_stats,
+        get_optimization_stats,
+        log_optimization_summary
+    )
+    _OPTIMIZATION_AVAILABLE = True
+except ImportError:
+    _OPTIMIZATION_AVAILABLE = False
+
 __all__ = [
     "main",
     "convert_image_to_3mf",
@@ -24,3 +35,11 @@ __all__ = [
     "count_mesh_stats",
     "validate_triangle_winding"
 ]
+
+# Add optimization stats functions to exports if available
+if _OPTIMIZATION_AVAILABLE:
+    __all__.extend([
+        "reset_optimization_stats",
+        "get_optimization_stats",
+        "log_optimization_summary"
+    ])

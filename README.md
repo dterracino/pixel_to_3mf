@@ -603,6 +603,22 @@ python run_converter.py image.png \
 - **Effect:** Creates a `.summary.txt` file alongside the 3MF output
 - **Contents:** Lists all colors/filaments used with hex codes
 - **Use case:** Planning filament changes, tracking color usage, documentation
+
+#### Enable Debug Logging
+
+```bash
+# Write detailed processing information to a log file
+python run_converter.py image.png --log-file conversion.log
+
+# Especially useful with mesh optimization to see what's happening
+python run_converter.py image.png --optimize-mesh --log-file debug.log
+```
+
+- **Effect:** Writes DEBUG, INFO, and WARNING messages to specified file
+- **Contents:** Detailed processing steps, optimization decisions, fallback reasons
+- **Use case:** Debugging, understanding optimization behavior, troubleshooting
+- **Note:** Does not affect console output - keeps Rich progress bars clean!
+
 - **Example output:**
 
   ```text
