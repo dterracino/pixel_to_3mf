@@ -500,7 +500,7 @@ def process(value: Union[str, int]) -> None:
 - `triangle` - May have incomplete type stubs
 - `PIL` - Has type stubs (Pillow-stubs)
 
-### Type Checking Configuration
+### Pyright Type Checking Configuration
 
 If pyright needs configuration, create/modify `pyrightconfig.json`:
 
@@ -567,7 +567,7 @@ if optimize_mesh and HAS_OPTIMIZER:
 
 **Error:**
 
-```
+```text
 config.py:63:46 - error: Type "None" is not assignable to declared type "str | List[str]"
 ```
 
@@ -588,7 +588,7 @@ makers: str | List[str] = []
 
 **Error:**
 
-```
+```text
 polygon_optimizer.py:100:33 - error: Cannot access attribute "interiors" for class "BaseGeometry"
 ```
 
