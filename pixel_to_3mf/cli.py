@@ -498,6 +498,13 @@ The program will:
     )
     
     parser.add_argument(
+        "--render",
+        action="store_true",
+        help="Generate a 3D rendering of the model showing all colored regions. "
+             "Rendering is saved as {output_name}_render.png in the same location as the output file."
+    )
+    
+    parser.add_argument(
         "--log-file",
         type=str,
         metavar="PATH",
@@ -603,7 +610,8 @@ The program will:
             quantize=args.quantize,
             quantize_algo=args.quantize_algo,
             quantize_colors=args.quantize_colors,
-            generate_summary=args.summary
+            generate_summary=args.summary,
+            render_model=args.render
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
@@ -818,9 +826,10 @@ The program will:
         # Track current stage and regions
         current_stage = None
         total_regions = 0
+        render_task = None
         
         def progress_callback(stage: str, message: str):
-            nonlocal current_stage, merge_task, mesh_task, export_task, total_regions
+            nonlocal current_stage, merge_task, mesh_task, export_task, render_task, total_regions
             
             # Update stage if it changed
             if stage != current_stage:
@@ -847,6 +856,10 @@ The program will:
                     if mesh_task is not None:
                         progress.update(mesh_task, completed=True)
                     export_task = progress.add_task("[green]📦 Writing 3MF file...", total=None)
+                elif stage == 'render':
+                    if export_task is not None:
+                        progress.update(export_task, completed=True)
+                    render_task = progress.add_task("[yellow]🎨 Rendering preview...", total=None)
             else:
                 # Update existing task
                 if stage == 'load' and load_task is not None:
@@ -867,6 +880,8 @@ The program will:
                         progress.update(mesh_task, description=f"[blue]🎲 Generating 3D geometry... {message}")
                 elif stage == 'export' and export_task is not None:
                     progress.update(export_task, description=f"[green]📦 Writing 3MF file... {message}")
+                elif stage == 'render' and render_task is not None:
+                    progress.update(render_task, description=f"[yellow]🎨 Rendering preview... {message}")
         
         # Run the conversion!
         try:
@@ -880,6 +895,8 @@ The program will:
             # Mark final task as complete
             if export_task is not None:
                 progress.update(export_task, completed=True)
+            if render_task is not None:
+                progress.update(render_task, completed=True)
         except FileNotFoundError as e:
             error_console.print(f"\n[red]❌ Error: {e}[/red]")
             sys.exit(1)
@@ -914,6 +931,10 @@ The program will:
     # Add summary path if generated
     if 'summary_path' in stats:
         stats_table.add_row("Summary:", stats['summary_path'])
+    
+    # Add render path if generated
+    if 'render_path' in stats:
+        stats_table.add_row("Render:", stats['render_path'])
     
     console.print(stats_table)
     console.print()
