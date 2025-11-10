@@ -721,6 +721,7 @@ The program will:
     config_table.add_row("Auto-Crop", "Enabled" if config.auto_crop else "Disabled")
     connectivity_map = {0: "None (separate pixels)", 4: "4-connected (edges only)", 8: "8-connected (includes diagonals)"}
     config_table.add_row("Connectivity", connectivity_map.get(config.connectivity, str(config.connectivity)))
+    config_table.add_row("Trim Disconnected", "Enabled" if config.trim_disconnected else "Disabled")
     
     # Padding options
     if config.padding_size > 0:

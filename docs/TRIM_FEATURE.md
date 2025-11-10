@@ -10,13 +10,14 @@ A pixel is "disconnected" if it has NO edge-connected neighbors (up/down/left/ri
 
 ### Example from the Problem Statement
 
-```
+```text
 BBBBBBX
 BBBBXXB  <- This B is disconnected (only touches via corner)
 BBBBXXX
 ```
 
 The B pixel at position (6,1) only touches other B pixels diagonally. In 3D printing:
+
 - It would only share a single vertex with neighboring geometry
 - This creates a weak connection point that's unreliable to print
 - The printer may struggle with such fine details
@@ -47,7 +48,8 @@ python run_converter.py sprite.png --trim --connectivity 8 --max-size 150
 ### Example 1: Simple Disconnected Pixel
 
 **Input Pattern:**
-```
+
+```text
 RRRR...
 RRRR.R.  <- Single disconnected red pixel
 RRRR...
@@ -59,7 +61,8 @@ RRRR...
 ### Example 2: Diagonal Line
 
 **Input Pattern:**
-```
+
+```text
 R......
 .R.....
 ..R....
@@ -72,7 +75,8 @@ R......
 ### Example 3: Multiple Colors
 
 **Input Pattern:**
-```
+
+```text
 RRRR...B
 RRRR.R.B
 RRRR...B
@@ -85,16 +89,18 @@ RRRR...B
 
 ### Algorithm
 
-The trimming algorithm:
+The trimming algorithm correctly identifies disconnected pixels by checking for edge-connected neighbors within each region:
 
 1. For each region:
    - Identify all pixels with no edge-connected neighbors
    - Remove those pixels
    - Repeat until no more disconnected pixels exist
-   
+
 2. Filter out empty regions
 
 3. Continue with mesh generation
+
+**Note:** As of the latest version, a bug where trim would incorrectly remove pixels inside connected areas has been fixed. The algorithm now properly checks only for edge-connected neighbors within the same region.
 
 ### Edge vs Diagonal Connectivity
 
@@ -108,14 +114,14 @@ The trim operation runs after region merging but before mesh generation, adding 
 
 ## When to Use --trim
 
-### Use --trim when:
+### Use --trim when
 
 ✅ Your pixel art has stray pixels that touch the main design only at corners  
 ✅ You're using 8-connectivity and want cleaner geometry  
 ✅ You want to ensure all printed parts have strong edge connections  
 ✅ You're experiencing print failures on corner-connected pixels
 
-### Don't use --trim when:
+### Don't use --trim when
 
 ❌ You intentionally want isolated single pixels  
 ❌ Your design relies on diagonal-only connections  
@@ -129,6 +135,7 @@ The feature includes comprehensive test coverage:
 - **Integration tests:** `tests/test_trim_integration.py` (5 tests)
 
 Run tests with:
+
 ```bash
 python tests/run_tests.py
 ```
@@ -142,8 +149,10 @@ python tests/run_tests.py
 ## Sample Images
 
 Sample images demonstrating the feature are in `samples/input/`:
+
 - `disconnected_pixel_example.png` - The exact pattern from the problem statement
 
 Converted outputs in `samples/output/`:
+
 - `disconnected_no_trim.3mf` - Without trimming
 - `disconnected_with_trim.3mf` - With trimming enabled

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Trim disconnected pixels feature (`--trim`) now correctly identifies disconnected pixels without removing pixels inside connected areas
+
 ## [1.0.0] - 2025-11-09
 
 ### Added
@@ -24,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-crop feature for transparent borders
 - Configurable connectivity modes (0/4/8) for region merging
 - Smart padding with `--padding` flag (circular distance tracing)
-- Trim disconnected pixels with `--trim-disconnected` flag
+- Trim disconnected pixels with `--trim` flag
 - Color quantization with `--quantize` flag (reduces color count)
 - Version information with `--version` flag
 - Semantic versioning support
