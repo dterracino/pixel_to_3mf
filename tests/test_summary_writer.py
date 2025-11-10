@@ -171,6 +171,7 @@ class TestWriteSummaryFile(unittest.TestCase):
                 break
         
         self.assertIsNotNone(lime_index)
+        assert lime_index is not None  # Type narrowing for Pyright
         # Find the "Regions:" line after the lime color
         found_regions = False
         for line in lines[lime_index:lime_index+5]:
