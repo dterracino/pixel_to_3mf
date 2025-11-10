@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pixel_to_3mf.cli import is_image_file, process_batch, generate_batch_summary
 from pixel_to_3mf.config import ConversionConfig
-from tests.test_helpers import (
+from tests.helpers import (
     create_simple_square_image,
     create_two_region_image,
     create_test_image,
@@ -164,12 +164,11 @@ class TestProcessBatch(unittest.TestCase):
     
     def test_process_with_skip_checks(self):
         """Test batch processing with skip_checks enabled."""
-        # Create a high-resolution image that would normally trigger a warning
-        # Calculate a size that exceeds the recommended resolution
-        config_for_calc = ConversionConfig()
-        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
-        test_size = max_recommended_px + 100  # Ensure we exceed the limit
+        # Create a small high-resolution image that would normally trigger a warning
+        # We use a small image (50x50) but adjust max_size to make it exceed the threshold
+        test_size = 50
         
+        # Create solid color image (fast with numpy optimization)
         positions = [(x, y) for x in range(test_size) for y in range(test_size)]
         colors = {(255, 0, 0, 255): positions}
         img_path = create_test_image(test_size, test_size, colors)
@@ -178,7 +177,10 @@ class TestProcessBatch(unittest.TestCase):
         shutil.move(img_path, dest_path)
         
         # With skip_checks=True, should process successfully
-        config = ConversionConfig(skip_checks=True, batch_mode=True)
+        # Set max_size small enough that our 50px image exceeds the recommended resolution
+        # max_recommended_px = max_size_mm / line_width_mm
+        # We want 50 > max_size_mm / 0.42, so max_size_mm < 21
+        config = ConversionConfig(skip_checks=True, batch_mode=True, max_size_mm=20.0)
         results = process_batch(self.input_dir, self.output_dir, config)
         
         # Should succeed (not be skipped)
@@ -188,11 +190,11 @@ class TestProcessBatch(unittest.TestCase):
     
     def test_process_without_skip_checks_high_resolution(self):
         """Test batch processing without skip_checks on high-resolution image."""
-        # Create a high-resolution image that exceeds the recommended resolution
-        config_for_calc = ConversionConfig()
-        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
-        test_size = max_recommended_px + 100  # Ensure we exceed the limit
+        # Create a small high-resolution image that exceeds the recommended resolution
+        # We use a small image (50x50) but adjust max_size to make it exceed the threshold
+        test_size = 50
         
+        # Create solid color image (fast with numpy optimization)
         positions = [(x, y) for x in range(test_size) for y in range(test_size)]
         colors = {(255, 0, 0, 255): positions}
         img_path = create_test_image(test_size, test_size, colors)
@@ -201,7 +203,10 @@ class TestProcessBatch(unittest.TestCase):
         shutil.move(img_path, dest_path)
         
         # With batch_mode=True but skip_checks=False, should skip due to resolution warning
-        config = ConversionConfig(skip_checks=False, batch_mode=True)
+        # Set max_size small enough that our 50px image exceeds the recommended resolution
+        # max_recommended_px = max_size_mm / line_width_mm
+        # We want 50 > max_size_mm / 0.42, so max_size_mm < 21
+        config = ConversionConfig(skip_checks=False, batch_mode=True, max_size_mm=20.0)
         results = process_batch(self.input_dir, self.output_dir, config)
         
         # Should be skipped (resolution warning)
@@ -279,10 +284,8 @@ class TestProcessBatch(unittest.TestCase):
         shutil.move(img1_path, self.input_dir / "good.png")
         
         # Create a high-resolution image (will be skipped)
-        config_for_calc = ConversionConfig()
-        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
-        test_size = max_recommended_px + 100  # Ensure we exceed the limit
-        
+        # Use small 50x50 image but adjust max_size to trigger warning
+        test_size = 50
         positions = [(x, y) for x in range(test_size) for y in range(test_size)]
         colors = {(255, 0, 0, 255): positions}
         img2_path = create_test_image(test_size, test_size, colors)
@@ -297,7 +300,8 @@ class TestProcessBatch(unittest.TestCase):
         img3_path = create_test_image(2, 2, colors)
         shutil.move(img3_path, self.input_dir / "multicolor.png")
         
-        config = ConversionConfig(max_colors=2, batch_mode=True)
+        # Configure: max_colors=2 (causes fail), max_size=20 (causes skip)
+        config = ConversionConfig(max_colors=2, batch_mode=True, max_size_mm=20.0)
         results = process_batch(self.input_dir, self.output_dir, config)
         
         # Should have 1 success, 1 skipped, 1 failed
@@ -334,9 +338,10 @@ class TestProcessBatch(unittest.TestCase):
         input_files = [item['input_file'] for item in results['success']]
         output_files = [item['output_file'] for item in results['success']]
         self.assertIn('root.png', input_files)
-        self.assertIn('subfolder/sub.png', input_files)
+        # Use os.path.join or normalize path separators for cross-platform compatibility
+        self.assertIn(str(Path('subfolder/sub.png')), input_files)
         self.assertIn('root_model.3mf', output_files)
-        self.assertIn('subfolder/sub_model.3mf', output_files)
+        self.assertIn(str(Path('subfolder/sub_model.3mf')), output_files)
     
     def test_process_recursive_multiple_levels(self):
         """Test batch processing with recurse=True on multiple nested levels."""
@@ -374,9 +379,9 @@ class TestProcessBatch(unittest.TestCase):
         # Check relative paths are correct
         input_files = [item['input_file'] for item in results['success']]
         self.assertIn('root.png', input_files)
-        self.assertIn('level1/l1.png', input_files)
-        self.assertIn('level1/level2/l2.png', input_files)
-        self.assertIn('level1/level2/level3/l3.png', input_files)
+        self.assertIn(str(Path('level1/l1.png')), input_files)
+        self.assertIn(str(Path('level1/level2/l2.png')), input_files)
+        self.assertIn(str(Path('level1/level2/level3/l3.png')), input_files)
     
     def test_process_non_recursive_ignores_subfolders(self):
         """Test that process_batch with recurse=False ignores images in subfolders."""
@@ -413,16 +418,15 @@ class TestProcessBatch(unittest.TestCase):
         shutil.move(img1_path, self.input_dir / "good.png")
         
         # Create a high-resolution image in subfolder (will be skipped)
-        config_for_calc = ConversionConfig()
-        max_recommended_px = int(config_for_calc.max_size_mm / config_for_calc.line_width_mm)
-        test_size = max_recommended_px + 100
-        
+        # Use small 50x50 image but adjust max_size to trigger warning
+        test_size = 50
         positions = [(x, y) for x in range(test_size) for y in range(test_size)]
         colors = {(255, 0, 0, 255): positions}
         img2_path = create_test_image(test_size, test_size, colors)
         shutil.move(img2_path, subfolder / "highres.png")
         
-        config = ConversionConfig(batch_mode=True)
+        # Configure with max_size=20 to trigger skip on 50px image
+        config = ConversionConfig(batch_mode=True, max_size_mm=20.0)
         results = process_batch(self.input_dir, self.output_dir, config, recurse=True)
         
         # Should have 1 success, 1 skipped
@@ -431,7 +435,7 @@ class TestProcessBatch(unittest.TestCase):
         
         # Check relative paths include subfolder
         self.assertEqual(results['success'][0]['input_file'], 'good.png')
-        self.assertEqual(results['skipped'][0]['input_file'], 'subfolder/highres.png')
+        self.assertEqual(results['skipped'][0]['input_file'], str(Path('subfolder/highres.png')))
 
 
 class TestGenerateBatchSummary(unittest.TestCase):

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Mesh statistics displayed in conversion summary (triangle and vertex counts)
+- Triangle winding order validation (confirms CCW winding for proper normals)
+- Helper functions for 3MF structure validation in tests
+- Comprehensive mesh statistics test suite
+
 ### Fixed
 
 - Trim disconnected pixels feature (`--trim`) now correctly identifies disconnected pixels without removing pixels inside connected areas

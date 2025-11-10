@@ -23,10 +23,11 @@ python -m unittest tests.test_pixel_to_3mf
 
 ## Test Structure
 
-- **`test_helpers.py`**: Helper utilities for creating test images and fixtures
+- **`helpers.py`**: Helper utilities for creating test images, validation, and fixtures
 - **`test_image_processor.py`**: Tests for image loading, scaling, and PixelData class
 - **`test_region_merger.py`**: Tests for flood fill algorithm and region merging
 - **`test_mesh_generator.py`**: Tests for mesh generation (regions and backing plate)
+- **`test_mesh_stats.py`**: Tests for mesh statistics and winding order validation
 - **`test_threemf_writer.py`**: Tests for 3MF file writing and formatting
 - **`test_pixel_to_3mf.py`**: Integration tests for the complete conversion pipeline
 - **`run_tests.py`**: Test runner that executes all test suites
@@ -63,15 +64,25 @@ The test suite covers:
 - Backing plate with holes (transparent areas)
 - Mesh validity (no degenerate triangles)
 
+### Mesh Statistics (`test_mesh_stats.py`)
+
+- Triangle and vertex counting across meshes
+- Mesh complexity validation (larger images = more triangles)
+- Backing plate impact on triangle count
+- Triangle winding order validation (CCW vs CW)
+- Mesh statistics utility functions
+- Winding order consistency checks
+
 ### 3MF Writing (`test_threemf_writer.py`)
 
 - Float formatting for coordinates
 - Simple 3MF file creation
-- ZIP archive validation
-- Required 3MF file structure
+- ZIP archive validation with comprehensive structure checks
+- Required 3MF file structure (all required XML files present)
 - Multiple meshes in one file
 - Backing plate inclusion
 - Large meshes
+- XML validity and parseability
 
 ### Integration (`test_pixel_to_3mf.py`)
 

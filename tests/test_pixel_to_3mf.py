@@ -8,7 +8,6 @@ import unittest
 import sys
 import os
 import tempfile
-import zipfile
 from pathlib import Path
 
 # Add parent directory to path to import the package
@@ -16,11 +15,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf, format_filesize
 from pixel_to_3mf.config import ConversionConfig
-from tests.test_helpers import (
+from tests.helpers import (
     create_simple_square_image,
     create_two_region_image,
     create_transparent_image,
-    cleanup_test_file
+    cleanup_test_file,
+    get_sample_image,
+    validate_3mf_structure
 )
 
 
@@ -59,8 +60,8 @@ class TestConvertImageTo3MF(unittest.TestCase):
         self.assertEqual(stats['num_regions'], 1)
         self.assertEqual(stats['output_path'], output_path)
         
-        # Verify it's a valid 3MF
-        self.assertTrue(zipfile.is_zipfile(output_path))
+        # Verify it's a valid 3MF with proper structure
+        validate_3mf_structure(output_path)
     
     def test_convert_two_region_image(self):
         """Test converting image with two separate regions."""
@@ -79,7 +80,7 @@ class TestConvertImageTo3MF(unittest.TestCase):
         
         # Verify output
         self.assertTrue(os.path.exists(output_path))
-        self.assertTrue(zipfile.is_zipfile(output_path))
+        validate_3mf_structure(output_path)
     
     def test_convert_transparent_image(self):
         """Test converting image with transparent areas."""
@@ -135,7 +136,7 @@ class TestConvertImageTo3MF(unittest.TestCase):
         """Test conversion of landscape image."""
         # Create 8x4 image
         positions = [(x, y) for x in range(8) for y in range(4)]
-        from tests.test_helpers import create_test_image
+        from tests.helpers import create_test_image
         colors = {(255, 0, 0, 255): positions}
         input_path = create_test_image(8, 4, colors)
         self.test_files.append(input_path)
@@ -156,7 +157,7 @@ class TestConvertImageTo3MF(unittest.TestCase):
         """Test conversion of portrait image."""
         # Create 4x8 image
         positions = [(x, y) for x in range(4) for y in range(8)]
-        from tests.test_helpers import create_test_image
+        from tests.helpers import create_test_image
         colors = {(255, 0, 0, 255): positions}
         input_path = create_test_image(4, 8, colors)
         self.test_files.append(input_path)
@@ -269,7 +270,7 @@ class TestConvertImageTo3MFErrors(unittest.TestCase):
     def test_too_many_colors(self):
         """Test error when image has too many colors."""
         # Create image with 3 colors
-        from tests.test_helpers import create_test_image
+        from tests.helpers import create_test_image
         colors = {
             (255, 0, 0, 255): [(0, 0)],
             (0, 255, 0, 255): [(1, 0)],
@@ -296,8 +297,6 @@ class TestConvertImageTo3MFWithRealSamples(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.test_files = []
-        # Path from tests/ to samples/input
-        self.samples_dir = Path(__file__).parent.parent / "samples" / "input"
     
     def tearDown(self):
         """Clean up test files."""
@@ -305,17 +304,11 @@ class TestConvertImageTo3MFWithRealSamples(unittest.TestCase):
             cleanup_test_file(filepath)
     
     def test_convert_sample_image(self):
-        """Test converting a real sample image if available."""
-        # Check if samples exist
-        if not self.samples_dir.exists():
-            self.skipTest("Sample images not available")
-        
-        # Find any PNG file
-        sample_files = list(self.samples_dir.glob("*.png"))
-        if not sample_files:
-            self.skipTest("No PNG sample images found")
-        
-        input_path = str(sample_files[0])
+        """Test converting a real sample image."""
+        try:
+            input_path = get_sample_image()
+        except FileNotFoundError as e:
+            self.skipTest(str(e))
         
         fd, output_path = tempfile.mkstemp(suffix='.3mf')
         os.close(fd)
@@ -328,7 +321,7 @@ class TestConvertImageTo3MFWithRealSamples(unittest.TestCase):
         # Verify output
         self.assertTrue(os.path.exists(output_path))
         self.assertGreater(os.path.getsize(output_path), 0)
-        self.assertTrue(zipfile.is_zipfile(output_path))
+        validate_3mf_structure(output_path)
         
         # Verify stats make sense
         self.assertGreater(stats['image_width'], 0)

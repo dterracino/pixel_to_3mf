@@ -20,7 +20,7 @@ from pixel_to_3mf.polygon_optimizer import (
 from pixel_to_3mf.region_merger import Region
 from pixel_to_3mf.image_processor import PixelData
 from pixel_to_3mf.config import ConversionConfig
-from tests.test_helpers import cleanup_test_file
+from tests.helpers import cleanup_test_file
 
 
 class TestPixelsToPolygon(unittest.TestCase):

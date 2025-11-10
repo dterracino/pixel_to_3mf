@@ -71,6 +71,88 @@ def format_float(value: float, precision: int = COORDINATE_PRECISION) -> str:
     return f"{value:.{precision}f}".rstrip('0').rstrip('.')
 
 
+def count_mesh_stats(meshes: List[Tuple[Mesh, str]]) -> Tuple[int, int]:
+    """
+    Count total vertices and triangles across all meshes.
+    
+    Useful for reporting mesh complexity to users and validating
+    mesh generation in tests. Larger models will have more triangles.
+    
+    Args:
+        meshes: List of (Mesh, name) tuples
+    
+    Returns:
+        Tuple of (total_vertices, total_triangles)
+    """
+    total_vertices = sum(len(mesh.vertices) for mesh, _ in meshes)
+    total_triangles = sum(len(mesh.triangles) for mesh, _ in meshes)
+    return total_vertices, total_triangles
+
+
+def validate_triangle_winding(mesh: Mesh) -> str:
+    """
+    Determine the predominant winding order of triangles in a mesh.
+    
+    Counter-clockwise (CCW) winding means normals point outward from the surface,
+    which is the standard convention for 3D meshes. Our mesh generator uses CCW.
+    
+    For a 3D mesh with multiple faces (top, bottom, sides), we look at the
+    top surface triangles (those with highest Z coordinate) to determine winding,
+    as those should all face upward (positive Z normal).
+    
+    Args:
+        mesh: The mesh to validate
+    
+    Returns:
+        "CCW" if triangles use counter-clockwise winding (normals point out),
+        "CW" if triangles use clockwise winding (normals point in),
+        "MIXED" if winding is inconsistent,
+        "UNKNOWN" if mesh is empty or all triangles are degenerate
+    """
+    # Check if mesh has triangles
+    if not mesh.triangles:
+        return "UNKNOWN"
+    
+    # Find the max Z coordinate to identify top surface triangles
+    max_z = max(max(mesh.vertices[i][2] for i in tri) for tri in mesh.triangles)
+    
+    # Collect winding for top surface triangles (those with vertices near max_z)
+    top_face_winding = []
+    
+    for tri in mesh.triangles:
+        # Get vertices
+        v0 = mesh.vertices[tri[0]]
+        v1 = mesh.vertices[tri[1]]
+        v2 = mesh.vertices[tri[2]]
+        
+        # Check if this is a top surface triangle (all vertices at max Z)
+        if abs(v0[2] - max_z) < 1e-6 and abs(v1[2] - max_z) < 1e-6 and abs(v2[2] - max_z) < 1e-6:
+            # Compute edge vectors
+            edge1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
+            edge2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
+            
+            # Cross product gives normal vector (right-hand rule)
+            # For top surface, positive Z normal = CCW, negative Z normal = CW
+            normal_z = edge1[0] * edge2[1] - edge1[1] * edge2[0]
+            
+            if abs(normal_z) > 1e-10:  # Not degenerate
+                top_face_winding.append("CCW" if normal_z > 0 else "CW")
+    
+    if not top_face_winding:
+        return "UNKNOWN"
+    
+    # Check consistency
+    ccw_count = sum(1 for w in top_face_winding if w == "CCW")
+    cw_count = sum(1 for w in top_face_winding if w == "CW")
+    
+    if ccw_count > 0 and cw_count == 0:
+        return "CCW"
+    elif cw_count > 0 and ccw_count == 0:
+        return "CW"
+    else:
+        return "MIXED"
+
+
 def generate_object_model_xml(meshes: List[Tuple[Mesh, str]]) -> str:
     """
     Generate the XML content for 3D/Objects/object_1.model.

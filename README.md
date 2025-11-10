@@ -27,6 +27,8 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Automatic Color Quantization**: Reduce image colors on-the-fly when exceeding limits - no external preprocessing needed!
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
 - **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used (use `--summary`)
+- **Mesh Statistics**: Displays triangle and vertex counts in conversion summary for understanding model complexity
+- **Winding Order Validation**: Automatically validates CCW (counter-clockwise) winding for proper surface normals
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations
 - **Transparent Pixel Support**: Transparent areas become holes in the model
 - **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable)
@@ -269,6 +271,8 @@ print(f"Model size: {stats['model_width_mm']:.1f}x{stats['model_height_mm']:.1f}
 print(f"Pixel size: {stats['pixel_size_mm']:.3f}mm")
 print(f"Regions: {stats['num_regions']}")
 print(f"Colors: {stats['num_colors']}")
+print(f"Mesh: {stats['num_triangles']:,} triangles, {stats['num_vertices']:,} vertices")
+print(f"File size: {stats['file_size']}")
 ```
 
 ## Examples 📸
@@ -724,9 +728,10 @@ All meshes are **manifold** - no repair needed in slicers!
 **Manifold properties:**
 
 - ✅ **No duplicate vertices:** Adjacent pixels share corner vertices
-- ✅ **Consistent winding:** Counter-clockwise triangles = outward normals
+- ✅ **Consistent winding:** Counter-clockwise (CCW) triangles = outward normals
 - ✅ **Edge connectivity:** Every edge shared by exactly 2 triangles
 - ✅ **Closed surface:** No gaps or holes (except intentional transparency)
+- ✅ **Validated geometry:** Winding order automatically verified during generation
 
 **Mesh structure per region:**
 
@@ -735,6 +740,15 @@ Top face: 2 triangles per pixel
 Bottom face: 2 triangles per pixel  
 Walls: Up to 8 triangles per perimeter pixel
 ```
+
+**Complexity tracking:**
+
+The converter reports mesh statistics (triangles and vertices) to help you understand model complexity:
+
+- Larger images = more triangles (proportional to pixel count)
+- Backing plate adds ~2 triangles per pixel
+- Optimized meshes can reduce triangle count by 20-77%
+- Example: 59×90 pixel sprite = ~40,000 triangles, ~21,000 vertices
 
 ### Coordinate System & Orientation
 

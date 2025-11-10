@@ -60,7 +60,8 @@ BACKING_COLOR = (255, 255, 255)  # White
 # Default padding size in pixels
 # Padding creates an outline around non-transparent pixels to help with
 # diagonally-connected pixels that can be problematic in 3D printing
-PADDING_SIZE_PX = 5
+# 0 = disabled (default), >0 = padding size in pixels
+PADDING_SIZE_PX = 0
 
 # Default padding color (RGB tuple)
 # White is a good default to create a visible border

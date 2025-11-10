@@ -16,7 +16,7 @@ from pathlib import Path
 
 from pixel_to_3mf.image_processor import load_image
 from pixel_to_3mf.config import ConversionConfig
-from tests.test_helpers import cleanup_test_file
+from tests.helpers import cleanup_test_file
 
 
 class TestOperationOrder(unittest.TestCase):

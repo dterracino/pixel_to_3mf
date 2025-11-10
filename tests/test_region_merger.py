@@ -20,7 +20,7 @@ from pixel_to_3mf.region_merger import (
 )
 from pixel_to_3mf.image_processor import load_image, PixelData
 from pixel_to_3mf.config import ConversionConfig
-from tests.test_helpers import (
+from tests.helpers import (
     create_simple_square_image,
     create_two_region_image,
     create_transparent_image,

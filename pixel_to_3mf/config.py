@@ -81,7 +81,7 @@ class ConversionConfig:
     trim_disconnected: bool = TRIM_DISCONNECTED_PIXELS
     
     # Padding options
-    padding_size: int = 0  # 0 = disabled, >0 = padding size in pixels
+    padding_size: int = PADDING_SIZE_PX
     padding_color: Tuple[int, int, int] = PADDING_COLOR
     
     # Color quantization options

@@ -21,6 +21,7 @@ from pixel_to_3mf.threemf_writer import (
 from pixel_to_3mf.mesh_generator import Mesh
 from pixel_to_3mf.image_processor import PixelData
 from pixel_to_3mf.config import ConversionConfig
+from tests.helpers import validate_3mf_structure
 
 
 class TestFormatFloat(unittest.TestCase):
@@ -117,8 +118,8 @@ class TestWrite3MF(unittest.TestCase):
         
         write_3mf(output_path, meshes, region_colors, pixel_data, config)
         
-        # Test that it's a valid ZIP
-        self.assertTrue(zipfile.is_zipfile(output_path))
+        # Test that it's a valid 3MF with proper structure
+        validate_3mf_structure(output_path)
     
     def test_3mf_contains_required_files(self):
         """Test that 3MF contains required files."""
@@ -285,7 +286,7 @@ class TestWrite3MFIntegration(unittest.TestCase):
         
         # Verify
         self.assertTrue(os.path.exists(output_path))
-        self.assertTrue(zipfile.is_zipfile(output_path))
+        validate_3mf_structure(output_path)
 
 
 if __name__ == '__main__':

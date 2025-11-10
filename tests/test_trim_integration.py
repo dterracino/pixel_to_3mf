@@ -10,7 +10,7 @@ import os
 from PIL import Image
 from pixel_to_3mf.config import ConversionConfig
 from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf
-from tests.test_helpers import create_test_image, cleanup_test_file
+from tests.helpers import create_test_image, cleanup_test_file
 
 
 class TestTrimIntegration(unittest.TestCase):

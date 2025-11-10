@@ -17,7 +17,7 @@ from pathlib import Path
 from .image_processor import load_image, PixelData
 from .region_merger import merge_regions, trim_disconnected_pixels, Region
 from .mesh_generator import generate_region_mesh, generate_backing_plate
-from .threemf_writer import write_3mf
+from .threemf_writer import write_3mf, count_mesh_stats
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
 
@@ -254,6 +254,9 @@ def convert_image_to_3mf(
     summary_path = write_3mf(output_path, meshes, region_colors, pixel_data, config, progress_callback)
     _progress("export", f"3MF written to: {output_path}")
     
+    # Count mesh statistics
+    total_vertices, total_triangles = count_mesh_stats(meshes)
+    
     # Return statistics
     stats = {
         'image_width': pixel_data.width,
@@ -264,6 +267,8 @@ def convert_image_to_3mf(
         'num_pixels': len(pixel_data.pixels),
         'num_colors': len(pixel_data.get_unique_colors()),
         'num_regions': len(regions),
+        'num_vertices': total_vertices,
+        'num_triangles': total_triangles,
         'output_path': output_path,
         'file_size': format_filesize(os.path.getsize(output_path))
     }

@@ -216,9 +216,12 @@ def process_batch(
                 'num_colors': stats['num_colors'],
                 'model_width_mm': stats['model_width_mm'],
                 'model_height_mm': stats['model_height_mm'],
+                'num_vertices': stats['num_vertices'],
+                'num_triangles': stats['num_triangles'],
                 'file_size': stats['file_size']
             })
-            console.print(f"[green]   ✅ Success: {stats['num_regions']} regions, {stats['file_size']}[/green]")
+            console.print(f"[green]   ✅ Success: {stats['num_regions']} regions, "
+                         f"{stats['num_triangles']:,} triangles, {stats['file_size']}[/green]")
             
         except ValueError as e:
             error_msg = str(e)
@@ -885,6 +888,7 @@ The program will:
     stats_table.add_row("Model:", f"{stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
     stats_table.add_row("Pixel size:", f"{round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
     stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
+    stats_table.add_row("Mesh:", f"{stats['num_triangles']:,} triangles, {stats['num_vertices']:,} vertices")
     stats_table.add_row("Output:", f"{stats['output_path']} ({stats['file_size']})")
     
     # Add summary path if generated

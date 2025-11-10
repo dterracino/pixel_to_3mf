@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pixel_to_3mf.image_processor import quantize_image, load_image
 from pixel_to_3mf.config import ConversionConfig
-from tests.test_helpers import cleanup_test_file
+from tests.helpers import cleanup_test_file
 
 
 class TestQuantizeImage(unittest.TestCase):

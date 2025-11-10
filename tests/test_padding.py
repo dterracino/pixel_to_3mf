@@ -12,7 +12,7 @@ import numpy as np
 from pathlib import Path
 
 from pixel_to_3mf.padding_processor import add_padding, should_apply_padding
-from tests.test_helpers import cleanup_test_file
+from tests.helpers import cleanup_test_file
 
 
 def _get_rgba_pixel(img: Image.Image, x: int, y: int) -> Tuple[int, int, int, int]:
