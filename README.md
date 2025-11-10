@@ -230,8 +230,7 @@ python run_converter.py image.png --optimize-mesh
 ### Using as a Python Library
 
 ```python
-from pixel_to_3mf import convert_image_to_3mf
-from pixel_to_3mf.config import ConversionConfig
+from pixel_to_3mf import convert_image_to_3mf, ConversionConfig
 
 # Option 1: Use defaults
 stats = convert_image_to_3mf(
@@ -273,6 +272,15 @@ print(f"Regions: {stats['num_regions']}")
 print(f"Colors: {stats['num_colors']}")
 print(f"Mesh: {stats['num_triangles']:,} triangles, {stats['num_vertices']:,} vertices")
 print(f"File size: {stats['file_size']}")
+
+# Option 3: Use mesh utility functions for validation
+from pixel_to_3mf import count_mesh_stats, validate_triangle_winding
+from pixel_to_3mf.mesh_generator import generate_region_mesh
+
+# Generate a mesh and validate it
+mesh = generate_region_mesh(region, pixel_data, config)
+winding = validate_triangle_winding(mesh)
+print(f"Winding order: {winding}")  # Should be "CCW" for proper normals
 ```
 
 ## Examples 📸
@@ -286,6 +294,7 @@ The `samples/` directory contains example conversions:
 | `nes-samus.png` | Small sprite | Classic NES character |
 | `ms-pac-man.png` | 224x288px | Arcade game sprite |
 | `c64ready.png` | Retro sprite | Commodore 64 style |
+| `multi/mario-blocks.png` | 55x36px | 5 separate Mario blocks (multi-object) |
 | `super-mario-nes-screenshot.png` | Game screenshot | More complex scene |
 
 All samples have corresponding `.3mf` files in `samples/output/`.
@@ -331,6 +340,24 @@ python run_converter.py coaster.png \
 
 - **Total height:** 5mm (2mm color + 3mm base)
 - **Use case:** Functional items that need durability
+
+#### Multi-Object Images (Separated by Transparency)
+
+```bash
+python run_converter.py samples/input/multi/mario-blocks.png --max-size 150
+```
+
+- **Input:** 5 separate Mario blocks on transparent background
+- **Output:** 45 regions from 8 colors (each block's elements become separate objects)
+- **Result:** Single 3MF file with multiple objects - perfect for printing sets!
+- **Use case:** Sprite sheets, collections, items that should be separate but printed together
+
+The region merger treats transparent pixels as boundaries, so each block becomes its own set of connected regions. This is perfect for:
+
+- Character sprite sheets
+- Icon sets
+- Game pieces (chess, checkers, etc.)
+- Collections that print together but separate easily
 
 #### More Colors Allowed
 
@@ -636,6 +663,7 @@ python run_converter.py sprite.png --auto-crop --padding-size 5 --quantize
    - **Auto-crop**: Optionally crops away fully transparent edges (if `--auto-crop` is enabled)
    - **Padding**: Optionally adds outline around content (if `--padding-size > 0`)
    - Flips Y-axis so models appear right-side-up in slicers
+   - **Transparent pixels** are ignored during region merging - they act as separators between objects (perfect for sprite sheets!)
 
 2. **Validate Colors**
    - Counts unique colors in the image (after auto-crop and padding)

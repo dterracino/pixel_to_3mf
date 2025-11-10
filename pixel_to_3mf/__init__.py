@@ -10,7 +10,17 @@ __version__ = "1.0.0"
 # Make the CLI main function easily accessible
 from .cli import main
 
-# Also expose the core conversion function for programmatic use
+# Core conversion function and configuration
 from .pixel_to_3mf import convert_image_to_3mf
+from .config import ConversionConfig
 
-__all__ = ["main", "convert_image_to_3mf"]
+# Mesh utility functions for validation and statistics
+from .threemf_writer import count_mesh_stats, validate_triangle_winding
+
+__all__ = [
+    "main",
+    "convert_image_to_3mf",
+    "ConversionConfig",
+    "count_mesh_stats",
+    "validate_triangle_winding"
+]
