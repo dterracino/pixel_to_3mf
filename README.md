@@ -472,7 +472,8 @@ python run_converter.py sprite.png --trim
 - **Use case:** Cleaning up stray pixels, ensuring all geometry has strong edge connections
 
 **Example pattern:**
-```
+
+```text
 BBBBBBX
 BBBBXXB  <- This pixel is removed with --trim (only corner-connected)
 BBBBXXX
@@ -572,7 +573,8 @@ python run_converter.py image.png \
 - **Contents:** Lists all colors/filaments used with hex codes
 - **Use case:** Planning filament changes, tracking color usage, documentation
 - **Example output:**
-  ```
+
+  ```text
   3MF Conversion Summary
   ======================
   3MF File: sprite_model.3mf

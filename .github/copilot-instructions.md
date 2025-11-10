@@ -11,12 +11,9 @@
 
 ## Custom AI Agents
 
-This project has specialized custom agents for specific tasks. **Always consider using the appropriate custom agent** when working in their domain. Custom agents have deep expertise in their area and understand project conventions.
+This project has specialized custom agents for specific tasks located in `.github/agents/`. **Always consider using the appropriate custom agent** when working in their domain. Custom agents have deep expertise in their area and understand project conventions.
 
 ### Available Custom Agents
-
-<!-- markdownlint-disable-next-line MD052 -->
-See [CUSTOM_AGENTS.md](../docs/CUSTOM_AGENTS.md) for detailed documentation.
 
 - **bug-specialist**: Fixes bugs, detects code smells, creates bug reports, ensures type hints
 - **cleanup-specialist**: Removes dead code, eliminates duplication, improves maintainability
