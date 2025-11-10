@@ -190,6 +190,12 @@ def create_multi_view_renders(meshes, region_colors, output_base_path, model_wid
             
             # Convert mesh to polygons
             vertices_array = np.array(mesh.vertices)
+            
+            # Apply small Z-offset to backing plate to prevent Z-fighting
+            if name == "backing_plate":
+                vertices_array = vertices_array.copy()  # Don't modify original
+                vertices_array[:, 2] -= 0.01  # Shift Z coordinate down by 0.01mm
+            
             faces = []
             for tri in mesh.triangles:
                 face = [
