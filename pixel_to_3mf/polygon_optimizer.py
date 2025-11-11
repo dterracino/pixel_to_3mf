@@ -614,116 +614,104 @@ def extrude_polygon_to_mesh(
     # ========================================================================
     # Step 3: Create walls from boundary segments
     # ========================================================================
-    # CRITICAL FIX: Use the segments from triangulation output directly.
-    # The triangle library returns boundary segments in the order they were
-    # provided: first the exterior segments, then hole segments.
+    # CRITICAL FIX: Use boundary segments from triangulation output.
+    # The triangle library returns the constrained segments (boundaries) which
+    # represent exact vertex indices. We create walls directly from these.
     #
-    # We need to group segments into loops and determine their winding to
-    # create walls with correct normals (outward for exterior, inward for holes).
+    # Key insight: For polygons with holes, we need to determine which segments
+    # belong to exterior vs holes to apply correct winding. We do this by:
+    # 1. Building loops from connected segments
+    # 2. Using signed area to identify exterior (CCW) vs holes (CW)
     
-    # Group segments into loops by following connectivity
+    # Build adjacency map: vertex -> list of (other_vertex, segment_index)
     from collections import defaultdict
+    adjacency: Dict[int, List[Tuple[int, int]]] = defaultdict(list)
     
-    # Build adjacency for each vertex to find connected segments
-    vertex_to_segments: Dict[int, List[Tuple[int, int]]] = defaultdict(list)
     for seg_idx, (v0, v1) in enumerate(segments_2d):
-        vertex_to_segments[v0].append((seg_idx, v1))
-        vertex_to_segments[v1].append((seg_idx, v0))
+        adjacency[v0].append((v1, seg_idx))
+        adjacency[v1].append((v0, seg_idx))
     
-    # Extract loops by following segments
-    used_segments: Set[int] = set()
-    loops: List[List[int]] = []  # List of vertex index lists
+    # Extract boundary loops by following segments
+    used_segs: Set[int] = set()
+    loops: List[List[int]] = []
     
-    for start_v in range(len(vertices_2d)):
-        if start_v not in vertex_to_segments:
-            continue
+    # Try starting from each vertex
+    for start_vertex in range(len(vertices_2d)):
+        if start_vertex not in adjacency:
+            continue  # Not a boundary vertex
         
-        # Try to start a new loop from this vertex
-        for seg_idx, next_v in vertex_to_segments[start_v]:
-            if seg_idx in used_segments:
-                continue
+        # Check if there's an unused segment from this vertex
+        unused_neighbors = [(next_v, seg_idx) for next_v, seg_idx in adjacency[start_vertex] 
+                           if seg_idx not in used_segs]
+        
+        if not unused_neighbors:
+            continue  # All segments from this vertex are used
+        
+        # Start a new loop
+        next_v, seg_idx = unused_neighbors[0]
+        loop = [start_vertex]
+        current = start_vertex
+        
+        # Follow the loop until we return to start
+        max_steps = len(vertices_2d) * 2  # Safety limit
+        steps = 0
+        
+        while next_v != start_vertex and steps < max_steps:
+            used_segs.add(seg_idx)
+            loop.append(next_v)
             
-            # Trace a loop starting from this segment
-            loop = [start_v]
-            current_v = start_v
-            prev_v = start_v
-            current_seg = seg_idx
+            # Find next segment (the one we haven't used yet from next_v)
+            next_options = [(v, s) for v, s in adjacency[next_v] 
+                           if s not in used_segs and v != current]
             
-            while True:
-                used_segments.add(current_seg)
-                
-                # Add next vertex to loop
-                loop.append(next_v)
-                
-                if next_v == start_v:
-                    # Completed the loop
-                    loop.pop()  # Remove duplicate end vertex
-                    break
-                
-                # Find next segment from next_v (not going back to current_v)
-                found_next = False
-                for next_seg_idx, following_v in vertex_to_segments[next_v]:
-                    if next_seg_idx == current_seg:
-                        continue  # Skip the segment we came from
-                    if next_seg_idx in used_segments:
-                        continue  # Skip already used segments
-                    
-                    # Found the next segment in the loop
-                    prev_v = current_v
-                    current_v = next_v
-                    next_v = following_v
-                    current_seg = next_seg_idx
-                    found_next = True
-                    break
-                
-                if not found_next:
-                    logger.warning(f"Could not find next segment in loop at vertex {next_v}")
-                    break
+            if not next_options:
+                # No more unused segments - loop complete or broken
+                break
             
-            if len(loop) >= 3:
-                loops.append(loop)
-                logger.debug(f"Extracted loop with {len(loop)} vertices")
+            current = next_v
+            next_v, seg_idx = next_options[0]
+            steps += 1
+        
+        if next_v == start_vertex and len(loop) >= 3:
+            # Successfully closed the loop
+            used_segs.add(seg_idx)  # Mark the closing segment as used
+            loops.append(loop)
     
-    logger.debug(f"Extracted {len(loops)} boundary loops from {len(segments_2d)} segments")
+    logger.debug(f"Extracted {len(loops)} loops from {len(segments_2d)} segments")
     
-    # Determine winding for each loop and create walls
-    for loop in loops:
-        # Calculate signed area to determine winding
+    # Create walls for each loop with proper winding
+    for loop_idx, loop in enumerate(loops):
+        # Calculate signed area to determine if this is exterior or hole
         area = 0.0
-        n = len(loop)
-        for i in range(n):
-            j = (i + 1) % n
-            v1 = vertices_2d[loop[i]]
-            v2 = vertices_2d[loop[j]]
-            area += v1[0] * v2[1] - v2[0] * v1[1]
-        
-        # Positive area = CCW = exterior (normals point outward)
-        # Negative area = CW = hole (normals point inward)
-        is_exterior = area > 0
-        reverse_winding = not is_exterior
-        
-        logger.debug(f"Loop: {'exterior (CCW)' if is_exterior else 'hole (CW)'}, area={abs(area/2):.2f}")
-        
-        # Create wall quads for this loop
         for i in range(len(loop)):
-            idx1 = loop[i]
-            idx2 = loop[(i + 1) % len(loop)]
+            v_curr = vertices_2d[loop[i]]
+            v_next = vertices_2d[loop[(i + 1) % len(loop)]]
+            area += v_curr[0] * v_next[1] - v_next[0] * v_curr[1]
+        
+        # Positive = CCW = exterior, Negative = CW = hole
+        is_exterior = area > 0
+        
+        logger.debug(f"Loop {loop_idx}: {len(loop)} vertices, "
+                    f"{'exterior' if is_exterior else 'hole'}, area={abs(area/2):.2f}")
+        
+        # Create wall quads
+        for i in range(len(loop)):
+            v0_idx = loop[i]
+            v1_idx = loop[(i + 1) % len(loop)]
             
-            # Get 3D vertex indices for wall quad
-            bl = bottom_vertex_map[idx1]
-            br = bottom_vertex_map[idx2]
-            tl = top_vertex_map[idx1]
-            tr = top_vertex_map[idx2]
+            bl = bottom_vertex_map[v0_idx]
+            br = bottom_vertex_map[v1_idx]
+            tl = top_vertex_map[v0_idx]
+            tr = top_vertex_map[v1_idx]
             
-            # Create two triangles forming the wall quad
-            if reverse_winding:
-                # Reversed winding for holes (normals point inward)
-                triangles_3d.append((bl, tl, br))
-                triangles_3d.append((br, tl, tr))
-            else:
-                # Normal winding for exterior (normals point outward)
+            if is_exterior:
+                # Exterior: normal winding (outward normals)
                 triangles_3d.append((bl, br, tl))
                 triangles_3d.append((tl, br, tr))
+            else:
+                # Hole: reversed winding (inward normals)
+                triangles_3d.append((bl, tl, br))
+                triangles_3d.append((br, tl, tr))
     
     return Mesh(vertices=vertices_3d, triangles=triangles_3d)
 
