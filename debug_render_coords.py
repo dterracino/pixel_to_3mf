@@ -176,8 +176,27 @@ def create_multi_view_renders(meshes, region_colors, output_base_path, model_wid
         # Track color index
         color_index = 0
         
-        # Render each mesh
+        # Separate backing plate from regions to control render order
+        # WHY: Backing plate must be rendered FIRST (added to axes first) so that
+        # colored regions are always rendered on top. Matplotlib's 3D painter's
+        # algorithm can fail with certain viewing angles if backing plate is added last.
+        backing_plate_mesh = None
+        region_meshes = []
+        
         for mesh, name in meshes:
+            if name == "backing_plate":
+                backing_plate_mesh = (mesh, name)
+            else:
+                region_meshes.append((mesh, name))
+        
+        # Process backing plate FIRST if it exists
+        meshes_ordered = []
+        if backing_plate_mesh:
+            meshes_ordered.append(backing_plate_mesh)
+        meshes_ordered.extend(region_meshes)
+        
+        # Render each mesh in correct order (backing plate first, then regions)
+        for mesh, name in meshes_ordered:
             # Determine color
             if name == "backing_plate":
                 color = np.array(backing_color) / 255.0
