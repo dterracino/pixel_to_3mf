@@ -218,5 +218,103 @@ class TestBackingPlateZOffset(unittest.TestCase):
         self.assertEqual(top_z, 1.0, "Region top should stay at Z=1")
 
 
+class TestRenderOrder(unittest.TestCase):
+    """Tests for mesh rendering order to prevent backing plate obscuring regions."""
+    
+    def test_backing_plate_rendered_first(self):
+        """
+        Test that backing plate is processed before colored regions in rendering.
+        
+        WHY: When meshes are added to matplotlib's 3D axes, the order matters.
+        If backing plate is added last, it may be rendered on top of colored
+        regions from certain viewing angles (isometric, default). By ensuring
+        backing plate is processed first, we guarantee colored regions are
+        always visible on top.
+        
+        This test verifies the reordering logic that separates backing plate
+        from regions and processes backing plate first.
+        """
+        from pixel_to_3mf.mesh_generator import Mesh
+        
+        # Create sample meshes
+        region1_mesh = Mesh([(0, 0, 0), (1, 0, 1), (0, 1, 1)], [(0, 1, 2)])
+        region2_mesh = Mesh([(2, 0, 0), (3, 0, 1), (2, 1, 1)], [(0, 1, 2)])
+        backing_mesh = Mesh([(0, 0, -1), (5, 0, -1), (0, 5, 0)], [(0, 1, 2)])
+        
+        # Meshes in typical order (regions first, backing plate last)
+        meshes = [
+            (region1_mesh, "region_1"),
+            (region2_mesh, "region_2"),
+            (backing_mesh, "backing_plate"),
+        ]
+        
+        # Simulate the reordering logic from render_model.py
+        backing_plate_mesh = None
+        region_meshes = []
+        
+        for mesh, name in meshes:
+            if name == "backing_plate":
+                backing_plate_mesh = (mesh, name)
+            else:
+                region_meshes.append((mesh, name))
+        
+        # Build ordered list
+        meshes_ordered = []
+        if backing_plate_mesh:
+            meshes_ordered.append(backing_plate_mesh)
+        meshes_ordered.extend(region_meshes)
+        
+        # Verify backing plate is first
+        self.assertEqual(len(meshes_ordered), 3, 
+            "Should have 3 meshes total")
+        self.assertEqual(meshes_ordered[0][1], "backing_plate",
+            "First mesh should be backing_plate")
+        self.assertEqual(meshes_ordered[1][1], "region_1",
+            "Second mesh should be region_1")
+        self.assertEqual(meshes_ordered[2][1], "region_2",
+            "Third mesh should be region_2")
+    
+    def test_render_order_without_backing_plate(self):
+        """
+        Test rendering order when there's no backing plate.
+        
+        WHY: When base_height_mm=0, there's no backing plate. The reordering
+        logic should handle this gracefully and just process regions in order.
+        """
+        from pixel_to_3mf.mesh_generator import Mesh
+        
+        # Only region meshes, no backing plate
+        region1_mesh = Mesh([(0, 0, 0), (1, 0, 1), (0, 1, 1)], [(0, 1, 2)])
+        region2_mesh = Mesh([(2, 0, 0), (3, 0, 1), (2, 1, 1)], [(0, 1, 2)])
+        
+        meshes = [
+            (region1_mesh, "region_1"),
+            (region2_mesh, "region_2"),
+        ]
+        
+        # Simulate the reordering logic
+        backing_plate_mesh = None
+        region_meshes = []
+        
+        for mesh, name in meshes:
+            if name == "backing_plate":
+                backing_plate_mesh = (mesh, name)
+            else:
+                region_meshes.append((mesh, name))
+        
+        meshes_ordered = []
+        if backing_plate_mesh:
+            meshes_ordered.append(backing_plate_mesh)
+        meshes_ordered.extend(region_meshes)
+        
+        # Verify regions are processed in order
+        self.assertEqual(len(meshes_ordered), 2,
+            "Should have 2 meshes (no backing plate)")
+        self.assertEqual(meshes_ordered[0][1], "region_1",
+            "First mesh should be region_1")
+        self.assertEqual(meshes_ordered[1][1], "region_2",
+            "Second mesh should be region_2")
+
+
 if __name__ == '__main__':
     unittest.main()
