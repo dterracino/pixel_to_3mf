@@ -8,6 +8,41 @@ Custom agents are specialized AI assistants with domain-specific expertise. They
 
 ## Available Agents
 
+### 3D Printing Specialist
+
+**File:** `.github/agents/3d-printing-specialist.md`
+
+**Purpose:** Expert in FDM printing, Bambu Lab printers, filament behavior, G-code, 3MF format, and HueForge-style layered printing.
+
+**When to Use:**
+
+- Working with 3MF file format and structure
+- Optimizing meshes for 3D printing
+- Printer-specific optimization (especially Bambu Lab)
+- Debugging mesh topology issues (manifold meshes, winding order)
+- Filament selection and color matching for printing
+- Understanding G-code generation and slicing behavior
+- HueForge multi-color layer printing techniques
+
+**Capabilities:**
+
+- Deep knowledge of 3MF file format specification
+- Understanding of manifold mesh requirements
+- Expertise in mesh geometry and topology
+- Printer calibration and tuning (flow, retraction, pressure advance)
+- Filament behavior and material properties
+- G-code analysis and optimization
+- Multi-material and multi-color printing strategies
+- Integration with color_tools for filament matching
+
+**Example Usage:**
+
+```text
+Use the 3d-printing-specialist to optimize the mesh generation for better slicing results
+```
+
+---
+
 ### Bug Specialist
 
 **File:** `.github/agents/bug-specialist.md`
@@ -72,6 +107,41 @@ Use the bug-specialist to investigate why the mesh generator is producing non-ma
 
 ```text
 Use the cleanup-specialist to remove duplicate color validation code across modules
+```
+
+---
+
+### Color Science Specialist
+
+**File:** `.github/agents/color-science-specialist.md`
+
+**Purpose:** Expert in color spaces, conversion accuracy, Delta E metrics, gamut mapping, and color matching using the color_tools library.
+
+**When to Use:**
+
+- Color space conversions (RGB, Lab, HSL, HSV, XYZ, OKLab)
+- Calculating color differences (Delta E 2000, Delta E 76, etc.)
+- Filament color matching and recommendations
+- Gamut mapping and color accuracy
+- Understanding transfer functions and gamma correction
+- CSS color name matching
+- Perceptual color analysis
+
+**Capabilities:**
+
+- Deep understanding of color spaces and their properties
+- Expertise in Delta E 2000 for perceptual color distance
+- Knowledge of sRGB, Display P3, Rec.709, Rec.2020 gamuts
+- Transfer function expertise (sRGB EOTF/OETF, linearization)
+- Integration with color_tools library (color-match-tools package)
+- Filament palette management and matching
+- CSS color database knowledge (147 named colors)
+- Understanding of human color perception
+
+**Example Usage:**
+
+```text
+Use the color-science-specialist to improve the Delta E calculation for better color matching
 ```
 
 ---
@@ -347,6 +417,8 @@ Use the [agent-name] to [specific task]
 
 **Context-Based (Automatic):**
 
+- 3D printing/geometry issues → 3D printing specialist
+- Color matching/conversion → Color science specialist
 - Editing Python code → Consider type-specialist for type hints
 - Adding CLI arguments → UI specialist
 - Fixing bugs → Bug specialist
@@ -361,7 +433,7 @@ For complex tasks, multiple agents can work sequentially:
 
 ```text
 1. Use implementation-planner to break down a complex feature
-2. Use bug-specialist to fix the mesh topology issue
+2. Use 3d-printing-specialist to fix the mesh topology issue
 3. Use type-specialist to add proper type hints to the fixed code
 4. Use test-specialist to create comprehensive tests
 5. Use docstring-specialist to document why the fix works

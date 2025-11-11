@@ -1,13 +1,45 @@
 # Pixel Art to 3MF Converter - AI Agent Instructions
 
-## General Instructions
+## General Best Practices
 
-- Avoid making assumptions. If you need additional context to accurately answer the user, ask the user for the missing information. Be specific about which context you need.
-- Never abbreviate or abridge code; always provide the full code as it appears in the source files.
-- Make sure that any changes you suggest are consistent with the existing code style and architecture.
-- Document any changes you make to the code, including the reasoning behind them.
-- When refactoring code, ensure that the functionality remains unchanged unless explicitly requested by the user.
-- Do not jump ahead and make code changes if the user has not yet requested them; instead, offer suggestions or ask clarifying questions first.
+These principles apply to ALL code changes in this project:
+
+### Communication and Context
+
+- **Avoid making assumptions.** If you need additional context to accurately answer the user, ask the user for the missing information. Be specific about which context you need.
+- **Never abbreviate or abridge code.** Always provide the full code as it appears in the source files. Never use placeholders like `// previous code here` or `... existing code ...`.
+- **Specify exact locations.** When providing fixes or updates, specify the exact file path and location where changes should be made.
+- **Don't jump ahead.** Don't make code changes if the user has not yet requested them; instead, offer suggestions or ask clarifying questions first.
+
+### Code Organization and Maintainability
+
+- **Break up code intelligently.** Always organize code into modules and components so it can be easily reused. Don't overload a function with hundreds of lines when it should be broken into logical pieces. This facilitates unit testing and maintainability.
+- **Separation of concerns.** CLI/presentation layer must be strictly separated from business logic (see detailed section below).
+- **DRY principle.** Extract duplicate code to shared functions. No duplicate validation, formatting, or error messages.
+- **Proper error handling.** Use exceptions in business logic, display errors in CLI layer. Include appropriate error context and recovery guidance.
+
+### Documentation and Testing
+
+- **Keep documentation updated.** When making significant changes, update:
+  - `README.md` - User-facing documentation, examples, features
+  - `CHANGELOG.md` - Version history with Added/Changed/Fixed sections
+  - Docstrings - Explain WHY code exists, not just WHAT it does
+- **Maintain test coverage.** Add unit tests for new features. Update tests when changing functionality. All tests must pass before committing.
+- **Document reasoning.** Include comments explaining design decisions, trade-offs, and non-obvious implementation choices.
+
+### Logging and User Communication
+
+- **NO print statements in business logic.** Only CLI layer (`cli.py`) should use print statements or Rich console output.
+- **Use proper communication channels:**
+  - Business logic → Use progress callbacks, raise exceptions, return data
+  - CLI layer → Display to user via print/Rich, handle exceptions, format output
+  - Internal debugging → Use logging module with appropriate levels
+- **Logging best practices:**
+  - Use `logger.debug()` for detailed internal steps
+  - Use `logger.info()` for major milestones
+  - Use `logger.warning()` for recoverable issues
+  - Use `logger.error()` for failures
+  - Configure logging in CLI layer only (see `--log-file` implementation)
 
 ## Custom AI Agents
 
@@ -15,8 +47,10 @@ This project has specialized custom agents for specific tasks located in `.githu
 
 ### Available Custom Agents
 
+- **3d-printing-specialist**: Expert in FDM printing, Bambu Lab printers, filament behavior, G-code, 3MF format, and HueForge-style layered printing
 - **bug-specialist**: Fixes bugs, detects code smells, creates bug reports, ensures type hints
 - **cleanup-specialist**: Removes dead code, eliminates duplication, improves maintainability
+- **color-science-specialist**: Color space expert for RGB/Lab/HSL conversions, Delta E metrics, gamut mapping, and color accuracy
 - **custom-agent-generator**: Creates new custom agent definition files
 - **docstring-specialist**: Creates/updates docstrings that explain WHY over WHAT
 - **implementation-planner**: Creates detailed implementation plans for new features
@@ -30,6 +64,8 @@ This project has specialized custom agents for specific tasks located in `.githu
 
 **Context-based triggering** - Use the appropriate agent when working on:
 
+- **3D printing/geometry issues**: Use **3d-printing-specialist** for mesh topology, 3MF format, printer-specific optimizations
+- **Color matching/conversion**: Use **color-science-specialist** for color space conversions, Delta E calculations, filament color matching
 - **Editing Python code**: Consider **type-specialist** for type hints, **bug-specialist** for code smells
 - **Fixing bugs**: Use **bug-specialist** for root cause analysis and fixes
 - **Adding CLI arguments**: Use **ui-specialist** for argument design and user feedback
@@ -215,6 +251,35 @@ def validate_email(email: str) -> None:
 
 validate_email(user.email)
 validate_email(admin.email)
+```
+
+**Example of logging violations to avoid:**
+```python
+# ❌ Bad - logger.warning() prints to console by default
+import logging
+logger = logging.getLogger(__name__)
+
+def process_data(data):
+    """Process data in business logic."""
+    logger.warning("This will appear in console!")  # BREAKS Rich output!
+    # ... process data
+
+# ✅ Good - use logging but configure it properly
+# In cli.py:
+import logging
+if args.log_file:
+    logging.basicConfig(filename=args.log_file, level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.CRITICAL + 1)  # Disable console output
+
+# In business logic (polygon_optimizer.py):
+import logging
+logger = logging.getLogger(__name__)
+
+def process_data(data):
+    """Process data in business logic."""
+    logger.warning("Only goes to log file, not console!")  # ✅ Correct
+    # ... process data
 ```
 
 ## Project Overview
@@ -499,6 +564,19 @@ These conventions are **non-negotiable** and must be followed in all code:
    - Use unittest framework
    - Follow existing test patterns
    - All tests must pass before committing
+
+9. **Documentation maintenance**:
+   - Update `README.md` when adding features or changing behavior
+   - Update `CHANGELOG.md` with all user-visible changes
+   - Use `[Unreleased]` section for upcoming changes
+   - Follow semantic versioning principles
+
+10. **Proper logging practices**:
+    - Configure logging ONLY in CLI layer (`cli.py`)
+    - Business logic uses `logging.getLogger(__name__)` for module-level loggers
+    - When `--log-file` not specified, logging level set to `CRITICAL + 1` (disabled)
+    - When `--log-file` specified, logging level set to `DEBUG`
+    - Never use `warnings.warn()` - it breaks Rich console output
 
 ## Dependencies
 

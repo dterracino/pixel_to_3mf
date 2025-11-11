@@ -19,6 +19,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 
 ## Features ✨
 
+- **Automatic Thumbnail Generation**: Every 3MF file includes 5 embedded preview thumbnails for slicers
 - **Exact Scaling**: Scales your pixel art so the largest dimension exactly matches your target size (default 200mm)
 - **Smart Region Merging**: Uses flood-fill algorithm with configurable connectivity (4-way, 8-way, or per-pixel) to merge connected same-color pixels into single manifold objects
 - **Disconnected Pixel Trimming**: Optional removal of pixels that only connect via corners (unreliable for 3D printing) with `--trim`
@@ -717,6 +718,14 @@ python run_converter.py sprite.png --auto-crop --padding-size 5 --quantize
 7. **Export 3MF File**
    - Packages meshes into 3MF format (ZIP archive)
    - Includes object names (color names) for slicer UI
+   - **Automatic thumbnails**: Generates 5 preview images embedded in the 3MF:
+     - `top_1.png`: 512×512 overhead view (scaled source image)
+     - `pick_1.png`: 512×512 gray silhouette (50% gray where pixels exist)
+     - `plate_1.png`: 512×512 isometric view (-30° rotation)
+     - `plate_1_small.png`: 128×128 downscaled isometric view
+     - `plate_no_light_1.png`: 512×512 isometric view
+   - All thumbnails preserve aspect ratio with transparent padding
+   - Adds title metadata (auto-formatted from filename)
    - 3MF structure:
 
      ```text
@@ -879,22 +888,36 @@ The larger dimension **always equals** max_size exactly.
 
 ```text
 model.3mf (ZIP archive)
-├── [Content_Types].xml          # MIME types
+├── [Content_Types].xml          # MIME types (includes PNG and gcode)
 ├── _rels/.rels                  # Relationships
 ├── 3D/
-│   ├── 3dmodel.model           # Main assembly
+│   ├── 3dmodel.model           # Main assembly with metadata
+│   ├── _rels/
+│   │   └── 3dmodel.model.rels  # Model relationships
 │   └── Objects/
 │       └── object_1.model      # Mesh geometry (vertices + triangles)
 └── Metadata/
-    └── model_settings.config   # Object names (color labels)
+    ├── model_settings.config   # Object names (color labels)
+    ├── top_1.png               # 512×512 overhead view
+    ├── pick_1.png              # 512×512 gray silhouette
+    ├── plate_1.png             # 512×512 isometric view
+    ├── plate_1_small.png       # 128×128 downscaled isometric
+    └── plate_no_light_1.png    # 512×512 isometric view
 ```
+
+**Metadata included:**
+
+- **Title**: Auto-formatted from filename (e.g., "gameboy-tetris-titlescreen.png" → "Gameboy Tetris Titlescreen")
+- **Thumbnail references**: Points to embedded preview images
+- **Object names**: Color names for each region in the slicer UI
 
 **Advantages over STL:**
 
 - ✅ Supports multiple objects with names
 - ✅ Smaller file size (compressed)
-- ✅ Richer metadata
+- ✅ Richer metadata (thumbnails, titles, settings)
 - ✅ Industry standard (Bambu, Prusa, etc.)
+- ✅ Preview images for slicer thumbnails
 
 ## Tips & Best Practices 💡
 

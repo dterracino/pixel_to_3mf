@@ -165,6 +165,12 @@ def convert_image_to_3mf(
     input_file = Path(input_path)
     if not input_file.exists():
         raise FileNotFoundError(f"Input image not found: {input_path}")
+    
+    # Set source image information in config
+    # WHY: This allows the config to auto-generate the model title and makes
+    # the information available throughout the pipeline without changing function signatures
+    config.source_image_path = str(input_path)
+    config.source_image_name = input_file.name
 
     # Config validates itself in __post_init__, so we don't need to validate parameters here
     
@@ -268,7 +274,15 @@ def convert_image_to_3mf(
     
     # Step 4: Write 3MF
     _progress("export", "Writing 3MF file...")
-    summary_path = write_3mf(output_path, meshes, region_colors, pixel_data, config, progress_callback)
+    
+    summary_path = write_3mf(
+        output_path, 
+        meshes, 
+        region_colors, 
+        pixel_data, 
+        config, 
+        progress_callback
+    )
     _progress("export", f"3MF written to: {output_path}")
     
     # Step 5: Render model if requested

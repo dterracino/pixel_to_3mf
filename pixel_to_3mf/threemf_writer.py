@@ -9,6 +9,7 @@ actually just a ZIP archive containing XML files and metadata. We generate:
 3. Metadata/model_settings.config - Object names (the color names!)
 4. [Content_Types].xml - Required metadata about file types
 5. _rels/.rels - Required relationships file
+6. Metadata/*.png - Thumbnail images (if enabled)
 
 It's like making a little self-contained package that slicers can open! 📦
 """
@@ -19,6 +20,7 @@ from xml.dom import minidom
 from typing import List, Tuple, TYPE_CHECKING, Optional, Callable
 from pathlib import Path
 import uuid
+from PIL import Image
 
 from .mesh_generator import Mesh
 from .constants import COORDINATE_PRECISION
@@ -239,7 +241,8 @@ def generate_object_model_xml(meshes: List[Tuple[Mesh, str]]) -> str:
 def generate_main_model_xml(
     num_objects: int, 
     mesh_transforms: List[Tuple[float, float, float]],
-    build_plate_center: Tuple[float, float] = (128.0, 128.0)
+    build_plate_center: Tuple[float, float] = (128.0, 128.0),
+    source_image_name: str | None = None
 ) -> str:
     """
     Generate the XML content for 3D/3dmodel.model.
@@ -255,6 +258,7 @@ def generate_main_model_xml(
                     44 meshes, they're numbered 1 through 44)
         mesh_transforms: List of (x, y, z) translations for each mesh (relative to model center)
         build_plate_center: (x, y) coordinates for centering on build plate (default: 128, 128)
+        source_image_name: Optional name of source image file (without extension) for Title metadata
     
     Returns:
         XML string for the main model file
@@ -278,6 +282,16 @@ def generate_main_model_xml(
     # Add metadata
     ET.SubElement(root, "metadata", name="Application").text = "PixelTo3MF"
     ET.SubElement(root, "metadata", name="BambuStudio:3mfVersion").text = "1"
+    
+    # Add thumbnail and title metadata
+    # WHY: These metadata entries tell slicers where to find thumbnail images
+    # and what to display as the model name in the UI
+    ET.SubElement(root, "metadata", name="Thumbnail_Middle").text = "/Metadata/plate_1.png"
+    ET.SubElement(root, "metadata", name="Thumbnail_Small").text = "/Metadata/plate_1_small.png"
+    
+    # Use source image name (without extension) as the title, or default to "PixelArt3D"
+    title = source_image_name if source_image_name else "PixelArt3D"
+    ET.SubElement(root, "metadata", name="Title").text = title
     
     # Create resources with a main assembly object
     resources = ET.SubElement(root, "resources")
@@ -421,6 +435,24 @@ def generate_content_types_xml() -> str:
         attrib={
             "Extension": "model",
             "ContentType": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml"
+        }
+    )
+    
+    ET.SubElement(
+        root,
+        "Default",
+        attrib={
+            "Extension": "png",
+            "ContentType": "image/png"
+        }
+    )
+    
+    ET.SubElement(
+        root,
+        "Default",
+        attrib={
+            "Extension": "gcode",
+            "ContentType": "text/x.gcode"
         }
     )
     
@@ -637,7 +669,7 @@ def write_3mf(
 
     # Generate XML content for all files
     object_model_xml = generate_object_model_xml(sorted_meshes)
-    main_model_xml = generate_main_model_xml(len(sorted_meshes), mesh_transforms)
+    main_model_xml = generate_main_model_xml(len(sorted_meshes), mesh_transforms, source_image_name=config.model_title)
     settings_xml = generate_model_settings_xml(object_names)
     content_types_xml = generate_content_types_xml()
     rels_xml = generate_rels_xml()
@@ -654,6 +686,46 @@ def write_3mf(
         zf.writestr("3D/_rels/3dmodel.model.rels", model_rels_xml)  # Fixed filename!
         zf.writestr("3D/Objects/object_1.model", object_model_xml)
         zf.writestr("Metadata/model_settings.config", settings_xml)
+        
+        # Generate and add thumbnails (always enabled)
+        _progress("Generating thumbnails...")
+        from .thumbnail_generator import (
+            generate_top_view,
+            generate_pick_view,
+            generate_plate_view,
+            generate_plate_small,
+            generate_plate_no_light
+        )
+        
+        # Load source image in RGBA mode for thumbnail generation
+        source_path = Path(config.source_image_path) if config.source_image_path else None
+        if source_path and source_path.exists():
+            source_img = Image.open(source_path).convert('RGBA')
+            
+            # Generate all 5 thumbnail types
+            _progress("  - Generating top_1.png (512x512 overhead view)...")
+            top_view = generate_top_view(source_img)
+            zf.writestr("Metadata/top_1.png", top_view)
+            
+            _progress("  - Generating pick_1.png (512x512 gray silhouette)...")
+            pick_view = generate_pick_view(source_img)
+            zf.writestr("Metadata/pick_1.png", pick_view)
+            
+            _progress("  - Generating plate_1.png (512x512 isometric with shadow)...")
+            plate_view = generate_plate_view(source_img)
+            zf.writestr("Metadata/plate_1.png", plate_view)
+            
+            _progress("  - Generating plate_1_small.png (128x128 downscaled)...")
+            plate_small = generate_plate_small(plate_view)
+            zf.writestr("Metadata/plate_1_small.png", plate_small)
+            
+            _progress("  - Generating plate_no_light_1.png (512x512 isometric no shadow)...")
+            plate_no_light = generate_plate_no_light(source_img)
+            zf.writestr("Metadata/plate_no_light_1.png", plate_no_light)
+            
+            _progress("✅ All 5 thumbnails generated")
+        else:
+            _progress(f"⚠️  Source image not found, skipping thumbnails: {config.source_image_path}")
     
     # Report completion through progress callback
     _progress(f"✨ 3MF file written to: {output_path}")

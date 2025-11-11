@@ -167,104 +167,128 @@ def create_multi_view_renders(meshes, region_colors, output_base_path, model_wid
     print("GENERATING MULTI-VIEW RENDERS")
     print("="*80)
     
+    # Create figure and axes ONCE - reuse for all views
+    fig = plt.figure(figsize=(12, 12), dpi=96)
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Track color index
+    color_index = 0
+    
+    # Separate backing plate from regions to control render order
+    # WHY: Backing plate must be rendered FIRST (added to axes first) so that
+    # colored regions are always rendered on top. Matplotlib's 3D painter's
+    # algorithm can fail with certain viewing angles if backing plate is added last.
+    backing_plate_mesh = None
+    region_meshes = []
+    
+    for mesh, name in meshes:
+        if name == "backing_plate":
+            backing_plate_mesh = (mesh, name)
+        else:
+            region_meshes.append((mesh, name))
+    
+    # Process backing plate FIRST if it exists
+    meshes_ordered = []
+    if backing_plate_mesh:
+        meshes_ordered.append(backing_plate_mesh)
+    meshes_ordered.extend(region_meshes)
+    
+    # Add all meshes to the plot ONCE
+    # WHY: We only need to create the geometry once, then just change the viewing angle
+    # for each output image. This is much more efficient than recreating the entire
+    # plot for each view.
+    # 
+    # CRITICAL: We add backing plate FIRST, then colored regions. Combined with a
+    # significant Z-offset on the backing plate, this ensures it renders behind the
+    # colored regions from all viewing angles.
+    for mesh, name in meshes_ordered:
+        # Determine color and transparency
+        if name == "backing_plate":
+            color = np.array(backing_color) / 255.0
+            # Use lower alpha for backing plate so regions show through if needed
+            alpha = 0.6
+        else:
+            if color_index < len(region_colors):
+                color = np.array(region_colors[color_index]) / 255.0
+                color_index += 1
+            else:
+                color = np.array([128, 128, 128]) / 255.0
+            alpha = 1.0  # Full opacity for colored regions
+        
+        # Convert mesh to polygons
+        vertices_array = np.array(mesh.vertices)
+        
+        # Apply Z-offset to backing plate to ensure it renders behind colored regions
+        # WHY: Color layers are typically 1mm thick, so we offset by 1mm to completely
+        # separate the backing plate from the colored regions with no overlap. This
+        # ensures Matplotlib's painter's algorithm can correctly determine depth order
+        # from all viewing angles (the 0.1mm offset wasn't enough when layers overlapped).
+        if name == "backing_plate":
+            vertices_array = vertices_array.copy()  # Don't modify original
+            vertices_array[:, 2] -= 1.0  # Shift Z coordinate down by 1mm for complete separation
+        
+        faces = []
+        for tri in mesh.triangles:
+            face = [
+                vertices_array[tri[0]],
+                vertices_array[tri[1]],
+                vertices_array[tri[2]]
+            ]
+            faces.append(face)
+        
+        # Create polygon collection
+        # WHY: Matplotlib's painter's algorithm struggles with depth sorting at certain
+        # angles. We rely on: (1) Adding backing plate first, (2) Large Z-offset (1mm),
+        # (3) Lower alpha on backing plate. This combination ensures colored regions
+        # always appear on top regardless of viewing angle.
+        poly = Poly3DCollection(
+            faces,
+            alpha=alpha,
+            facecolor=color,
+            edgecolor='black',
+            linewidths=0.1
+        )
+        ax.add_collection3d(poly)
+    
+    # Set view limits (only need to do this once)
+    margin = max(model_width_mm, model_height_mm) * 0.1
+    ax.set_xlim([0 - margin, model_width_mm + margin])
+    ax.set_ylim([0 - margin, model_height_mm + margin])
+    
+    # Calculate Z limits from actual mesh data
+    min_z = 0
+    max_z = 0
+    for mesh, _ in meshes:
+        for vertex in mesh.vertices:
+            min_z = min(min_z, vertex[2])
+            max_z = max(max_z, vertex[2])
+    ax.set_zlim([min_z - margin, max_z + margin])
+    
+    # Set labels (only need to do this once)
+    ax.set_xlabel('X (mm)', fontsize=10)
+    ax.set_ylabel('Y (mm)', fontsize=10)
+    ax.set_zlabel('Z (mm)', fontsize=10)
+    
+    # Now loop through views and just change the camera angle + save
     for elev, azim, view_name in views:
         print(f"\nCreating {view_name} (elev={elev}, azim={azim})...")
         
-        fig = plt.figure(figsize=(12, 12), dpi=150)
-        ax = fig.add_subplot(111, projection='3d')
-        
-        # Track color index
-        color_index = 0
-        
-        # Separate backing plate from regions to control render order
-        # WHY: Backing plate must be rendered FIRST (added to axes first) so that
-        # colored regions are always rendered on top. Matplotlib's 3D painter's
-        # algorithm can fail with certain viewing angles if backing plate is added last.
-        backing_plate_mesh = None
-        region_meshes = []
-        
-        for mesh, name in meshes:
-            if name == "backing_plate":
-                backing_plate_mesh = (mesh, name)
-            else:
-                region_meshes.append((mesh, name))
-        
-        # Process backing plate FIRST if it exists
-        meshes_ordered = []
-        if backing_plate_mesh:
-            meshes_ordered.append(backing_plate_mesh)
-        meshes_ordered.extend(region_meshes)
-        
-        # Render each mesh in correct order (backing plate first, then regions)
-        for mesh, name in meshes_ordered:
-            # Determine color
-            if name == "backing_plate":
-                color = np.array(backing_color) / 255.0
-            else:
-                if color_index < len(region_colors):
-                    color = np.array(region_colors[color_index]) / 255.0
-                    color_index += 1
-                else:
-                    color = np.array([128, 128, 128]) / 255.0
-            
-            # Convert mesh to polygons
-            vertices_array = np.array(mesh.vertices)
-            
-            # Apply small Z-offset to backing plate to prevent Z-fighting
-            if name == "backing_plate":
-                vertices_array = vertices_array.copy()  # Don't modify original
-                vertices_array[:, 2] -= 0.01  # Shift Z coordinate down by 0.01mm
-            
-            faces = []
-            for tri in mesh.triangles:
-                face = [
-                    vertices_array[tri[0]],
-                    vertices_array[tri[1]],
-                    vertices_array[tri[2]]
-                ]
-                faces.append(face)
-            
-            # Create polygon collection
-            poly = Poly3DCollection(
-                faces,
-                alpha=0.9,
-                facecolor=color,
-                edgecolor='black',
-                linewidths=0.1
-            )
-            ax.add_collection3d(poly)
-        
-        # Set view limits
-        margin = max(model_width_mm, model_height_mm) * 0.1
-        ax.set_xlim([0 - margin, model_width_mm + margin])
-        ax.set_ylim([0 - margin, model_height_mm + margin])
-        
-        # Calculate Z limits from actual mesh data
-        min_z = 0
-        max_z = 0
-        for mesh, _ in meshes:
-            for vertex in mesh.vertices:
-                min_z = min(min_z, vertex[2])
-                max_z = max(max_z, vertex[2])
-        ax.set_zlim([min_z - margin, max_z + margin])
-        
-        # Set labels and view
-        ax.set_xlabel('X (mm)', fontsize=10)
-        ax.set_ylabel('Y (mm)', fontsize=10)
-        ax.set_zlabel('Z (mm)', fontsize=10)
+        # Update view angle (this is fast - just rotates the camera)
         ax.view_init(elev=elev, azim=azim)
         
-        # Add title with view info
+        # Update title for this view
         title = f'3D Model Preview - {view_name.replace("_", " ").title()}\n'
         title += f'(elevation={elev}°, azimuth={azim}°)'
         ax.set_title(title, fontsize=14, fontweight='bold')
         
-        # Save
+        # Save this view
         output_path = output_dir / f"{output_stem}_{view_name}.png"
-        plt.savefig(output_path, bbox_inches='tight', dpi=150)
-        plt.close(fig)
+        plt.savefig(output_path, bbox_inches='tight', dpi=96)
         
         print(f"  Saved: {output_path}")
+    
+    # Close the figure after all views are saved
+    plt.close(fig)
     
     print("\n" + "="*80)
 
@@ -274,18 +298,19 @@ def main():
         description="Debug script to analyze 3D model coordinate transformations"
     )
     parser.add_argument("input", help="Input image file")
-    parser.add_argument("--output", "-o", help="Output base path (default: /tmp/debug_model)")
+    parser.add_argument("--output", "-o", help="Output base path (default: same directory as input file)")
     parser.add_argument("--max-size", type=float, default=200.0, help="Maximum model dimension in mm")
     parser.add_argument("--color-height", type=float, default=1.0, help="Color layer height in mm")
     parser.add_argument("--base-height", type=float, default=1.0, help="Base layer height in mm")
     
     args = parser.parse_args()
     
-    # Default output path
+    # Default output path - same directory as input file with _debug suffix
     if args.output:
         output_base = args.output
     else:
-        output_base = "/tmp/debug_model"
+        input_path = Path(args.input)
+        output_base = str(input_path.parent / f"{input_path.stem}_debug")
     
     print("="*80)
     print("DEBUG: 3D MODEL COORDINATE ANALYSIS")

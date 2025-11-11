@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Automatic thumbnail generation for 3MF files (5 types embedded in `/Metadata/`)
+  - `top_1.png`: 512x512 overhead view (scaled source image)
+  - `pick_1.png`: 512x512 gray silhouette (50% gray where pixels exist)
+  - `plate_1.png`: 512x512 isometric view (-30° rotation)
+  - `plate_1_small.png`: 128x128 downscaled isometric view
+  - `plate_no_light_1.png`: 512x512 isometric view (identical to plate_1.png)
+- Aspect ratio preservation in thumbnails with transparent padding
+- Title metadata in 3MF files (auto-formatted from filename)
+- PNG and gcode content type declarations in `[Content_Types].xml`
+- Thumbnail references in 3MF metadata (Thumbnail_Middle, Thumbnail_Small)
 - Mesh statistics displayed in conversion summary (triangle and vertex counts)
 - Triangle winding order validation (confirms CCW winding for proper normals)
 - Helper functions for 3MF structure validation in tests
@@ -18,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Trim disconnected pixels feature (`--trim`) now correctly identifies disconnected pixels without removing pixels inside connected areas
+- Isometric thumbnail rotation now uses NEAREST resampling to avoid anti-aliasing artifacts on pixel art edges
 
 ## [1.0.0] - 2025-11-09
 

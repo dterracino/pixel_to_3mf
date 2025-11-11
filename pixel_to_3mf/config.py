@@ -7,8 +7,10 @@ clean and makes it easy to add new parameters in the future without
 breaking the API.
 """
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from typing import Tuple, List, Union
+from pathlib import Path
 from .constants import (
     MAX_MODEL_SIZE_MM,
     LINE_WIDTH_MM,
@@ -27,6 +29,69 @@ from .constants import (
     PADDING_COLOR,
     TRIM_DISCONNECTED_PIXELS
 )
+
+
+def format_title_from_filename(filename: str) -> str:
+    """
+    Format a filename into a nice title for 3MF metadata.
+    
+    Converts filenames like:
+    - "gameboy-tetris-titlescreen.png" -> "Gameboy Tetris Titlescreen"
+    - "nes-samus.png" -> "Nes Samus"
+    - "super-mario-nes-screenshot.png" -> "Super Mario Nes Screenshot"
+    - "Donkey_kong-jr screenshot.png" -> "Donkey Kong Jr Screenshot"
+    - "c64ready.png" -> "C64ready"
+    - "ryu-sf2.png" -> "Ryu Sf2"
+    - "image.backup.png" -> "Image Backup"
+    - "Kirby's Adventure.png" -> "Kirbys Adventure"
+    
+    Algorithm:
+    1. Remove file extension (only the final .ext, so "image.backup.png" -> "image.backup")
+    2. Remove apostrophes (they're part of the word, not separators)
+    3. Replace ALL other non-alphanumeric characters (including dots) with single space
+    4. Collapse multiple spaces into one
+    5. Trim leading/trailing whitespace
+    6. Title case each word, preserving existing uppercase sequences
+    
+    Args:
+        filename: Original filename (with or without extension)
+    
+    Returns:
+        Formatted title string (trimmed, single spaces between words)
+    """
+    # Get the base filename without directory, then remove the final extension
+    # WHY: Path.stem removes only the last extension, so "image.backup.png" -> "image.backup"
+    # This is what we want! Then the dot becomes a space below.
+    name = Path(filename).stem
+    
+    # Remove apostrophes entirely (they're part of the word, not separators)
+    # WHY: "Kirby's" should become "Kirbys", not "Kirby S"
+    name = name.replace("'", "")
+    
+    # Replace ALL non-alphanumeric characters (including underscores, hyphens, dots, etc.)
+    # with a single space. [^a-zA-Z0-9] matches anything that's NOT a letter or number
+    # WHY: We want ALL separators (-, _, ., etc.) to become spaces
+    name = re.sub(r'[^a-zA-Z0-9]+', ' ', name)
+    
+    # Collapse multiple spaces into one (in case there were consecutive punctuation marks)
+    # This is redundant with the + in the regex above, but kept for clarity
+    name = re.sub(r'\s+', ' ', name)
+    
+    # Trim leading/trailing whitespace
+    name = name.strip()
+    
+    # Title case each word, but preserve existing uppercase sequences
+    # WHY: We want "nes" -> "Nes" but "NES" -> "NES", "c64" -> "C64" (already caps)
+    words = []
+    for word in name.split():
+        # If word is all uppercase or has mixed case, keep it
+        # Otherwise, title case it
+        if word.isupper() or any(c.isupper() for c in word[1:]):
+            words.append(word)
+        else:
+            words.append(word.capitalize())
+    
+    return ' '.join(words)
 
 
 @dataclass
@@ -94,6 +159,11 @@ class ConversionConfig:
     
     # Rendering options
     render_model: bool = False
+    
+    # Source image tracking (set programmatically, not by user)
+    source_image_path: str | None = field(default=None, repr=False)
+    source_image_name: str | None = field(default=None, repr=False)
+    model_title: str | None = field(default=None, repr=False)
 
     def __post_init__(self):
         """Validate configuration parameters."""
@@ -146,4 +216,12 @@ class ConversionConfig:
         if self.filament_type is None:
             self.filament_type = DEFAULT_FILAMENT_TYPE
         if self.filament_finish is None:
-            self.filament_finish = DEFAULT_FILAMENT_FINISH
+            self.filament_finish = DEFAULT_FILAMENT_FINISH        
+        # Set model_title from source_image_name if available
+        # WHY: If source_image_name is set, use it to auto-generate a nice title.
+        # If model_title is already set explicitly, keep that (user override).
+        # Otherwise, use default "PixelArt3D".
+        if self.model_title is None and self.source_image_name:
+            self.model_title = format_title_from_filename(self.source_image_name)
+        elif self.model_title is None:
+            self.model_title = "PixelArt3D"
