@@ -11,7 +11,7 @@ pixel art while maintaining all manifold properties.
 """
 
 from collections import deque
-from typing import List, Tuple, Set, Optional, Dict, TYPE_CHECKING, cast, Sequence
+from typing import List, Tuple, Set, Optional, Dict, TYPE_CHECKING, cast
 from shapely.geometry import Polygon, box, MultiPolygon
 from shapely.ops import unary_union
 import triangle as tr
@@ -293,7 +293,7 @@ def _validate_polygon_for_triangulation(poly: Polygon) -> Tuple[bool, str]:
     return (True, "")
 
 
-def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], List[Tuple[int, int, int]]]:
+def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], List[Tuple[int, int, int]], List[Tuple[int, int]]]:
     """
     Triangulate 2D polygon using constrained Delaunay triangulation.
     
@@ -312,9 +312,10 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
         poly: shapely.geometry.Polygon to triangulate
     
     Returns:
-        Tuple of (vertices, triangles) where:
+        Tuple of (vertices, triangles, segments) where:
         - vertices: List of (x, y) coordinates
         - triangles: List of (v0, v1, v2) vertex index triples (CCW winding)
+        - segments: List of (v0, v1) boundary edge vertex index pairs
     
     Raises:
         RuntimeError: If triangulation fails
@@ -443,10 +444,11 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     # Extract results
     vertices_2d = [tuple(v) for v in result['vertices']]
     triangles_2d = [tuple(t) for t in result['triangles']]
+    segments_2d = [tuple(s) for s in result['segments']]
     
-    logger.debug(f"Triangulation complete: {len(vertices_2d)} vertices, {len(triangles_2d)} triangles")
+    logger.debug(f"Triangulation complete: {len(vertices_2d)} vertices, {len(triangles_2d)} triangles, {len(segments_2d)} segments")
     
-    return vertices_2d, triangles_2d
+    return vertices_2d, triangles_2d, segments_2d
 
 
 def ensure_ccw_winding_2d(
@@ -535,6 +537,7 @@ def extrude_polygon_to_mesh(
     poly: Polygon,
     triangles_2d: List[Tuple[int, int, int]],
     vertices_2d: List[Tuple[float, float]],
+    segments_2d: List[Tuple[int, int]],
     z_bottom: float,
     z_top: float
 ) -> 'Mesh':
@@ -544,17 +547,20 @@ def extrude_polygon_to_mesh(
     Creates a manifold 3D mesh by:
     1. Creating top face at z_top (CCW from above)
     2. Creating bottom face at z_bottom (CCW from below = reversed)
-    3. Creating wall quads around perimeter and holes
+    3. Creating wall quads around boundary segments
     
     All vertices are shared properly to maintain manifold properties.
     
-    CRITICAL: Ensures all input triangles have CCW winding before extrusion
-    to prevent non-manifold edges from inconsistent normals.
+    CRITICAL: Uses boundary segments from triangulation output instead of
+    walking the original polygon perimeters. This ensures we create walls
+    from the EXACT vertices in the triangulation, preventing non-manifold
+    edges from coordinate lookup mismatches.
     
     Args:
-        poly: Original shapely polygon (for perimeter extraction)
+        poly: Original shapely polygon (for winding direction detection)
         triangles_2d: List of triangle vertex indices from triangulation
         vertices_2d: List of (x, y) vertices from triangulation
+        segments_2d: List of (v0, v1) boundary edge indices from triangulation
         z_bottom: Z coordinate for bottom face
         z_top: Z coordinate for top face
     
@@ -606,110 +612,121 @@ def extrude_polygon_to_mesh(
         ))
     
     # ========================================================================
-    # Step 3: Create walls around perimeter
+    # Step 3: Create walls from boundary segments
     # ========================================================================
-    # Build a map from 2D coordinates to vertex indices for quick lookup
-    coord_to_idx: Dict[Tuple[float, float], int] = {}
-    for i, (x, y) in enumerate(vertices_2d):
-        # Round to avoid floating-point precision issues
-        key = (round(x, 6), round(y, 6))
-        coord_to_idx[key] = i
+    # CRITICAL FIX: Use the segments from triangulation output directly.
+    # The triangle library returns boundary segments in the order they were
+    # provided: first the exterior segments, then hole segments.
+    #
+    # We need to group segments into loops and determine their winding to
+    # create walls with correct normals (outward for exterior, inward for holes).
     
-    # Process exterior perimeter
-    # CRITICAL FIX: Ensure perimeter is CCW for correct wall winding
-    # shapely's unary_union may produce CW or CCW, we need CCW for outward normals
-    perimeter = list(poly.exterior.coords[:-1])
+    # Group segments into loops by following connectivity
+    from collections import defaultdict
     
-    # Check if perimeter is CCW using shoelace formula
-    def is_ccw_perimeter(coords):
-        area = 0
-        n = len(coords)
+    # Build adjacency for each vertex to find connected segments
+    vertex_to_segments: Dict[int, List[Tuple[int, int]]] = defaultdict(list)
+    for seg_idx, (v0, v1) in enumerate(segments_2d):
+        vertex_to_segments[v0].append((seg_idx, v1))
+        vertex_to_segments[v1].append((seg_idx, v0))
+    
+    # Extract loops by following segments
+    used_segments: Set[int] = set()
+    loops: List[List[int]] = []  # List of vertex index lists
+    
+    for start_v in range(len(vertices_2d)):
+        if start_v not in vertex_to_segments:
+            continue
+        
+        # Try to start a new loop from this vertex
+        for seg_idx, next_v in vertex_to_segments[start_v]:
+            if seg_idx in used_segments:
+                continue
+            
+            # Trace a loop starting from this segment
+            loop = [start_v]
+            current_v = start_v
+            prev_v = start_v
+            current_seg = seg_idx
+            
+            while True:
+                used_segments.add(current_seg)
+                
+                # Add next vertex to loop
+                loop.append(next_v)
+                
+                if next_v == start_v:
+                    # Completed the loop
+                    loop.pop()  # Remove duplicate end vertex
+                    break
+                
+                # Find next segment from next_v (not going back to current_v)
+                found_next = False
+                for next_seg_idx, following_v in vertex_to_segments[next_v]:
+                    if next_seg_idx == current_seg:
+                        continue  # Skip the segment we came from
+                    if next_seg_idx in used_segments:
+                        continue  # Skip already used segments
+                    
+                    # Found the next segment in the loop
+                    prev_v = current_v
+                    current_v = next_v
+                    next_v = following_v
+                    current_seg = next_seg_idx
+                    found_next = True
+                    break
+                
+                if not found_next:
+                    logger.warning(f"Could not find next segment in loop at vertex {next_v}")
+                    break
+            
+            if len(loop) >= 3:
+                loops.append(loop)
+                logger.debug(f"Extracted loop with {len(loop)} vertices")
+    
+    logger.debug(f"Extracted {len(loops)} boundary loops from {len(segments_2d)} segments")
+    
+    # Determine winding for each loop and create walls
+    for loop in loops:
+        # Calculate signed area to determine winding
+        area = 0.0
+        n = len(loop)
         for i in range(n):
             j = (i + 1) % n
-            area += coords[i][0] * coords[j][1]
-            area -= coords[j][0] * coords[i][1]
-        return area > 0
-    
-    if not is_ccw_perimeter(perimeter):
-        # Perimeter is CW, reverse it to CCW for correct wall normals
-        perimeter = list(reversed(perimeter))
-        logger.debug("Reversed CW perimeter to CCW for correct wall winding")
-    
-    _create_wall_quads(
-        perimeter, coord_to_idx, top_vertex_map, bottom_vertex_map,
-        triangles_3d, reverse_winding=False
-    )
-    
-    # Process holes (interior rings) - walls with reversed winding
-    # Holes should have CW winding (opposite of exterior) for inward normals
-    for interior in poly.interiors:
-        hole_perimeter = list(interior.coords[:-1])
+            v1 = vertices_2d[loop[i]]
+            v2 = vertices_2d[loop[j]]
+            area += v1[0] * v2[1] - v2[0] * v1[1]
         
-        # Ensure hole perimeter is CW (opposite of exterior CCW)
-        if is_ccw_perimeter(hole_perimeter):
-            # Hole is CCW, reverse it to CW for correct inward normals
-            hole_perimeter = list(reversed(hole_perimeter))
-            logger.debug("Reversed CCW hole perimeter to CW for correct wall winding")
+        # Positive area = CCW = exterior (normals point outward)
+        # Negative area = CW = hole (normals point inward)
+        is_exterior = area > 0
+        reverse_winding = not is_exterior
         
-        _create_wall_quads(
-            hole_perimeter, coord_to_idx, top_vertex_map, bottom_vertex_map,
-            triangles_3d, reverse_winding=True
-        )
+        logger.debug(f"Loop: {'exterior (CCW)' if is_exterior else 'hole (CW)'}, area={abs(area/2):.2f}")
+        
+        # Create wall quads for this loop
+        for i in range(len(loop)):
+            idx1 = loop[i]
+            idx2 = loop[(i + 1) % len(loop)]
+            
+            # Get 3D vertex indices for wall quad
+            bl = bottom_vertex_map[idx1]
+            br = bottom_vertex_map[idx2]
+            tl = top_vertex_map[idx1]
+            tr = top_vertex_map[idx2]
+            
+            # Create two triangles forming the wall quad
+            if reverse_winding:
+                # Reversed winding for holes (normals point inward)
+                triangles_3d.append((bl, tl, br))
+                triangles_3d.append((br, tl, tr))
+            else:
+                # Normal winding for exterior (normals point outward)
+                triangles_3d.append((bl, br, tl))
+                triangles_3d.append((tl, br, tr))
     
     return Mesh(vertices=vertices_3d, triangles=triangles_3d)
 
-
-def _create_wall_quads(
-    perimeter: Sequence[Tuple[float, ...]],
-    coord_to_idx: Dict[Tuple[float, float], int],
-    top_vertex_map: Dict[int, int],
-    bottom_vertex_map: Dict[int, int],
-    triangles_3d: List[Tuple[int, int, int]],
-    reverse_winding: bool
-) -> None:
-    """
-    Helper to create wall quads around a perimeter.
-    
-    This is extracted to avoid code duplication between exterior and hole walls.
-    
-    Args:
-        perimeter: List of (x, y) coordinates forming the perimeter
-        coord_to_idx: Map from rounded coordinates to vertex indices
-        top_vertex_map: Map from 2D vertex index to 3D top vertex index
-        bottom_vertex_map: Map from 2D vertex index to 3D bottom vertex index
-        triangles_3d: List to append wall triangles to (modified in place)
-        reverse_winding: If True, reverse triangle winding (for holes)
-    """
-    for i in range(len(perimeter)):
-        p1 = perimeter[i]
-        p2 = perimeter[(i + 1) % len(perimeter)]
-        
-        # Find vertex indices by rounding coordinates
-        k1 = (round(p1[0], 6), round(p1[1], 6))
-        k2 = (round(p2[0], 6), round(p2[1], 6))
-        
-        if k1 not in coord_to_idx or k2 not in coord_to_idx:
-            # Shouldn't happen, but defensive programming
-            continue
-        
-        idx1 = coord_to_idx[k1]
-        idx2 = coord_to_idx[k2]
-        
-        # Get 3D vertex indices for wall quad
-        bl = bottom_vertex_map[idx1]  # bottom-left
-        br = bottom_vertex_map[idx2]  # bottom-right
-        tl = top_vertex_map[idx1]     # top-left
-        tr = top_vertex_map[idx2]     # top-right
-        
-        # Create two triangles forming the wall quad
-        if reverse_winding:
-            # Reversed winding for holes (normals point inward)
-            triangles_3d.append((bl, tl, br))
-            triangles_3d.append((br, tl, tr))
-        else:
-            # Normal winding for exterior (normals point outward)
-            triangles_3d.append((bl, br, tl))
-            triangles_3d.append((tl, br, tr))
 
 
 def generate_region_mesh_optimized(
@@ -789,8 +806,8 @@ def generate_region_mesh_optimized(
         
         # Step 2: Triangulate the polygon
         logger.debug("Step 2: Triangulating polygon...")
-        vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
-        logger.debug(f"Triangulation successful: {len(vertices_2d)} vertices, {len(triangles_2d)} triangles")
+        vertices_2d, triangles_2d, segments_2d = triangulate_polygon_2d(poly)
+        logger.debug(f"Triangulation successful: {len(vertices_2d)} vertices, {len(triangles_2d)} triangles, {len(segments_2d)} segments")
         
         # Step 3: Extrude to 3D mesh
         logger.debug("Step 3: Extruding to 3D mesh...")
@@ -798,6 +815,7 @@ def generate_region_mesh_optimized(
             poly, 
             triangles_2d, 
             vertices_2d,
+            segments_2d,
             z_bottom=0.0,
             z_top=config.color_height_mm
         )
@@ -877,13 +895,14 @@ def generate_backing_plate_optimized(
             return _generate_backing_plate_original(pixel_data, config)
         
         # Step 2: Triangulate the polygon
-        vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
+        vertices_2d, triangles_2d, segments_2d = triangulate_polygon_2d(poly)
         
         # Step 3: Extrude to 3D mesh (backing plate goes from -base_height to 0)
         mesh = extrude_polygon_to_mesh(
             poly,
             triangles_2d,
             vertices_2d,
+            segments_2d,
             z_bottom=-config.base_height_mm,
             z_top=0.0
         )
