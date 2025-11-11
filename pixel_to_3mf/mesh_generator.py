@@ -190,49 +190,6 @@ def _generate_region_mesh_original(
         triangles.append((br, tl, tr))
     
     # ========================================================================
-    # Pre-Pass 4: Detect diagonal-only corners
-    # ========================================================================
-    # A corner is diagonal-only if pixels share it but are NOT edge-connected
-    # These corners need separate wall vertices to maintain manifold property
-    
-    diagonal_corners: Set[Tuple[int, int]] = set()
-    
-    for px, py in region.pixels:
-        # Check all 4 diagonal neighbors
-        # For each diagonal, we also list the two edge pixels that would connect them
-        diag_neighbors = [
-            ((px + 1, py + 1), [(px + 1, py), (px, py + 1)]),  # top-right diagonal
-            ((px - 1, py + 1), [(px - 1, py), (px, py + 1)]),  # top-left diagonal
-            ((px + 1, py - 1), [(px + 1, py), (px, py - 1)]),  # bottom-right diagonal
-            ((px - 1, py - 1), [(px - 1, py), (px, py - 1)]),  # bottom-left diagonal
-        ]
-        
-        for (diag_x, diag_y), edge_pixels in diag_neighbors:
-            # Check if diagonal pixel exists in region
-            if (diag_x, diag_y) not in region.pixels:
-                continue
-            
-            # Check if any edge-connecting pixel exists
-            has_edge_connection = any(ep in region.pixels for ep in edge_pixels)
-            
-            # If diagonal exists but NO edge connection, mark shared corner
-            if not has_edge_connection:
-                # The shared corner is the point where the two pixels meet
-                # For pixel (px, py) and diagonal neighbor (diag_x, diag_y):
-                # - If diag is to the right (diag_x > px), corner x = px + 1
-                # - If diag is to the left (diag_x < px), corner x = px
-                # - If diag is above (diag_y > py), corner y = py + 1
-                # - If diag is below (diag_y < py), corner y = py
-                corner_x = px + 1 if diag_x > px else px
-                corner_y = py + 1 if diag_y > py else py
-                diagonal_corners.add((corner_x, corner_y))
-    
-    # Map from ((pixel_x, pixel_y), (corner_x, corner_y)) to vertex index
-    # This allows different pixels to have separate vertices at diagonal corners
-    diagonal_wall_vertices_top: Dict[Tuple[Tuple[int, int], Tuple[int, int]], int] = {}
-    diagonal_wall_vertices_bottom: Dict[Tuple[Tuple[int, int], Tuple[int, int]], int] = {}
-    
-    # ========================================================================
     # Pass 4: Generate walls for perimeter pixels
     # ========================================================================
     # For each perimeter pixel, check which edges are exposed and create wall quads
@@ -265,45 +222,30 @@ def _generate_region_mesh_original(
                 continue
             
             # Create a wall quad (2 triangles) between bottom and top
-            # Handle diagonal corners specially to maintain manifold property
+            # CRITICAL FIX: Reuse existing vertices instead of creating duplicates!
             
-            # Helper function to get vertex index for a corner
-            def get_wall_vertex(corner_x: int, corner_y: int, is_top: bool) -> int:
-                corner_key = (corner_x, corner_y)
-                
-                # Check if this corner is shared only by diagonal pixels
-                if corner_key in diagonal_corners:
-                    # Create wall-specific vertex (keyed by pixel + corner)
-                    # Different pixels get different vertices at diagonal corners
-                    # Same pixel's different walls share the same vertex
-                    wall_key = ((x, y), corner_key)
-                    
-                    if is_top:
-                        if wall_key not in diagonal_wall_vertices_top:
-                            diagonal_wall_vertices_top[wall_key] = len(vertices)
-                            vertices.append((corner_x * ps, corner_y * ps, config.color_height_mm))
-                        return diagonal_wall_vertices_top[wall_key]
-                    else:
-                        if wall_key not in diagonal_wall_vertices_bottom:
-                            diagonal_wall_vertices_bottom[wall_key] = len(vertices)
-                            vertices.append((corner_x * ps, corner_y * ps, 0.0))
-                        return diagonal_wall_vertices_bottom[wall_key]
-                else:
-                    # Reuse existing face vertex (normal case for edge-connected pixels)
-                    if is_top:
-                        assert corner_key in top_vertex_map, f"Could not find top vertex at {corner_key}"
-                        return top_vertex_map[corner_key]
-                    else:
-                        assert corner_key in bottom_vertex_map, f"Could not find bottom vertex at {corner_key}"
-                        return bottom_vertex_map[corner_key]
+            # Now that our keys are just (x, y) coordinates, lookup is simple!
+            # For bottom vertices (z=0)
+            bl_key = (x1, y1)
+            br_key = (x2, y2)
             
-            # Get vertex indices for the wall quad
-            idx_bl = get_wall_vertex(x1, y1, is_top=False)
-            idx_br = get_wall_vertex(x2, y2, is_top=False)
-            idx_tl = get_wall_vertex(x1, y1, is_top=True)
-            idx_tr = get_wall_vertex(x2, y2, is_top=True)
+            # For top vertices (z=layer_height)
+            tl_key = (x1, y1)
+            tr_key = (x2, y2)
             
-            # Create 2 triangles for the wall (CCW winding for outward-facing normals)
+            # Get vertex indices (should always be found since we created faces for this pixel)
+            assert bl_key in bottom_vertex_map, f"Could not find bottom vertex for wall at {bl_key}"
+            assert br_key in bottom_vertex_map, f"Could not find bottom vertex for wall at {br_key}"
+            assert tl_key in top_vertex_map, f"Could not find top vertex for wall at {tl_key}"
+            assert tr_key in top_vertex_map, f"Could not find top vertex for wall at {tr_key}"
+            
+            idx_bl = bottom_vertex_map[bl_key]
+            idx_br = bottom_vertex_map[br_key]
+            idx_tl = top_vertex_map[tl_key]
+            idx_tr = top_vertex_map[tr_key]
+            
+            # Create 2 triangles for the wall (REVERSED winding for outward-facing normals)
+            # The issue was that our walls were inside-out!
             triangles.append((idx_bl, idx_br, idx_tl))
             triangles.append((idx_br, idx_tr, idx_tl))
     
