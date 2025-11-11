@@ -193,6 +193,17 @@ def _generate_region_mesh_original(
     # Pass 4: Generate walls for perimeter pixels
     # ========================================================================
     # For each perimeter pixel, check which edges are exposed and create wall quads
+    #
+    # CRITICAL: Handle diagonal-only connections properly to avoid non-manifold edges.
+    # When pixels touch only diagonally (not edge-connected), they share a corner
+    # but have a "gap" between them. Creating walls that face into this gap causes
+    # the vertical edge at the shared corner to be used by >2 triangles (non-manifold).
+    #
+    # Solution: Detect when a wall would face into a diagonal gap and skip it.
+    # A wall faces into a diagonal gap if:
+    #   1. One of its corners is shared by a diagonal-only neighbor pixel
+    #   2. The wall's direction faces toward that diagonal neighbor
+    #   3. That diagonal neighbor would also create a wall at the same corner
     
     for x, y in perimeter_pixels:
         # Check each of the 4 edges
@@ -219,6 +230,88 @@ def _generate_region_mesh_original(
             
             # If neighbor is in the region, skip this edge (it's internal)
             if neighbor in region.pixels:
+                continue
+            
+            # DIAGONAL GAP FIX:
+            # Check if this wall would create a non-manifold edge at a diagonal gap.
+            # 
+            # For each corner of this wall edge, check if there's a pixel in the region
+            # that is diagonal-only to the current pixel AND would also create a wall
+            # at this same corner.  If so, we're facing into a diagonal gap.
+            #
+            # When this happens, we use a tie-breaking rule: only the pixel with lower
+            # coordinates creates walls at that corner. This ensures exactly 2 walls
+            # meet at the corner (one from each of the two adjacent pixels that are
+            # NOT diagonal to each other).
+            
+            skip_wall = False
+            
+            # Check both corners of this edge
+            for corner_x, corner_y in [(x1, y1), (x2, y2)]:
+                # Find all pixels in the region that have this corner
+                # A pixel at (px, py) has corner (corner_x, corner_y) if:
+                #   px <= corner_x <= px+1  AND  py <= corner_y <= py+1
+                pixels_at_corner = []
+                for px in [corner_x - 1, corner_x]:
+                    for py in [corner_y - 1, corner_y]:
+                        if (px, py) in region.pixels:
+                            if px <= corner_x <= px+1 and py <= corner_y <= py+1:
+                                pixels_at_corner.append((px, py))
+                
+                # If there are multiple pixels at this corner, check if any are
+                # diagonal-only to the current pixel
+                for px, py in pixels_at_corner:
+                    if (px, py) == (x, y):
+                        continue  # Skip self
+                    
+                    # Check if this pixel is diagonal-only (not edge-connected)
+                    is_edge_connected = (
+                        (px == x and abs(py - y) == 1) or  # vertical neighbor
+                        (py == y and abs(px - x) == 1)      # horizontal neighbor
+                    )
+                    
+                    if is_edge_connected:
+                        continue  # Not diagonal-only, no issue
+                    
+                    # This pixel is diagonal-only to us. Check if it would also
+                    # create a wall at this corner (i.e., it's a perimeter pixel
+                    # with an exposed edge that has this corner).
+                    if (px, py) not in perimeter_pixels:
+                        continue  # Not a perimeter pixel, won't create walls
+                    
+                    # Check if the diagonal pixel has an exposed edge with this corner
+                    diagonal_has_wall_at_corner = False
+                    
+                    # Check all 4 edges of the diagonal pixel
+                    diag_edges = [
+                        ((px, py), (px+1, py), (px, py - 1)),      # bottom
+                        ((px+1, py), (px+1, py+1), (px + 1, py)),  # right
+                        ((px+1, py+1), (px, py+1), (px, py + 1)),  # top
+                        ((px, py+1), (px, py), (px - 1, py)),      # left
+                    ]
+                    
+                    for (ex1, ey1), (ex2, ey2), (nx, ny) in diag_edges:
+                        # Check if this edge has our corner
+                        if (corner_x, corner_y) not in [(ex1, ey1), (ex2, ey2)]:
+                            continue
+                        
+                        # Check if this edge is exposed (neighbor not in region)
+                        if (nx, ny) not in region.pixels:
+                            diagonal_has_wall_at_corner = True
+                            break
+                    
+                    if diagonal_has_wall_at_corner:
+                        # Both pixels would create walls at this corner, creating
+                        # a non-manifold edge. Use tie-breaking: pixel with lower
+                        # coordinates wins.
+                        if (px, py) < (x, y):
+                            skip_wall = True
+                            break
+                
+                if skip_wall:
+                    break
+            
+            if skip_wall:
                 continue
             
             # Create a wall quad (2 triangles) between bottom and top
