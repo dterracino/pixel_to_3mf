@@ -449,6 +449,88 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     return vertices_2d, triangles_2d
 
 
+def ensure_ccw_winding_2d(
+    vertices_2d: List[Tuple[float, float]],
+    triangles_2d: List[Tuple[int, int, int]]
+) -> List[Tuple[int, int, int]]:
+    """
+    Ensure all 2D triangles have counter-clockwise winding.
+    
+    Uses the signed area formula to detect winding direction.
+    If a triangle has clockwise winding (negative area), its vertices
+    are reversed to make it counter-clockwise.
+    
+    This is critical for ensuring consistent normals when extruding to 3D!
+    Without consistent winding, wall triangles may have inverted normals
+    leading to non-manifold edges.
+    
+    Args:
+        vertices_2d: List of (x, y) vertex coordinates
+        triangles_2d: List of (v0, v1, v2) vertex index triples
+    
+    Returns:
+        List of triangles with CCW winding guaranteed
+    """
+    corrected_triangles = []
+    reversed_count = 0
+    
+    for tri in triangles_2d:
+        v0 = vertices_2d[tri[0]]
+        v1 = vertices_2d[tri[1]]
+        v2 = vertices_2d[tri[2]]
+        
+        # Calculate signed area using cross product
+        # Positive area = CCW, Negative area = CW
+        signed_area = (v1[0] - v0[0]) * (v2[1] - v0[1]) - (v1[1] - v0[1]) * (v2[0] - v0[0])
+        
+        if signed_area < 0:
+            # Triangle is CW - reverse it to make CCW
+            corrected_triangles.append((tri[0], tri[2], tri[1]))
+            reversed_count += 1
+        else:
+            # Triangle is already CCW (or degenerate with zero area)
+            corrected_triangles.append(tri)
+    
+    if reversed_count > 0:
+        logger.info(f"Corrected {reversed_count} CW triangles to CCW for consistent winding")
+    
+    return corrected_triangles
+
+
+def validate_mesh_manifold(mesh: 'Mesh') -> Tuple[bool, List[str]]:
+    """
+    Validate that a mesh is manifold.
+    
+    A manifold mesh has every edge shared by exactly 2 triangles.
+    This function checks edge usage and reports any non-manifold edges.
+    
+    Args:
+        mesh: Mesh object to validate
+    
+    Returns:
+        Tuple of (is_manifold, list_of_errors)
+    """
+    from collections import defaultdict
+    
+    edge_usage = defaultdict(int)
+    for tri in mesh.triangles:
+        # Create edges as sorted tuples (undirected)
+        edges = [
+            tuple(sorted([tri[0], tri[1]])),
+            tuple(sorted([tri[1], tri[2]])),
+            tuple(sorted([tri[2], tri[0]]))
+        ]
+        for edge in edges:
+            edge_usage[edge] += 1
+    
+    errors = []
+    for edge, count in edge_usage.items():
+        if count != 2:
+            errors.append(f"Edge {edge} used by {count} triangles (should be 2)")
+    
+    return len(errors) == 0, errors
+
+
 def extrude_polygon_to_mesh(
     poly: Polygon,
     triangles_2d: List[Tuple[int, int, int]],
@@ -466,6 +548,9 @@ def extrude_polygon_to_mesh(
     
     All vertices are shared properly to maintain manifold properties.
     
+    CRITICAL: Ensures all input triangles have CCW winding before extrusion
+    to prevent non-manifold edges from inconsistent normals.
+    
     Args:
         poly: Original shapely polygon (for perimeter extraction)
         triangles_2d: List of triangle vertex indices from triangulation
@@ -478,6 +563,10 @@ def extrude_polygon_to_mesh(
     """
     # Import at runtime to avoid circular dependency
     from .mesh_generator import Mesh
+    
+    # CRITICAL FIX: Ensure all 2D triangles have consistent CCW winding
+    # This prevents non-manifold issues from mixed winding orders
+    triangles_2d = ensure_ccw_winding_2d(vertices_2d, triangles_2d)
     
     vertices_3d: List[Tuple[float, float, float]] = []
     triangles_3d: List[Tuple[int, int, int]] = []
@@ -527,15 +616,41 @@ def extrude_polygon_to_mesh(
         coord_to_idx[key] = i
     
     # Process exterior perimeter
+    # CRITICAL FIX: Ensure perimeter is CCW for correct wall winding
+    # shapely's unary_union may produce CW or CCW, we need CCW for outward normals
     perimeter = list(poly.exterior.coords[:-1])
+    
+    # Check if perimeter is CCW using shoelace formula
+    def is_ccw_perimeter(coords):
+        area = 0
+        n = len(coords)
+        for i in range(n):
+            j = (i + 1) % n
+            area += coords[i][0] * coords[j][1]
+            area -= coords[j][0] * coords[i][1]
+        return area > 0
+    
+    if not is_ccw_perimeter(perimeter):
+        # Perimeter is CW, reverse it to CCW for correct wall normals
+        perimeter = list(reversed(perimeter))
+        logger.debug("Reversed CW perimeter to CCW for correct wall winding")
+    
     _create_wall_quads(
         perimeter, coord_to_idx, top_vertex_map, bottom_vertex_map,
         triangles_3d, reverse_winding=False
     )
     
     # Process holes (interior rings) - walls with reversed winding
+    # Holes should have CW winding (opposite of exterior) for inward normals
     for interior in poly.interiors:
         hole_perimeter = list(interior.coords[:-1])
+        
+        # Ensure hole perimeter is CW (opposite of exterior CCW)
+        if is_ccw_perimeter(hole_perimeter):
+            # Hole is CCW, reverse it to CW for correct inward normals
+            hole_perimeter = list(reversed(hole_perimeter))
+            logger.debug("Reversed CCW hole perimeter to CW for correct wall winding")
+        
         _create_wall_quads(
             hole_perimeter, coord_to_idx, top_vertex_map, bottom_vertex_map,
             triangles_3d, reverse_winding=True
