@@ -516,9 +516,10 @@ The program will:
     # Parse arguments
     args = parser.parse_args()
     
-    # Configure logging if log file specified
+    # Configure logging
+    import logging
     if args.log_file:
-        import logging
+        # Log to file with DEBUG level when --log-file is specified
         logging.basicConfig(
             filename=args.log_file,
             level=logging.DEBUG,
@@ -527,6 +528,13 @@ The program will:
         )
         logging.info("Logging initialized")
         logging.info(f"Command: {' '.join(sys.argv)}")
+    else:
+        # When no log file specified, disable all logging output to console
+        # This prevents logger.warning() calls from breaking Rich output
+        logging.basicConfig(
+            level=logging.CRITICAL + 1,  # Higher than CRITICAL = effectively disabled
+            format='%(message)s'
+        )
     
     # Validate batch mode vs single-file mode
     if args.batch:
