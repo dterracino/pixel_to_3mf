@@ -36,6 +36,8 @@ from .constants import (
     DEFAULT_FILAMENT_TYPE,
     DEFAULT_FILAMENT_FINISH,
     PADDING_COLOR,
+    AMS_COUNT,
+    AMS_SLOTS_PER_UNIT,
     __version__
 )
 from .config import ConversionConfig
@@ -498,6 +500,15 @@ The program will:
     )
     
     parser.add_argument(
+        "--ams-count",
+        type=int,
+        default=4,
+        metavar="N",
+        help="Number of AMS units (1-4). Default is 4 units (16 total slots). "
+             "Each Bambu Lab AMS unit holds 4 spools, and you can chain up to 4 units."
+    )
+    
+    parser.add_argument(
         "--render",
         action="store_true",
         help="Generate a 3D rendering of the model showing all colored regions. "
@@ -619,6 +630,7 @@ The program will:
             quantize_algo=args.quantize_algo,
             quantize_colors=args.quantize_colors,
             generate_summary=args.summary,
+            ams_count=args.ams_count,
             render_model=args.render
         )
     except ValueError as e:
@@ -737,6 +749,10 @@ The program will:
     config_table.add_row("Backing Color", f"RGB{config.backing_color}")
     config_table.add_row("Color Naming Mode", config.color_naming_mode)
     
+    # AMS Configuration
+    total_ams_slots = config.ams_count * AMS_SLOTS_PER_UNIT
+    config_table.add_row("AMS Units", f"{config.ams_count} ({total_ams_slots} total slots)")
+    
     # Filament filters (if in filament mode)
     if config.color_naming_mode == "filament":
         maker_str = ", ".join(config.filament_maker) if isinstance(config.filament_maker, list) else config.filament_maker
@@ -772,6 +788,50 @@ The program will:
     console.print(config_table)
     console.print()
     
+    # =========================================================================
+    # AMS SLOTS VALIDATION
+    # =========================================================================
+    # Check if max_colors exceeds available AMS slots
+    total_ams_slots = config.ams_count * AMS_SLOTS_PER_UNIT
+    if config.max_colors > total_ams_slots:
+        console.print()
+        warning_panel = Panel(
+            f"[bold yellow]⚠️  WARNING: Color limit exceeds available AMS slots![/bold yellow]\n\n"
+            f"[cyan]Max Colors:[/cyan]      {config.max_colors}\n"
+            f"[cyan]AMS Units:[/cyan]       {config.ams_count}\n"
+            f"[cyan]Slots per Unit:[/cyan]  {AMS_SLOTS_PER_UNIT}\n"
+            f"[cyan]Total AMS Slots:[/cyan] {total_ams_slots}\n\n"
+            f"[yellow]You have configured max_colors={config.max_colors}, but only {total_ams_slots} AMS slots available![/yellow]\n\n"
+            f"[dim]The printer won't be able to print all {config.max_colors} colors without manual filament changes.[/dim]",
+            title="[bold yellow]AMS Capacity Warning[/bold yellow]",
+            border_style="yellow"
+        )
+        console.print(warning_panel)
+        console.print()
+        
+        # Ask user if they want to continue
+        if not config.batch_mode:
+            response = console.input("Do you want to continue anyway? (y/N): ").strip().lower()
+            
+            if response not in ['y', 'yes']:
+                console.print()
+                error_console.print("[red]Conversion cancelled.[/red]")
+                console.print()
+                console.print("[bold cyan]💡 Suggestions:[/bold cyan]")
+                console.print(f"   • Reduce --max-colors to {total_ams_slots} or less")
+                console.print(f"   • Increase --ams-count if you have more AMS units")
+                console.print(f"   • Enable color quantization with --quantize --quantize-colors {total_ams_slots}")
+                console.print()
+                sys.exit(0)
+            
+            console.print()
+            console.print("[green]Continuing with conversion...[/green]")
+            console.print()
+        else:
+            # In batch mode, just print warning but continue
+            console.print("[yellow]⚠️  Batch mode: continuing despite AMS slot mismatch[/yellow]")
+            console.print()
+    
     # Warning callback for resolution issues
     def warning_callback(warning_type: str, data: Dict[str, Any]) -> bool:
         """Handle warnings during conversion, ask user for confirmation."""
@@ -795,7 +855,7 @@ The program will:
             console.print()
             
             # Ask user
-            response = console.input("[yellow]Do you want to continue anyway? [y/N]:[/yellow] ").strip().lower()
+            response = console.input("Do you want to continue anyway? (y/N): ").strip().lower()
             
             if response not in ['y', 'yes']:
                 console.print()
@@ -829,15 +889,26 @@ The program will:
         load_task = progress.add_task("[cyan]📁 Loading image...", total=None)
         merge_task = None
         mesh_task = None
+        validate_task = None
         export_task = None
-        
-        # Track current stage and regions
-        current_stage = None
-        total_regions = 0
         render_task = None
         
+        # Track current stage and last message for each stage (for checkmark updates)
+        current_stage = None
+        last_messages = {
+            'load': '',
+            'merge': '',
+            'mesh': '',
+            'validate': '',
+            'export': '',
+            'render': ''
+        }
+        
         def progress_callback(stage: str, message: str):
-            nonlocal current_stage, merge_task, mesh_task, export_task, render_task, total_regions
+            nonlocal current_stage, merge_task, mesh_task, validate_task, export_task, render_task
+            
+            # Track the message for this stage
+            last_messages[stage] = message
             
             # Update stage if it changed
             if stage != current_stage:
@@ -846,28 +917,29 @@ The program will:
                 if stage == 'load':
                     progress.update(load_task, description=f"[cyan]📁 Loading image... {message}")
                 elif stage == 'merge':
-                    progress.update(load_task, completed=True)
+                    # Complete load with checkmark
+                    progress.update(load_task, description=f"[cyan]✓ Loading image... {last_messages['load']}", completed=True)
                     merge_task = progress.add_task("[magenta]🧩 Merging regions...", total=None)
                 elif stage == 'mesh':
                     if merge_task is not None:
-                        progress.update(merge_task, completed=True)
-                    # Extract number of regions from message if available
-                    if "Found" in message and "regions" in message:
-                        try:
-                            total_regions = int(message.split()[1])
-                            mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=total_regions)
-                        except:
-                            mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=None)
-                    else:
-                        mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=None)
-                elif stage == 'export':
+                        # Complete merge with checkmark
+                        progress.update(merge_task, description=f"[magenta]✓ Merging regions... {last_messages['merge']}", completed=True)
+                    mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=None)
+                elif stage == 'validate':
                     if mesh_task is not None:
-                        progress.update(mesh_task, completed=True)
+                        # Complete mesh with checkmark
+                        progress.update(mesh_task, description=f"[blue]✓ Generating 3D geometry... {last_messages['mesh']}", completed=True)
+                    validate_task = progress.add_task("[yellow]🔍 Validating meshes...", total=None)
+                elif stage == 'export':
+                    if validate_task is not None:
+                        # Complete validate with checkmark
+                        progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {last_messages['validate']}", completed=True)
                     export_task = progress.add_task("[green]📦 Writing 3MF file...", total=None)
                 elif stage == 'render':
                     if export_task is not None:
-                        progress.update(export_task, completed=True)
-                    render_task = progress.add_task("[yellow]🎨 Rendering preview...", total=None)
+                        # Complete export with checkmark
+                        progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
+                    render_task = progress.add_task("[magenta]🎨 Rendering preview...", total=None)
             else:
                 # Update existing task
                 if stage == 'load' and load_task is not None:
@@ -875,21 +947,13 @@ The program will:
                 elif stage == 'merge' and merge_task is not None:
                     progress.update(merge_task, description=f"[magenta]🧩 Merging regions... {message}")
                 elif stage == 'mesh' and mesh_task is not None:
-                    # Check if this is a region progress update
-                    if "Region" in message and "/" in message:
-                        try:
-                            parts = message.split()
-                            region_info = parts[1].split("/")
-                            current_region = int(region_info[0])
-                            progress.update(mesh_task, completed=current_region, description=f"[blue]🎲 Generating 3D geometry... {message}")
-                        except:
-                            progress.update(mesh_task, description=f"[blue]🎲 Generating 3D geometry... {message}")
-                    else:
-                        progress.update(mesh_task, description=f"[blue]🎲 Generating 3D geometry... {message}")
+                    progress.update(mesh_task, description=f"[blue]🎲 Generating 3D geometry... {message}")
+                elif stage == 'validate' and validate_task is not None:
+                    progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {message}")
                 elif stage == 'export' and export_task is not None:
                     progress.update(export_task, description=f"[green]📦 Writing 3MF file... {message}")
                 elif stage == 'render' and render_task is not None:
-                    progress.update(render_task, description=f"[yellow]🎨 Rendering preview... {message}")
+                    progress.update(render_task, description=f"[magenta]🎨 Rendering preview... {message}")
         
         # Run the conversion!
         try:
@@ -900,11 +964,11 @@ The program will:
                 progress_callback=progress_callback,
                 warning_callback=warning_callback
             )
-            # Mark final task as complete
+            # Mark final task as complete with checkmark
             if export_task is not None:
-                progress.update(export_task, completed=True)
+                progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
             if render_task is not None:
-                progress.update(render_task, completed=True)
+                progress.update(render_task, description=f"[magenta]✓ Rendering preview... {last_messages['render']}", completed=True)
         except FileNotFoundError as e:
             error_console.print(f"\n[red]❌ Error: {e}[/red]")
             sys.exit(1)
@@ -946,9 +1010,40 @@ The program will:
     
     console.print(stats_table)
     console.print()
+    
+    # Display AMS slot mapping
+    if 'color_mapping' in stats and stats['color_mapping']:
+        console.print("[bold yellow]📍 AMS Slot Assignments:[/bold yellow]")
+        console.print()
+        
+        # Import helper function for AMS location
+        from .summary_writer import _extruder_to_ams_location
+        from color_tools import rgb_to_hex
+        
+        # color_mapping format: List[Tuple[int, str, Tuple[int, int, int]]]
+        # (slot, color_name, rgb)
+        
+        # Create AMS mapping table
+        ams_table = Table(show_header=True, box=box.ROUNDED, padding=(0, 1))
+        ams_table.add_column("Ext", style="bold cyan", justify="center")
+        ams_table.add_column("AMS", style="bold magenta", justify="center")
+        ams_table.add_column("Color/Filament", style="bold white")
+        ams_table.add_column("Hex", style="dim white")
+        
+        # Add rows for each slot in the mapping
+        # Use actual config values, not defaults from constants
+        for slot, color_name, rgb in stats['color_mapping']:
+            ams_id, ams_slot = _extruder_to_ams_location(slot, config.ams_count, config.ams_slots_per_unit)
+            hex_code = rgb_to_hex(rgb)
+            ams_location = f"{ams_id}-{ams_slot}"
+            ams_table.add_row(str(slot), ams_location, color_name, hex_code)
+        
+        console.print(ams_table)
+        console.print()
+    
     console.print("[bold yellow]🎯 Next steps:[/bold yellow]")
     console.print("  [cyan]1.[/cyan] Open the 3MF file in your slicer (Bambu Studio, PrusaSlicer, etc.)")
-    console.print("  [cyan]2.[/cyan] Assign filament colors to each named object")
+    console.print("  [cyan]2.[/cyan] Load filaments into AMS slots as shown above")
     console.print("  [cyan]3.[/cyan] Slice and print!")
     console.print()
 

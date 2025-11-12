@@ -27,7 +27,9 @@ from .constants import (
     QUANTIZATION_COLORS,
     PADDING_SIZE_PX,
     PADDING_COLOR,
-    TRIM_DISCONNECTED_PIXELS
+    TRIM_DISCONNECTED_PIXELS,
+    AMS_COUNT,
+    AMS_SLOTS_PER_UNIT
 )
 
 
@@ -125,6 +127,8 @@ class ConversionConfig:
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
         quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
         generate_summary: If True, generate a summary file listing colors/filaments used
+        ams_count: Number of AMS units available (1-4, default 4). Total slots = ams_count × ams_slots_per_unit
+        ams_slots_per_unit: Number of filament slots per AMS unit (default 4 for Bambu Lab AMS)
     """
 
     max_size_mm: float = MAX_MODEL_SIZE_MM
@@ -156,6 +160,10 @@ class ConversionConfig:
     
     # Summary file options
     generate_summary: bool = False
+    
+    # AMS configuration
+    ams_count: int = AMS_COUNT
+    ams_slots_per_unit: int = AMS_SLOTS_PER_UNIT
     
     # Rendering options
     render_model: bool = False
@@ -209,6 +217,12 @@ class ConversionConfig:
         
         if not all(0 <= c <= 255 for c in self.padding_color):
             raise ValueError(f"padding_color RGB values must be 0-255, got {self.padding_color}")
+        
+        # Validate AMS count (number of AMS units, not slots)
+        if self.ams_count <= 0:
+            raise ValueError(f"ams_count must be positive, got {self.ams_count}")
+        if self.ams_count > 4:
+            raise ValueError(f"ams_count cannot exceed 4 AMS units, got {self.ams_count}")
         
         # Set default filament filters if None
         if self.filament_maker is None:

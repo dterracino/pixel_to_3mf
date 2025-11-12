@@ -27,7 +27,8 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Smart Padding**: Add outlines around sprites to fill gaps between diagonally-connected pixels and improve printability
 - **Automatic Color Quantization**: Reduce image colors on-the-fly when exceeding limits - no external preprocessing needed!
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
-- **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used (use `--summary`)
+- **AMS Integration**: Automatic AMS slot assignments with validation, CLI display table, and summary file recommendations
+- **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used with AMS slot locations (use `--summary`)
 - **Mesh Statistics**: Displays triangle and vertex counts in conversion summary for understanding model complexity
 - **Winding Order Validation**: Automatically validates CCW (counter-clockwise) winding for proper surface normals
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations
@@ -183,6 +184,7 @@ python run_converter.py --batch \
 | `--filament-finish` | Filament finish filter(s), comma-separated (for `filament` mode) | `Basic, Matte` |
 | `--optimize-mesh` | Use polygon-based mesh optimization | Off |
 | `--summary` | Generate summary file listing colors/filaments used | Off |
+| `--ams-count` | Number of AMS units (1-4). Total slots = ams-count × ams-slots-per-unit | 4 |
 
 #### Batch Mode
 
@@ -594,7 +596,7 @@ python run_converter.py image.png --color-mode hex
 # Generate summary file listing all colors/filaments used
 python run_converter.py image.png --summary
 
-# Combine with filament mode for detailed filament list
+# Combine with filament mode for detailed filament list with AMS locations
 python run_converter.py image.png \
   --color-mode filament \
   --filament-maker "Bambu Lab" \
@@ -602,8 +604,9 @@ python run_converter.py image.png \
 ```
 
 - **Effect:** Creates a `.summary.txt` file alongside the 3MF output
-- **Contents:** Lists all colors/filaments used with hex codes
-- **Use case:** Planning filament changes, tracking color usage, documentation
+- **Contents:** Lists all colors/filaments used with hex codes, RGB values, region counts, and AMS slot assignments
+- **AMS Integration:** Shows which AMS unit (A-D) and slot (1-4) each color should be loaded into
+- **Use case:** Planning filament changes, tracking color usage, documentation, AMS setup reference
 
 #### Enable Debug Logging
 

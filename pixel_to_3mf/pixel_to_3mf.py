@@ -246,25 +246,12 @@ def convert_image_to_3mf(
     _progress("mesh", "Generating 3D geometry...")
     meshes = []
     region_colors = []
-    validation_results = []  # Track validation results for all meshes
 
     for i, region in enumerate(regions, start=1):
         _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
         mesh = generate_region_mesh(region, pixel_data, config)
         meshes.append((mesh, f"region_{i}"))
         region_colors.append(region.color)
-        
-        # Validate the mesh if trimesh is available
-        if is_trimesh_available():
-            validation = validate_mesh(mesh, f"Region {i}")
-            validation_results.append((f"Region {i}", validation))
-            
-            # Log any critical errors
-            if not validation.is_valid:
-                _progress("validate", f"⚠️ Region {i} validation failed: {len(validation.errors)} errors")
-                for error in validation.errors:
-                    _progress("validate", f"  - {error}")
-
     
     # Log optimization summary if optimization was enabled
     if mg.USE_OPTIMIZED_MESH_GENERATION:
@@ -283,23 +270,48 @@ def convert_image_to_3mf(
         filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
         backing_mesh = generate_backing_plate(filtered_pixel_data, config)
         meshes.append((backing_mesh, "backing_plate"))
-        
-        # Validate backing plate
-        if is_trimesh_available():
-            validation = validate_mesh(backing_mesh, "Backing plate")
-            validation_results.append(("Backing plate", validation))
-            
-            if not validation.is_valid:
-                _progress("validate", f"⚠️ Backing plate validation failed: {len(validation.errors)} errors")
-                for error in validation.errors:
-                    _progress("validate", f"  - {error}")
     else:
         _progress("mesh", "Skipping backing plate (base height is 0)")
     
-    # Step 4: Write 3MF
+    # Step 4: Validate meshes
+    validation_results = []
+    if is_trimesh_available():
+        _progress("validate", "Validating meshes...")
+        for i, (mesh, name) in enumerate(meshes, start=1):
+            _progress("validate", f"Mesh {i}/{len(meshes)}: {name}")
+            validation = validate_mesh(mesh, name)
+            validation_results.append((name, validation))
+    
+    # Step 5: Repair meshes (TODO - implement in future PR)
+    # ========================================================================
+    # TODO: Implement mesh repair stage
+    # 
+    # Plan:
+    # - Filter validation_results to find meshes with errors
+    # - Create mesh_repair.py module with repair_mesh() function
+    # - Loop through failed meshes calling repair_mesh()
+    # - Update meshes list with repaired versions
+    # - Re-validate repaired meshes to confirm fixes
+    # 
+    # Example:
+    # if is_trimesh_available():
+    #     failed_meshes = [(i, mesh, name) for i, (mesh, name) in enumerate(meshes)
+    #                      if not validation_results[i][1].is_valid]
+    #     if failed_meshes:
+    #         _progress("repair", "Repairing meshes...")
+    #         for idx, (mesh_idx, mesh, name) in enumerate(failed_meshes, start=1):
+    #             _progress("repair", f"Mesh {idx}/{len(failed_meshes)}: {name}")
+    #             repaired = repair_mesh(mesh, validation_results[mesh_idx][1])
+    #             meshes[mesh_idx] = (repaired, name)
+    #             # Re-validate
+    #             revalidation = validate_mesh(repaired, name)
+    #             validation_results[mesh_idx] = (name, revalidation)
+    # ========================================================================
+    
+    # Step 6: Write 3MF
     _progress("export", "Writing 3MF file...")
     
-    summary_path = write_3mf(
+    summary_path, color_mapping = write_3mf(
         output_path, 
         meshes, 
         region_colors, 
@@ -307,9 +319,9 @@ def convert_image_to_3mf(
         config, 
         progress_callback
     )
-    _progress("export", f"3MF written to: {output_path}")
+    _progress("export", "Complete!")
     
-    # Step 5: Render model if requested
+    # Step 7: Render model if requested
     render_path = None
     if config.render_model:
         _progress("render", "Rendering 3D model preview...")
@@ -342,7 +354,8 @@ def convert_image_to_3mf(
         'num_vertices': total_vertices,
         'num_triangles': total_triangles,
         'output_path': output_path,
-        'file_size': format_filesize(os.path.getsize(output_path))
+        'file_size': format_filesize(os.path.getsize(output_path)),
+        'color_mapping': color_mapping  # AMS slot assignments
     }
     
     # Add validation results if available

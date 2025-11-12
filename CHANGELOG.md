@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- AMS (Automatic Material System) integration with automatic slot assignments
+  - Each color assigned to specific AMS slot (1-16) in 3MF metadata
+  - Backing plate color always assigned to slot 1
+  - Other colors sorted alphabetically and assigned slots 2-N
+- `--ams-count` parameter to specify number of AMS units (1-4, default 4)
+  - Total slots calculated as `ams_count × ams_slots_per_unit`
+  - Validation warning when `max_colors` exceeds available AMS slots
+- AMS location information in summary files
+  - Shows global slot number (1-16)
+  - Shows AMS unit (A-D) and slot within unit (1-4)
+  - Format: `Location: 5 (AMS B, Slot 1)`
+- AMS Slot Assignments table displayed in CLI after conversion
+  - Shows extruder number, AMS location, color/filament name, and hex code
+  - Always visible (not dependent on `--summary` flag)
+  - Uses actual config values for accurate AMS unit display
+- Configuration table displays AMS units and total slots available
 - Automatic thumbnail generation for 3MF files (5 types embedded in `/Metadata/`)
   - `top_1.png`: 512x512 overhead view (scaled source image)
   - `pick_1.png`: 512x512 gray silhouette (50% gray where pixels exist)
@@ -24,11 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Triangle winding order validation (confirms CCW winding for proper normals)
 - Helper functions for 3MF structure validation in tests
 - Comprehensive mesh statistics test suite
+- Comprehensive test coverage for AMS location conversion function
 
 ### Fixed
 
 - Trim disconnected pixels feature (`--trim`) now correctly identifies disconnected pixels without removing pixels inside connected areas
 - Isometric thumbnail rotation now uses NEAREST resampling to avoid anti-aliasing artifacts on pixel art edges
+- User prompts now display correctly with Rich console (changed from `[y/N]` to `(y/N)` to avoid markup conflict)
 
 ## [1.0.0] - 2025-11-09
 

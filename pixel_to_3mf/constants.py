@@ -107,6 +107,19 @@ QUANTIZATION_COLORS = None
 SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
 
 # ============================================================================
+# AMS Configuration
+# ============================================================================
+
+# Number of AMS units (Automatic Material System)
+# Each Bambu Lab AMS unit holds 4 spools, and you can chain up to 4 units
+# Default is 4 units (maximum configuration = 16 total slots)
+AMS_COUNT = 4
+
+# Number of filament slots per AMS unit
+# Each Bambu Lab AMS unit holds exactly 4 spools
+AMS_SLOTS_PER_UNIT = 4
+
+# ============================================================================
 # Geometry Processing
 # ============================================================================
 

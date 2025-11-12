@@ -17,7 +17,7 @@ It's like making a little self-contained package that slicers can open! 📦
 import zipfile
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-from typing import List, Tuple, TYPE_CHECKING, Optional, Callable
+from typing import List, Tuple, Dict, TYPE_CHECKING, Optional, Callable
 from pathlib import Path
 import uuid
 from PIL import Image
@@ -357,15 +357,17 @@ def generate_main_model_xml(
     return prettify_xml(root)
 
 
-def generate_model_settings_xml(object_names: List[Tuple[int, str]]) -> str:
+def generate_model_settings_xml(object_names: List[Tuple[int, str, int]]) -> str:
     """
     Generate the XML content for Metadata/model_settings.config.
     
     This is where the magic happens for object naming! Each object ID
-    gets mapped to its color name, which appears in the slicer UI.
+    gets mapped to its color name and AMS slot, which appears in the slicer UI.
     
     Args:
-        object_names: List of (object_id, color_name) tuples
+        object_names: List of (object_id, color_name, extruder_slot) tuples
+                     extruder_slot: 1-N for AMS slots (1 = backing color, skip metadata)
+                                   0 = container object (no extruder needed)
     
     Returns:
         XML string for the model settings file
@@ -373,17 +375,21 @@ def generate_model_settings_xml(object_names: List[Tuple[int, str]]) -> str:
     root = ET.Element("config")
     
     # Get the container object ID (should be the highest object ID)
-    container_id = max(obj_id for obj_id, _ in object_names)
+    container_id = max(obj_id for obj_id, _, _ in object_names)
     
     # Create a parent object entry - the container
     parent_obj = ET.SubElement(root, "object", id=str(container_id))
     ET.SubElement(parent_obj, "metadata", key="name", value="PixelArt3D")
     
     # Add each named object as a "part" of the parent (excluding the container itself)
-    for obj_id, color_name in object_names:
+    for obj_id, color_name, extruder_slot in object_names:
         if obj_id != container_id:  # Don't add the container as a part of itself
             part = ET.SubElement(parent_obj, "part", id=str(obj_id), subtype="normal_part")
             ET.SubElement(part, "metadata", key="name", value=color_name)
+            
+            # Add extruder metadata only if slot != 1 (slot 1 is default, no need to specify)
+            if extruder_slot != 1:
+                ET.SubElement(part, "metadata", key="extruder", value=str(extruder_slot))
     
     # Add the assemble section at the root level
     # This tells the slicer how to assemble/place the object
@@ -579,7 +585,7 @@ def write_3mf(
     pixel_data: 'PixelData',  # We need this to calculate positions
     config: 'ConversionConfig',
     progress_callback: Optional[Callable[[str, str], None]] = None
-) -> Optional[str]:
+) -> Tuple[Optional[str], List[Tuple[int, str, Tuple[int, int, int]]]]:
     """
     Write all meshes to a 3MF file.
 
@@ -602,7 +608,9 @@ def write_3mf(
         progress_callback: Optional function to call with progress updates
     
     Returns:
-        Path to summary file if generated, None otherwise
+        Tuple of (summary_path, color_mapping):
+        - summary_path: Path to summary file if generated, None otherwise
+        - color_mapping: List of (slot, color_name, rgb) tuples sorted by slot number
     """
     # Helper to send progress updates
     def _progress(message: str):
@@ -634,16 +642,33 @@ def write_3mf(
     # Sort alphabetically by color name for easier slicer workflow
     region_data.sort(key=lambda x: x[2])  # Sort by color_name
     
+    # Build AMS slot mapping:
+    # - Slot 1: Backing plate color (typically white)
+    # - Slots 2-N: All other unique colors in sorted order
+    color_to_slot: Dict[Tuple[int, int, int], int] = {}
+    
+    # Backing plate color always gets slot 1
+    color_to_slot[config.backing_color] = 1
+    
+    # Assign slots 2-N to other unique colors (in sorted color_name order)
+    next_slot = 2
+    for _, rgb, _ in region_data:
+        if rgb not in color_to_slot:
+            color_to_slot[rgb] = next_slot
+            next_slot += 1
+    
     # Now create the object_names and mesh_transforms in sorted order
     # Objects are numbered 1, 2, 3, ... N (the meshes)
     # Then we need the container object at N+1
-    object_names: List[Tuple[int, str]] = []
+    # object_names now includes: (obj_id, color_name, extruder_slot)
+    object_names: List[Tuple[int, str, int]] = []
     
     # Also track mesh positions (transforms relative to model center)
     mesh_transforms: List[Tuple[float, float, float]] = []
     
     for obj_id, (mesh_idx, rgb, color_name) in enumerate(region_data, start=1):
-        object_names.append((obj_id, color_name))
+        extruder_slot = color_to_slot[rgb]
+        object_names.append((obj_id, color_name, extruder_slot))
         # Colored regions are at z=0 (on top of backing plate)
         # Fix: Use POSITIVE offsets - we were backwards!
         mesh_transforms.append((model_center_x, model_center_y, 0.0))
@@ -651,14 +676,16 @@ def write_3mf(
     # Add the backing plate if it exists (last mesh object)
     if has_backing_plate:
         backing_plate_id = len(meshes)
-        object_names.append((backing_plate_id, "Backing"))
+        # Backing plate always uses slot 1 (backing color)
+        object_names.append((backing_plate_id, "Backing", 1))
         # Backing plate mesh is already at correct z coords (-base_height to 0)
         # Transform should be z=0, not z=-base_height (that would double the offset!)
         mesh_transforms.append((model_center_x, model_center_y, 0.0))
     
     # Add the container object (one more than the last mesh)
+    # Container doesn't need an extruder slot (it's not a physical part)
     container_id = len(meshes) + 1
-    object_names.append((container_id, "PixelArt3D"))
+    object_names.append((container_id, "PixelArt3D", 0))  # 0 = no slot needed
     
     # Reorder meshes to match the sorted color order
     sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
@@ -746,7 +773,24 @@ def write_3mf(
         summary_colors = [rgb for _, rgb, _ in region_data]
         summary_names = [color_name for _, _, color_name in region_data]
         
-        summary_path = write_summary_file(output_path, summary_colors, summary_names, config)
+        summary_path = write_summary_file(output_path, summary_colors, summary_names, color_to_slot, config)
         _progress(f"📄 Summary written to: {summary_path}")
     
-    return summary_path
+    # Build color mapping for CLI display
+    # Create a list of (slot, color_name, rgb) sorted by slot number
+    slot_to_color: Dict[int, Tuple[str, Tuple[int, int, int]]] = {}
+    
+    # Add backing color at slot 1
+    backing_name = get_color_name(config.backing_color, config)
+    slot_to_color[1] = (backing_name, config.backing_color)
+    
+    # Add all region colors (already sorted alphabetically by region_data)
+    for _, rgb, color_name in region_data:
+        slot = color_to_slot[rgb]
+        if slot not in slot_to_color:  # Skip duplicates
+            slot_to_color[slot] = (color_name, rgb)
+    
+    # Convert to sorted list of (slot, color_name, rgb) tuples
+    color_mapping = [(slot, name, rgb) for slot, (name, rgb) in sorted(slot_to_color.items())]
+    
+    return summary_path, color_mapping
