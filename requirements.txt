@@ -13,6 +13,7 @@ rich
 # Geometric operations and triangulation
 shapely>=2.0.0
 triangle
+trimesh
 
 # Color matching utilities
 color-match-tools>=3.0.0
