@@ -97,7 +97,7 @@ class TestTriangulatePolygon(unittest.TestCase):
     def test_simple_square(self):
         """Square should triangulate to at least 2 triangles."""
         poly = box(0, 0, 2, 2)
-        vertices, triangles = triangulate_polygon_2d(poly)
+        vertices, triangles, segments = triangulate_polygon_2d(poly)
         
         # Should have at least 4 vertices (corners)
         self.assertGreaterEqual(len(vertices), 4)
@@ -117,7 +117,7 @@ class TestTriangulatePolygon(unittest.TestCase):
         coords = [(0, 0), (3, 0), (3, 1), (1, 1), (1, 3), (0, 3)]
         poly = Polygon(coords)
         
-        vertices, triangles = triangulate_polygon_2d(poly)
+        vertices, triangles, segments = triangulate_polygon_2d(poly)
         
         self.assertGreater(len(vertices), 0)
         self.assertGreater(len(triangles), 0)
@@ -133,7 +133,7 @@ class TestTriangulatePolygon(unittest.TestCase):
         hole = [(1, 1), (3, 1), (3, 3), (1, 3)]
         poly = Polygon(exterior, [hole])
         
-        vertices, triangles = triangulate_polygon_2d(poly)
+        vertices, triangles, segments = triangulate_polygon_2d(poly)
         
         self.assertGreater(len(vertices), 0)
         self.assertGreater(len(triangles), 0)
@@ -146,7 +146,7 @@ class TestTriangulatePolygon(unittest.TestCase):
     def test_triangulation_preserves_area(self):
         """Sum of triangle areas should equal polygon area."""
         poly = box(0, 0, 5, 5)
-        vertices, triangles = triangulate_polygon_2d(poly)
+        vertices, triangles, segments = triangulate_polygon_2d(poly)
         
         # Calculate total area of all triangles
         def triangle_area(v0, v1, v2):
@@ -173,10 +173,10 @@ class TestExtrudePolygonToMesh(unittest.TestCase):
     def test_simple_square_extrusion(self):
         """Extruding a square should create box with top, bottom, and walls."""
         poly = box(0, 0, 1, 1)
-        vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
+        vertices_2d, triangles_2d, segments_2d = triangulate_polygon_2d(poly)
         
         mesh = extrude_polygon_to_mesh(
-            poly, triangles_2d, vertices_2d,
+            poly, triangles_2d, vertices_2d, segments_2d,
             z_bottom=0.0, z_top=1.0
         )
         
@@ -199,10 +199,10 @@ class TestExtrudePolygonToMesh(unittest.TestCase):
     def test_extrusion_height(self):
         """Mesh should respect specified z_bottom and z_top."""
         poly = box(0, 0, 1, 1)
-        vertices_2d, triangles_2d = triangulate_polygon_2d(poly)
+        vertices_2d, triangles_2d, segments_2d = triangulate_polygon_2d(poly)
         
         mesh = extrude_polygon_to_mesh(
-            poly, triangles_2d, vertices_2d,
+            poly, triangles_2d, vertices_2d, segments_2d,
             z_bottom=-2.0, z_top=3.0
         )
         
@@ -434,6 +434,114 @@ class TestBackingPlateOptimized(unittest.TestCase):
         # Should create mesh with hole
         self.assertGreater(len(mesh.vertices), 0)
         self.assertGreater(len(mesh.triangles), 0)
+
+
+class TestManifoldProperties(unittest.TestCase):
+    """Test manifold properties of optimized meshes with holes."""
+    
+    def check_manifold(self, mesh):
+        """
+        Check if mesh is manifold.
+        
+        A manifold mesh has every edge shared by exactly 2 triangles.
+        
+        Returns:
+            (is_manifold, error_list)
+        """
+        from collections import defaultdict
+        
+        edge_usage = defaultdict(list)
+        
+        for tri_idx, tri in enumerate(mesh.triangles):
+            # Create edges as sorted tuples (undirected)
+            edges = [
+                tuple(sorted([tri[0], tri[1]])),
+                tuple(sorted([tri[1], tri[2]])),
+                tuple(sorted([tri[2], tri[0]]))
+            ]
+            for edge in edges:
+                edge_usage[edge].append(tri_idx)
+        
+        errors = []
+        for edge, tri_list in edge_usage.items():
+            if len(tri_list) != 2:
+                errors.append(f"Edge {edge} used by {len(tri_list)} triangles (should be 2)")
+        
+        return len(errors) == 0, errors
+    
+    def test_simple_square_with_hole_is_manifold(self):
+        """
+        Test that a simple square with a hole creates a manifold mesh.
+        
+        This verifies the fix for non-manifold edges that occurred when
+        using coordinate lookup instead of segment-based wall generation.
+        """
+        # Create a 10x10 square with a 4x4 hole in center
+        outer = box(0, 0, 10, 10)
+        inner = box(3, 3, 7, 7)
+        poly = outer.difference(inner)
+        
+        # Triangulate
+        from pixel_to_3mf.polygon_optimizer import ensure_ccw_winding_2d
+        vertices_2d, triangles_2d, segments_2d = triangulate_polygon_2d(poly)
+        triangles_2d = ensure_ccw_winding_2d(vertices_2d, triangles_2d)
+        
+        # Extrude
+        mesh = extrude_polygon_to_mesh(
+            poly, triangles_2d, vertices_2d, segments_2d, 
+            z_bottom=0.0, z_top=1.0
+        )
+        
+        # Check manifold
+        is_manifold, errors = self.check_manifold(mesh)
+        
+        if not is_manifold:
+            self.fail(f"Mesh is not manifold! Errors:\n" + "\n".join(errors[:10]))
+    
+    def test_no_duplicate_wall_quads(self):
+        """
+        Test that wall quads are not duplicated when using segments.
+        
+        Previously, the code walked the original polygon perimeters and looked
+        up vertices by rounded coordinates. This could create duplicate wall
+        quads when coordinates didn't match exactly. The fix uses boundary
+        segments from triangulation output instead.
+        """
+        # Create a simple shape
+        outer = box(0, 0, 10, 10)
+        inner = box(3, 3, 7, 7)
+        poly = outer.difference(inner)
+        
+        # Triangulate
+        from pixel_to_3mf.polygon_optimizer import ensure_ccw_winding_2d
+        vertices_2d, triangles_2d, segments_2d = triangulate_polygon_2d(poly)
+        triangles_2d = ensure_ccw_winding_2d(vertices_2d, triangles_2d)
+        
+        # Extrude
+        mesh = extrude_polygon_to_mesh(
+            poly, triangles_2d, vertices_2d, segments_2d,
+            z_bottom=0.0, z_top=1.0
+        )
+        
+        # Count wall triangles
+        wall_triangles = []
+        for tri_idx, tri in enumerate(mesh.triangles):
+            z_vals = [mesh.vertices[i][2] for i in tri]
+            
+            # Wall triangles have vertices at both z=0 and z=1
+            if not all(z == z_vals[0] for z in z_vals):
+                wall_triangles.append(tri_idx)
+        
+        # For this shape: 
+        # - Exterior: 4 vertices = 4 edges = 8 wall triangles
+        # - Hole: 4 vertices = 4 edges = 8 wall triangles
+        # Total: 16 wall triangles expected
+        expected_wall_count = 16
+        
+        self.assertEqual(
+            len(wall_triangles), expected_wall_count,
+            f"Expected {expected_wall_count} wall triangles, got {len(wall_triangles)}"
+        )
 
 
 if __name__ == '__main__':
