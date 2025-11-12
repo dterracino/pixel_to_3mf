@@ -17,6 +17,7 @@ from tests import (
     test_image_processor,
     test_region_merger,
     test_mesh_generator,
+    test_mesh_validation,
     test_threemf_writer,
     test_pixel_to_3mf,
     test_cli,
@@ -38,6 +39,7 @@ def run_tests():
     suite.addTests(loader.loadTestsFromModule(test_image_processor))
     suite.addTests(loader.loadTestsFromModule(test_region_merger))
     suite.addTests(loader.loadTestsFromModule(test_mesh_generator))
+    suite.addTests(loader.loadTestsFromModule(test_mesh_validation))
     suite.addTests(loader.loadTestsFromModule(test_threemf_writer))
     suite.addTests(loader.loadTestsFromModule(test_pixel_to_3mf))
     suite.addTests(loader.loadTestsFromModule(test_cli))

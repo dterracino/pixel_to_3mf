@@ -20,6 +20,7 @@ from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf, count_mesh_stats
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
+from .mesh_validation import validate_mesh, is_trimesh_available, ValidationResult
 
 def _create_filtered_pixel_data(regions: List[Region], original_pixel_data: PixelData) -> PixelData:
     """
@@ -245,12 +246,25 @@ def convert_image_to_3mf(
     _progress("mesh", "Generating 3D geometry...")
     meshes = []
     region_colors = []
+    validation_results = []  # Track validation results for all meshes
 
     for i, region in enumerate(regions, start=1):
         _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
         mesh = generate_region_mesh(region, pixel_data, config)
         meshes.append((mesh, f"region_{i}"))
         region_colors.append(region.color)
+        
+        # Validate the mesh if trimesh is available
+        if is_trimesh_available():
+            validation = validate_mesh(mesh, f"Region {i}")
+            validation_results.append((f"Region {i}", validation))
+            
+            # Log any critical errors
+            if not validation.is_valid:
+                _progress("validate", f"⚠️ Region {i} validation failed: {len(validation.errors)} errors")
+                for error in validation.errors:
+                    _progress("validate", f"  - {error}")
+
     
     # Log optimization summary if optimization was enabled
     if mg.USE_OPTIMIZED_MESH_GENERATION:
@@ -269,6 +283,16 @@ def convert_image_to_3mf(
         filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
         backing_mesh = generate_backing_plate(filtered_pixel_data, config)
         meshes.append((backing_mesh, "backing_plate"))
+        
+        # Validate backing plate
+        if is_trimesh_available():
+            validation = validate_mesh(backing_mesh, "Backing plate")
+            validation_results.append(("Backing plate", validation))
+            
+            if not validation.is_valid:
+                _progress("validate", f"⚠️ Backing plate validation failed: {len(validation.errors)} errors")
+                for error in validation.errors:
+                    _progress("validate", f"  - {error}")
     else:
         _progress("mesh", "Skipping backing plate (base height is 0)")
     
@@ -320,6 +344,18 @@ def convert_image_to_3mf(
         'output_path': output_path,
         'file_size': format_filesize(os.path.getsize(output_path))
     }
+    
+    # Add validation results if available
+    if validation_results:
+        validation_summary = {
+            'total_meshes': len(validation_results),
+            'valid_meshes': sum(1 for _, v in validation_results if v.is_valid),
+            'invalid_meshes': sum(1 for _, v in validation_results if not v.is_valid),
+            'total_errors': sum(len(v.errors) for _, v in validation_results),
+            'total_warnings': sum(len(v.warnings) for _, v in validation_results)
+        }
+        stats['validation'] = validation_summary
+        stats['validation_details'] = validation_results
     
     # Add summary path if generated
     if summary_path:

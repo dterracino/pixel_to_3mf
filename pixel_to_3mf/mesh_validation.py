@@ -119,78 +119,105 @@ def validate_mesh(mesh: Mesh, mesh_name: str = "mesh") -> ValidationResult:
     result.add_stat("triangles", len(tmesh.faces))
     
     # Critical check: Watertightness
-    if not tmesh.is_watertight:
-        result.add_error(f"{mesh_name} is not watertight (has holes or open boundaries)")
-        
-        # Try to provide more details about the problem
-        edges = tmesh.edges_unique
-        edge_adjacency = tmesh.face_adjacency
-        boundary_edges = len(edges) - len(edge_adjacency)
-        if boundary_edges > 0:
-            result.add_stat("boundary_edges", boundary_edges)
-            result.add_error(f"  Found {boundary_edges} boundary edges (edges with only 1 adjacent face)")
-    else:
-        result.add_stat("watertight", True)
+    try:
+        if not tmesh.is_watertight:
+            result.add_error(f"{mesh_name} is not watertight (has holes or open boundaries)")
+            
+            # Try to provide more details about the problem
+            try:
+                edges = tmesh.edges_unique
+                edge_adjacency = tmesh.face_adjacency
+                boundary_edges = len(edges) - len(edge_adjacency)
+                if boundary_edges > 0:
+                    result.add_stat("boundary_edges", boundary_edges)
+                    result.add_error(f"  Found {boundary_edges} boundary edges (edges with only 1 adjacent face)")
+            except Exception:
+                pass  # Could not get edge details
+        else:
+            result.add_stat("watertight", True)
+    except Exception as e:
+        result.add_warning(f"Could not check watertightness: {e}")
     
     # Critical check: Winding consistency
-    if not tmesh.is_winding_consistent:
-        result.add_error(f"{mesh_name} has inconsistent triangle winding")
-        result.add_error("  Some triangles are wound clockwise, others counter-clockwise")
-    else:
-        result.add_stat("winding_consistent", True)
+    try:
+        if not tmesh.is_winding_consistent:
+            result.add_error(f"{mesh_name} has inconsistent triangle winding")
+            result.add_error("  Some triangles are wound clockwise, others counter-clockwise")
+        else:
+            result.add_stat("winding_consistent", True)
+    except Exception as e:
+        result.add_warning(f"Could not check winding consistency: {e}")
     
     # Important check: Valid volume
-    if not tmesh.is_volume:
-        result.add_error(f"{mesh_name} does not enclose a valid volume")
-    else:
-        result.add_stat("is_volume", True)
-        result.add_stat("volume_mm3", float(tmesh.volume))
-        
-        # Check for negative volume (inside-out mesh)
-        if tmesh.volume < 0:
-            result.add_error(f"{mesh_name} has negative volume (mesh is inside-out)")
+    try:
+        if not tmesh.is_volume:
+            result.add_error(f"{mesh_name} does not enclose a valid volume")
+        else:
+            result.add_stat("is_volume", True)
+            result.add_stat("volume_mm3", float(tmesh.volume))
+            
+            # Check for negative volume (inside-out mesh)
+            if tmesh.volume < 0:
+                result.add_error(f"{mesh_name} has negative volume (mesh is inside-out)")
+    except Exception as e:
+        result.add_warning(f"Could not check volume: {e}")
     
     # Topological check: Euler number
-    euler = tmesh.euler_number
-    result.add_stat("euler_number", euler)
-    if euler != 2:
-        # For a closed manifold surface, Euler = 2
-        # If not 2, there may be topological holes (genus > 0)
-        genus = 1 - (euler / 2)
-        result.add_warning(f"{mesh_name} has unusual topology (euler={euler}, genus={genus})")
+    try:
+        euler = tmesh.euler_number
+        result.add_stat("euler_number", euler)
+        if euler != 2:
+            # For a closed manifold surface, Euler = 2
+            # If not 2, there may be topological holes (genus > 0)
+            genus = 1 - (euler / 2)
+            result.add_warning(f"{mesh_name} has unusual topology (euler={euler}, genus={genus})")
+    except Exception as e:
+        result.add_warning(f"Could not calculate Euler number: {e}")
     
     # Quality check: Degenerate faces
-    if hasattr(tmesh, 'area_faces'):
-        degenerate_threshold = 1e-10
-        degenerate_count = (tmesh.area_faces < degenerate_threshold).sum()
-        if degenerate_count > 0:
-            result.add_warning(f"{mesh_name} has {degenerate_count} degenerate (zero-area) triangles")
-            result.add_stat("degenerate_faces", int(degenerate_count))
+    try:
+        if hasattr(tmesh, 'area_faces'):
+            degenerate_threshold = 1e-10
+            degenerate_count = (tmesh.area_faces < degenerate_threshold).sum()
+            if degenerate_count > 0:
+                result.add_warning(f"{mesh_name} has {degenerate_count} degenerate (zero-area) triangles")
+                result.add_stat("degenerate_faces", int(degenerate_count))
+    except Exception:
+        pass  # Could not check degenerate faces
     
     # Quality check: Face angles
-    if hasattr(tmesh, 'face_angles'):
-        angles_deg = np.degrees(tmesh.face_angles)
-        min_angle = float(angles_deg.min())
-        max_angle = float(angles_deg.max())
-        result.add_stat("min_angle_deg", min_angle)
-        result.add_stat("max_angle_deg", max_angle)
-        
-        # Warn about very acute or obtuse angles (sliver triangles)
-        if min_angle < 5.0:
-            result.add_warning(f"{mesh_name} has very acute triangles (min angle: {min_angle:.1f}°)")
-        if max_angle > 175.0:
-            result.add_warning(f"{mesh_name} has very obtuse triangles (max angle: {max_angle:.1f}°)")
+    try:
+        if hasattr(tmesh, 'face_angles'):
+            angles_deg = np.degrees(tmesh.face_angles)
+            min_angle = float(angles_deg.min())
+            max_angle = float(angles_deg.max())
+            result.add_stat("min_angle_deg", min_angle)
+            result.add_stat("max_angle_deg", max_angle)
+            
+            # Warn about very acute or obtuse angles (sliver triangles)
+            if min_angle < 5.0:
+                result.add_warning(f"{mesh_name} has very acute triangles (min angle: {min_angle:.1f}°)")
+            if max_angle > 175.0:
+                result.add_warning(f"{mesh_name} has very obtuse triangles (max angle: {max_angle:.1f}°)")
+    except Exception:
+        pass  # Could not check face angles
     
     # Physical properties
-    if hasattr(tmesh, 'area'):
-        result.add_stat("surface_area_mm2", float(tmesh.area))
+    try:
+        if hasattr(tmesh, 'area'):
+            result.add_stat("surface_area_mm2", float(tmesh.area))
+    except Exception:
+        pass  # Could not get surface area
     
-    if hasattr(tmesh, 'bounds'):
-        bounds = tmesh.bounds
-        extents = tmesh.extents
-        result.add_stat("bounds_min", [float(x) for x in bounds[0]])
-        result.add_stat("bounds_max", [float(x) for x in bounds[1]])
-        result.add_stat("extents", [float(x) for x in extents])
+    try:
+        if hasattr(tmesh, 'bounds'):
+            bounds = tmesh.bounds
+            extents = tmesh.extents
+            result.add_stat("bounds_min", [float(x) for x in bounds[0]])
+            result.add_stat("bounds_max", [float(x) for x in bounds[1]])
+            result.add_stat("extents", [float(x) for x in extents])
+    except Exception:
+        pass  # Could not get bounds
     
     return result
 
