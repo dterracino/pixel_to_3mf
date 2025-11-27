@@ -1,0 +1,30 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: nes-link_model.3mf
+Total Colors/Regions: 18
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Bright Green
+   Hex: #80D010
+   RGB: (128, 208, 16)
+   Regions: 7
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Pumpkin Orange
+   Hex: #FC9838
+   RGB: (252, 152, 56)
+   Regions: 4
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Matte Terracotta
+   Hex: #C84C0C
+   RGB: (200, 76, 12)
+   Regions: 7
+   Location: 4 (AMS A, Slot 4)
+
+======================================================================
