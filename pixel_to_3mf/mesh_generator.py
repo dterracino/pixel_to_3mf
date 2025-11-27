@@ -80,6 +80,10 @@ def _generate_region_mesh_original(
     This is the fallback implementation that always works reliably.
     It generates meshes by creating geometry for each pixel individually.
     
+    CRITICAL: For pixels that only touch diagonally (not edge-connected),
+    we must NOT share vertices at the corners to avoid non-manifold geometry.
+    Each pixel gets its own set of vertices to ensure manifold properties.
+    
     Args:
         region: The region to extrude
         pixel_data: Pixel scaling info
@@ -88,6 +92,20 @@ def _generate_region_mesh_original(
     Returns:
         A Mesh object ready for export to 3MF
     """
+    # Check which pixels in this region are edge-connected vs diagonal-only
+    edge_connected_pixels = set()
+    for x, y in region.pixels:
+        # Check 4 edge neighbors
+        edge_neighbors = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+        for nx, ny in edge_neighbors:
+            if (nx, ny) in region.pixels:
+                # This pixel has at least one edge-connected neighbor in the region
+                edge_connected_pixels.add((x, y))
+                break
+    
+    # Diagonal-only pixels: pixels in region but not edge-connected to any other pixel in region
+    diagonal_only_pixels = region.pixels - edge_connected_pixels
+    
     # Original per-pixel mesh generation
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
@@ -142,17 +160,27 @@ def _generate_region_mesh_original(
             (x+1, y+1, "tr"),   # top-right
         ]
 
-        # Create vertices for each corner (if not already created)
+        # Create vertices for each corner
         corner_indices = []
         for cx, cy, label in corners:
-            # KEY FIX: Use only coordinates for the key, not the label!
-            # Adjacent pixels call the same corner different names (e.g. one pixel's "tr" is another's "tl")
             key = (cx, cy)
-            if key not in top_vertex_map:
-                # Create new vertex at (cx * ps, cy * ps, config.color_height_mm)
-                top_vertex_map[key] = len(vertices)
-                vertices.append((cx * ps, cy * ps, config.color_height_mm))
-            corner_indices.append(top_vertex_map[key])
+            
+            # CRITICAL FIX: For diagonal-only pixels, create unique vertices
+            # to prevent non-manifold geometry. Edge-connected pixels share vertices.
+            if (x, y) in diagonal_only_pixels:
+                # This pixel only touches others diagonally - create unique vertices
+                # Use tuple with pixel coords to ensure uniqueness
+                unique_key = ((x, y), cx, cy, "top")
+                if unique_key not in top_vertex_map:
+                    top_vertex_map[unique_key] = len(vertices)
+                    vertices.append((cx * ps, cy * ps, config.color_height_mm))
+                corner_indices.append(top_vertex_map[unique_key])
+            else:
+                # Edge-connected pixel - share vertices with neighbors
+                if key not in top_vertex_map:
+                    top_vertex_map[key] = len(vertices)
+                    vertices.append((cx * ps, cy * ps, config.color_height_mm))
+                corner_indices.append(top_vertex_map[key])
         
         # Create 2 triangles for the top face
         # Counter-clockwise winding when viewed from above (looking down at +Z)
@@ -177,12 +205,22 @@ def _generate_region_mesh_original(
         
         corner_indices = []
         for cx, cy, label in corners:
-            # KEY FIX: Use only coordinates, not label!
             key = (cx, cy)
-            if key not in bottom_vertex_map:
-                bottom_vertex_map[key] = len(vertices)
-                vertices.append((cx * ps, cy * ps, 0.0))
-            corner_indices.append(bottom_vertex_map[key])
+            
+            # CRITICAL FIX: For diagonal-only pixels, create unique vertices
+            if (x, y) in diagonal_only_pixels:
+                # This pixel only touches others diagonally - create unique vertices
+                unique_key = ((x, y), cx, cy, "bottom")
+                if unique_key not in bottom_vertex_map:
+                    bottom_vertex_map[unique_key] = len(vertices)
+                    vertices.append((cx * ps, cy * ps, 0.0))
+                corner_indices.append(bottom_vertex_map[unique_key])
+            else:
+                # Edge-connected pixel - share vertices with neighbors
+                if key not in bottom_vertex_map:
+                    bottom_vertex_map[key] = len(vertices)
+                    vertices.append((cx * ps, cy * ps, 0.0))
+                corner_indices.append(bottom_vertex_map[key])
         
         # Bottom face triangles (CCW when viewed from below, looking up at -Z)
         bl, br, tl, tr = corner_indices
@@ -224,14 +262,20 @@ def _generate_region_mesh_original(
             # Create a wall quad (2 triangles) between bottom and top
             # CRITICAL FIX: Reuse existing vertices instead of creating duplicates!
             
-            # Now that our keys are just (x, y) coordinates, lookup is simple!
-            # For bottom vertices (z=0)
-            bl_key = (x1, y1)
-            br_key = (x2, y2)
-            
-            # For top vertices (z=layer_height)
-            tl_key = (x1, y1)
-            tr_key = (x2, y2)
+            # For diagonal-only pixels, vertices are stored with unique keys
+            # For edge-connected pixels, vertices use simple (cx, cy) keys
+            if (x, y) in diagonal_only_pixels:
+                # Diagonal-only pixel - use unique keys
+                bl_key = ((x, y), x1, y1, "bottom")
+                br_key = ((x, y), x2, y2, "bottom")
+                tl_key = ((x, y), x1, y1, "top")
+                tr_key = ((x, y), x2, y2, "top")
+            else:
+                # Edge-connected pixel - use simple keys
+                bl_key = (x1, y1)
+                br_key = (x2, y2)
+                tl_key = (x1, y1)
+                tr_key = (x2, y2)
             
             # Get vertex indices (should always be found since we created faces for this pixel)
             assert bl_key in bottom_vertex_map, f"Could not find bottom vertex for wall at {bl_key}"

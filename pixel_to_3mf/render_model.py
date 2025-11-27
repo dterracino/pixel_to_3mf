@@ -174,7 +174,7 @@ def generate_render_path(output_path: str) -> str:
         output_path: Path to the 3MF output file
         
     Returns:
-        Path where the render PNG should be saved
+        Path where the render PNG should be saved (with forward slashes)
         
     Example:
         >>> generate_render_path("output/model.3mf")
@@ -184,4 +184,5 @@ def generate_render_path(output_path: str) -> str:
     stem = output_file.stem  # filename without extension
     parent = output_file.parent
     
-    return str(parent / f"{stem}_render.png")
+    # Use as_posix() to ensure forward slashes on all platforms
+    return (parent / f"{stem}_render.png").as_posix()

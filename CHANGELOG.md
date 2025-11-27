@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trim disconnected pixels feature (`--trim`) now correctly identifies disconnected pixels without removing pixels inside connected areas
 - Isometric thumbnail rotation now uses NEAREST resampling to avoid anti-aliasing artifacts on pixel art edges
 - User prompts now display correctly with Rich console (changed from `[y/N]` to `(y/N)` to avoid markup conflict)
+- Manifold mesh generation for diagonal-only pixel connections in 8-connectivity mode
+  - Pixels touching only at corners now use unique vertices to prevent non-manifold edges
+  - Prevents 4 triangles meeting at single edge (maintains manifold property: 2 triangles per edge)
+  - Regions remain merged for color assignment, but meshes are geometrically separate
+  - Ensures reliable 3D printing without mesh topology errors
+- Path separators in render output now use forward slashes on all platforms for cross-platform consistency
 
 ### Removed
 

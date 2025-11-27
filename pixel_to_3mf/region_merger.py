@@ -141,6 +141,62 @@ def flood_fill(
     return region_pixels
 
 
+def split_diagonal_only_connections(region: Region) -> List[Region]:
+    """
+    Split a region into sub-regions where pixels are only connected via 4-connectivity.
+    
+    WHY: In 8-connectivity mode, pixels that touch diagonally are merged into one region.
+    However, when generating 3D meshes, diagonal-only connections create non-manifold
+    geometry (4 triangles meet at a single edge). To fix this, we need to detect
+    sub-regions that are only connected diagonally and split them into separate regions.
+    
+    The algorithm:
+    1. Use 4-connectivity flood-fill to find truly connected sub-regions
+    2. Each sub-region becomes a separate Region object
+    3. This ensures meshes for each region will be manifold
+    
+    Example:
+        Region with pixels: {(0,0), (1,1), (2,2)}  (diagonal staircase)
+        Result: 3 separate regions, one per pixel
+        
+        Region with pixels: {(0,0), (1,0), (0,1), (1,1)}  (2x2 square)
+        Result: 1 region (all pixels are edge-connected)
+    
+    Args:
+        region: The region to potentially split
+    
+    Returns:
+        List of Region objects. If region is fully edge-connected, returns [region].
+        If region has diagonal-only connections, returns multiple Region objects.
+    """
+    # Convert to a fake pixel dict for flood_fill (flood_fill expects this format)
+    # We just need (x,y) -> (r,g,b,a) but we can use dummy alpha since flood_fill
+    # only checks RGB
+    fake_pixels = {(x, y): (*region.color, 255) for x, y in region.pixels}
+    
+    sub_regions: List[Region] = []
+    visited: Set[Tuple[int, int]] = set()
+    
+    # Use 4-connectivity to find truly connected sub-regions
+    for x, y in region.pixels:
+        if (x, y) in visited:
+            continue
+        
+        # Flood fill with 4-connectivity (edge-only connections)
+        sub_region_pixels = flood_fill(
+            x, y, 
+            region.color, 
+            fake_pixels, 
+            visited, 
+            connectivity=4  # Force 4-connectivity to detect diagonal-only connections
+        )
+        
+        # Create a new region for this sub-region
+        sub_regions.append(Region(color=region.color, pixels=sub_region_pixels))
+    
+    return sub_regions
+
+
 def merge_regions(pixel_data: PixelData, config: 'ConversionConfig') -> List[Region]:
     """
     Group all pixels into connected regions by color.
@@ -160,6 +216,10 @@ def merge_regions(pixel_data: PixelData, config: 'ConversionConfig') -> List[Reg
     Example: If you have a red heart shape and a blue star shape, you'll get
     exactly 2 regions - one for the heart, one for the star. Even if the heart
     has a complex outline with hundreds of pixels, it's still just ONE region!
+    
+    Note: Diagonal-only connections are handled during mesh generation to ensure
+    manifold geometry. At the region level, we keep same-color pixels together
+    even if only diagonally connected.
     
     Args:
         pixel_data: Processed pixel data from image_processor
