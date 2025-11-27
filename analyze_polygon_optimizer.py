@@ -1,10 +1,17 @@
-"""Analyze what's wrong with polygon optimizer meshes."""
+"""
+Analyze what's wrong with polygon optimizer meshes.
+
+NOTE: This script requires trimesh to be installed:
+    pip install trimesh
+
+This is a debug/analysis script, not part of the main conversion pipeline.
+"""
 from pixel_to_3mf.config import ConversionConfig
 from pixel_to_3mf.image_processor import load_and_process_image
 from pixel_to_3mf.region_merger import merge_regions_by_color
 from pixel_to_3mf.mesh_generator import generate_region_mesh
 from pixel_to_3mf.polygon_optimizer import optimize_region_mesh
-from pixel_to_3mf.mesh_validation import validate_mesh
+# from pixel_to_3mf.mesh_validation import validate_mesh  # REMOVED - mesh_validation.py deleted
 import sys
 
 # Load castlevania
@@ -50,19 +57,19 @@ for i, region in enumerate(regions[:5]):  # Test first 5 regions
         config.color_height_mm
     )
     
-    # Validate original
-    original_result = validate_mesh(original_mesh, f"region_{i+1}_original")
+    # # Validate original (DISABLED - mesh_validation.py removed)
+    # original_result = validate_mesh(original_mesh, f"region_{i+1}_original")
     print(f"\nORIGINAL MESH:")
     print(f"  Vertices: {len(original_mesh.vertices)}")
     print(f"  Triangles: {len(original_mesh.triangles)}")
-    print(f"  Valid: {original_result.is_valid}")
-    if not original_result.is_valid or original_result.warnings:
-        print(f"  Errors: {len(original_result.errors)}")
-        for err in original_result.errors[:3]:
-            print(f"    - {err}")
-        print(f"  Warnings: {len(original_result.warnings)}")
-        for warn in original_result.warnings[:3]:
-            print(f"    - {warn}")
+    # print(f"  Valid: {original_result.is_valid}")
+    # if not original_result.is_valid or original_result.warnings:
+    #     print(f"  Errors: {len(original_result.errors)}")
+    #     for err in original_result.errors[:3]:
+    #         print(f"    - {err}")
+    #     print(f"  Warnings: {len(original_result.warnings)}")
+    #     for warn in original_result.warnings[:3]:
+    #         print(f"    - {warn}")
     
     # Generate optimized mesh
     try:
@@ -73,20 +80,20 @@ for i, region in enumerate(regions[:5]):  # Test first 5 regions
             config.color_height_mm
         )
         
-        # Validate optimized
-        optimized_result = validate_mesh(optimized_mesh, f"region_{i+1}_optimized")
+        # # Validate optimized (DISABLED - mesh_validation.py removed)
+        # optimized_result = validate_mesh(optimized_mesh, f"region_{i+1}_optimized")
         print(f"\nOPTIMIZED MESH:")
         print(f"  Vertices: {len(optimized_mesh.vertices)}")
         print(f"  Triangles: {len(optimized_mesh.triangles)}")
         print(f"  Reduction: {100 * (1 - len(optimized_mesh.vertices) / len(original_mesh.vertices)):.1f}%")
-        print(f"  Valid: {optimized_result.is_valid}")
-        if not optimized_result.is_valid or optimized_result.warnings:
-            print(f"  Errors: {len(optimized_result.errors)}")
-            for err in optimized_result.errors:
-                print(f"    - {err}")
-            print(f"  Warnings: {len(optimized_result.warnings)}")
-            for warn in optimized_result.warnings:
-                print(f"    - {warn}")
+        # print(f"  Valid: {optimized_result.is_valid}")
+        # if not optimized_result.is_valid or optimized_result.warnings:
+        #     print(f"  Errors: {len(optimized_result.errors)}")
+        #     for err in optimized_result.errors:
+        #         print(f"    - {err}")
+        #     print(f"  Warnings: {len(optimized_result.warnings)}")
+        #     for warn in optimized_result.warnings:
+        #         print(f"    - {warn}")
         
         # Check for non-manifold edges specifically
         import trimesh

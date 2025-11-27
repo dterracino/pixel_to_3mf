@@ -55,6 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Isometric thumbnail rotation now uses NEAREST resampling to avoid anti-aliasing artifacts on pixel art edges
 - User prompts now display correctly with Rich console (changed from `[y/N]` to `(y/N)` to avoid markup conflict)
 
+### Removed
+
+- Removed `trimesh` library dependency (no longer needed for core conversion)
+- Removed `mesh_validation.py` module (validation code that required trimesh)
+  - Validation/repair functionality will be reimplemented without external dependencies in future release
+  - Does not affect main conversion pipeline (validation was only used in tests/analysis scripts)
+
 ## [1.0.0] - 2025-11-09
 
 ### Added
