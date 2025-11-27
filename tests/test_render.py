@@ -8,6 +8,7 @@ PNG images correctly.
 import unittest
 import os
 import sys
+import tempfile
 from pathlib import Path
 from PIL import Image
 
@@ -60,7 +61,8 @@ class TestRenderIntegration(unittest.TestCase):
         img_path = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(img_path)
         
-        output_path = "/tmp/test_render_enabled.3mf"
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
         self.test_files.append(output_path)
         
         # Create config with rendering enabled
@@ -99,7 +101,8 @@ class TestRenderIntegration(unittest.TestCase):
         img_path = create_simple_square_image(size=4, color=(255, 0, 0))
         self.test_files.append(img_path)
         
-        output_path = "/tmp/test_render_disabled.3mf"
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
         self.test_files.append(output_path)
         
         # Create config with default settings (render_model=False)
@@ -150,11 +153,13 @@ class TestRenderIntegration(unittest.TestCase):
         pixels[2, 3] = (255, 255, 0)
         pixels[3, 3] = (255, 255, 0)
         
-        img_path = "/tmp/test_multicolor_render.png"
+        fd, img_path = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
         img.save(img_path)
         self.test_files.append(img_path)
         
-        output_path = "/tmp/test_multicolor_render.3mf"
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
         self.test_files.append(output_path)
         
         # Create config with rendering enabled

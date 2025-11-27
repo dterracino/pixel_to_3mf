@@ -10,6 +10,8 @@ operations execute in the correct order:
 """
 
 import unittest
+import tempfile
+import os
 from PIL import Image
 import numpy as np
 from pathlib import Path
@@ -49,7 +51,8 @@ class TestOperationOrder(unittest.TestCase):
                 pixels[x, y] = (255, 0, 0, 255)
         
         # Save to temp file
-        test_path = "/tmp/test_padded_image.png"
+        fd, test_path = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
         img.save(test_path)
         self.test_files.append(test_path)
         return test_path
@@ -108,7 +111,8 @@ class TestOperationOrder(unittest.TestCase):
                 r = 100 + (i * 10) + j
                 pixels[j, i] = (r, 0, 0, 255)
         
-        test_path = "/tmp/test_multicolor.png"
+        fd, test_path = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
         img.save(test_path)
         self.test_files.append(test_path)
         
@@ -198,7 +202,8 @@ class TestOperationOrder(unittest.TestCase):
                 pixels[x, y] = (r, g, 0, 255)
                 color_idx += 1
         
-        test_path = "/tmp/test_all_ops.png"
+        fd, test_path = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
         img.save(test_path)
         self.test_files.append(test_path)
         

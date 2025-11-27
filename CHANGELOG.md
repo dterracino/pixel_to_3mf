@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Regions remain merged for color assignment, but meshes are geometrically separate
   - Ensures reliable 3D printing without mesh topology errors
 - Path separators in render output now use forward slashes on all platforms for cross-platform consistency
+- Test suite now uses system-appropriate temp directories instead of hardcoded `/tmp/` paths for cross-platform compatibility (Windows, Linux, macOS)
 
 ### Removed
 
