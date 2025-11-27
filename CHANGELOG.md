@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- AMS Slot Assignments now groups by color name instead of RGB values, eliminating duplicate entries when multiple pixel colors map to the same filament/CSS color name
+- Hex values in AMS Slot Assignments now show the matched filament/color RGB instead of detected pixel RGB for clarity
 - Trim disconnected pixels feature (`--trim`) now correctly identifies disconnected pixels without removing pixels inside connected areas
 - Isometric thumbnail rotation now uses NEAREST resampling to avoid anti-aliasing artifacts on pixel art edges
 - User prompts now display correctly with Rich console (changed from `[y/N]` to `(y/N)` to avoid markup conflict)

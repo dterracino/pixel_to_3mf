@@ -56,7 +56,8 @@ def write_summary_file(
     region_colors: List[Tuple[int, int, int]],
     color_names: List[str],
     color_to_slot: Dict[Tuple[int, int, int], int],
-    config: 'ConversionConfig'
+    config: 'ConversionConfig',
+    has_backing_plate: bool = False
 ) -> str:
     """
     Write a summary file listing the colors/filaments used in the conversion.
@@ -70,6 +71,7 @@ def write_summary_file(
         color_names: List of color/filament names (already resolved by get_color_name)
         color_to_slot: Mapping of RGB colors to AMS slot numbers (1-16)
         config: ConversionConfig with color_naming_mode
+        has_backing_plate: Whether a backing plate was generated
     
     Returns:
         Path to the generated summary file
@@ -111,6 +113,9 @@ def write_summary_file(
             hex_code = rgb_to_hex(rgb)
             region_count = len(rgb_list)
             
+            # Check if this is the backing color AND we have a backing plate
+            is_backing_color = (rgb == config.backing_color)
+            
             # Get AMS slot assignment
             extruder = color_to_slot.get(rgb, 0)
             ams_id, ams_slot = _extruder_to_ams_location(extruder, config.ams_count, config.ams_slots_per_unit)
@@ -118,7 +123,17 @@ def write_summary_file(
             lines.append(f"{i}. {filament_name}")
             lines.append(f"   Hex: {hex_code}")
             lines.append(f"   RGB: {rgb}")
-            lines.append(f"   Regions: {region_count}")
+            
+            # Show region breakdown if this is backing color AND we generated a backing plate
+            if is_backing_color and has_backing_plate and config.base_height_mm > 0:
+                # Last occurrence in rgb_list is the backing plate (we appended it in threemf_writer)
+                # All other occurrences are color layer regions
+                backing_regions = 1
+                color_regions = region_count - 1
+                lines.append(f"   Regions: {region_count} ({color_regions} color layer, {backing_regions} backing plate)")
+            else:
+                lines.append(f"   Regions: {region_count}")
+            
             lines.append(f"   Location: {extruder} (AMS {ams_id}, Slot {ams_slot})")
             lines.append("")
     
@@ -131,13 +146,24 @@ def write_summary_file(
             rgb = rgb_list[0]
             region_count = len(rgb_list)
             
+            # Check if this is the backing color AND we have a backing plate
+            is_backing_color = (rgb == config.backing_color)
+            
             # Get AMS slot assignment
             extruder = color_to_slot.get(rgb, 0)
             ams_id, ams_slot = _extruder_to_ams_location(extruder, config.ams_count, config.ams_slots_per_unit)
             
             lines.append(f"{i}. {hex_code}")
             lines.append(f"   RGB: {rgb}")
-            lines.append(f"   Regions: {region_count}")
+            
+            # Show region breakdown if this is backing color AND we generated a backing plate
+            if is_backing_color and has_backing_plate and config.base_height_mm > 0:
+                backing_regions = 1
+                color_regions = region_count - 1
+                lines.append(f"   Regions: {region_count} ({color_regions} color layer, {backing_regions} backing plate)")
+            else:
+                lines.append(f"   Regions: {region_count}")
+            
             lines.append(f"   Location: {extruder} (AMS {ams_id}, Slot {ams_slot})")
             lines.append("")
     
@@ -151,6 +177,9 @@ def write_summary_file(
             hex_code = rgb_to_hex(rgb)
             region_count = len(rgb_list)
             
+            # Check if this is the backing color AND we have a backing plate
+            is_backing_color = (rgb == config.backing_color)
+            
             # Get AMS slot assignment
             extruder = color_to_slot.get(rgb, 0)
             ams_id, ams_slot = _extruder_to_ams_location(extruder, config.ams_count, config.ams_slots_per_unit)
@@ -158,7 +187,15 @@ def write_summary_file(
             lines.append(f"{i}. {color_name}")
             lines.append(f"   Hex: {hex_code}")
             lines.append(f"   RGB: {rgb}")
-            lines.append(f"   Regions: {region_count}")
+            
+            # Show region breakdown if this is backing color AND we generated a backing plate
+            if is_backing_color and has_backing_plate and config.base_height_mm > 0:
+                backing_regions = 1
+                color_regions = region_count - 1
+                lines.append(f"   Regions: {region_count} ({color_regions} color layer, {backing_regions} backing plate)")
+            else:
+                lines.append(f"   Regions: {region_count}")
+            
             lines.append(f"   Location: {extruder} (AMS {ams_id}, Slot {ams_slot})")
             lines.append("")
     

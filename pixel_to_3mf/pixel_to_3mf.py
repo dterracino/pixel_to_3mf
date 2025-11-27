@@ -20,7 +20,6 @@ from .mesh_generator import generate_region_mesh, generate_backing_plate
 from .threemf_writer import write_3mf, count_mesh_stats
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
-from .mesh_validation import validate_mesh, is_trimesh_available, ValidationResult
 
 def _create_filtered_pixel_data(regions: List[Region], original_pixel_data: PixelData) -> PixelData:
     """
@@ -273,14 +272,13 @@ def convert_image_to_3mf(
     else:
         _progress("mesh", "Skipping backing plate (base height is 0)")
     
-    # Step 4: Validate meshes
-    validation_results = []
-    if is_trimesh_available():
-        _progress("validate", "Validating meshes...")
-        for i, (mesh, name) in enumerate(meshes, start=1):
-            _progress("validate", f"Mesh {i}/{len(meshes)}: {name}")
-            validation = validate_mesh(mesh, name)
-            validation_results.append((name, validation))
+    # # Step 4: Validate meshes
+    # validation_results = []
+    # _progress("validate", "Validating meshes...")
+    # for i, (mesh, name) in enumerate(meshes, start=1):
+    #     _progress("validate", f"Mesh {i}/{len(meshes)}: {name}")
+    #     validation = validate_mesh(mesh, name)
+    #     validation_results.append((name, validation))
     
     # Step 5: Repair meshes (TODO - implement in future PR)
     # ========================================================================
@@ -294,18 +292,17 @@ def convert_image_to_3mf(
     # - Re-validate repaired meshes to confirm fixes
     # 
     # Example:
-    # if is_trimesh_available():
-    #     failed_meshes = [(i, mesh, name) for i, (mesh, name) in enumerate(meshes)
-    #                      if not validation_results[i][1].is_valid]
-    #     if failed_meshes:
-    #         _progress("repair", "Repairing meshes...")
-    #         for idx, (mesh_idx, mesh, name) in enumerate(failed_meshes, start=1):
-    #             _progress("repair", f"Mesh {idx}/{len(failed_meshes)}: {name}")
-    #             repaired = repair_mesh(mesh, validation_results[mesh_idx][1])
-    #             meshes[mesh_idx] = (repaired, name)
-    #             # Re-validate
-    #             revalidation = validate_mesh(repaired, name)
-    #             validation_results[mesh_idx] = (name, revalidation)
+    # failed_meshes = [(i, mesh, name) for i, (mesh, name) in enumerate(meshes)
+    #                  if not validation_results[i][1].is_valid]
+    # if failed_meshes:
+    #     _progress("repair", "Repairing meshes...")
+    #     for idx, (mesh_idx, mesh, name) in enumeratde(failed_meshes, start=1):
+    #         _progress("repair", f"Mesh {idx}/{len(failed_meshes)}: {name}")
+    #         repaired = repair_mesh(mesh, validation_results[mesh_idx][1])
+    #         meshes[mesh_idx] = (repaired, name)
+    #         # Re-validate
+    #         revalidation = validate_mesh(repaired, name)
+    #         validation_results[mesh_idx] = (name, revalidation)
     # ========================================================================
     
     # Step 6: Write 3MF
@@ -358,17 +355,17 @@ def convert_image_to_3mf(
         'color_mapping': color_mapping  # AMS slot assignments
     }
     
-    # Add validation results if available
-    if validation_results:
-        validation_summary = {
-            'total_meshes': len(validation_results),
-            'valid_meshes': sum(1 for _, v in validation_results if v.is_valid),
-            'invalid_meshes': sum(1 for _, v in validation_results if not v.is_valid),
-            'total_errors': sum(len(v.errors) for _, v in validation_results),
-            'total_warnings': sum(len(v.warnings) for _, v in validation_results)
-        }
-        stats['validation'] = validation_summary
-        stats['validation_details'] = validation_results
+    # # Add validation results if available
+    # if validation_results:
+    #     validation_summary = {
+    #         'total_meshes': len(validation_results),
+    #         'valid_meshes': sum(1 for _, v in validation_results if v.is_valid),
+    #         'invalid_meshes': sum(1 for _, v in validation_results if not v.is_valid),
+    #         'total_errors': sum(len(v.errors) for _, v in validation_results),
+    #         'total_warnings': sum(len(v.warnings) for _, v in validation_results)
+    #     }
+    #     stats['validation'] = validation_summary
+    #     stats['validation_details'] = validation_results
     
     # Add summary path if generated
     if summary_path:

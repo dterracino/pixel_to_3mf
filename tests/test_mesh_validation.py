@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pixel_to_3mf.mesh_generator import Mesh
 from pixel_to_3mf.mesh_validation import (
-    is_trimesh_available,
     validate_mesh,
     ValidationResult,
     attempt_repair,
@@ -72,15 +71,6 @@ class TestValidationResult(unittest.TestCase):
         self.assertIn("warnings=1", repr_str)
 
 
-class TestTrimeshAvailability(unittest.TestCase):
-    """Test trimesh availability detection."""
-    
-    def test_is_trimesh_available(self):
-        """Test trimesh availability check returns boolean."""
-        result = is_trimesh_available()
-        self.assertIsInstance(result, bool)
-
-
 class TestBasicValidation(unittest.TestCase):
     """Test basic mesh validation (works with or without trimesh)."""
     
@@ -124,12 +114,7 @@ class TestBasicValidation(unittest.TestCase):
 
 
 class TestManifoldMeshValidation(unittest.TestCase):
-    """Test validation of manifold meshes (requires trimesh)."""
-    
-    def setUp(self):
-        """Skip tests if trimesh is not available."""
-        if not is_trimesh_available():
-            self.skipTest("Trimesh not available")
+    """Test validation of manifold meshes."""
     
     def test_cube_mesh_valid(self):
         """Test validation of a simple cube mesh (should be manifold)."""
@@ -221,11 +206,6 @@ class TestManifoldMeshValidation(unittest.TestCase):
 class TestMeshRepair(unittest.TestCase):
     """Test mesh repair functionality."""
     
-    def setUp(self):
-        """Skip tests if trimesh is not available."""
-        if not is_trimesh_available():
-            self.skipTest("Trimesh not available")
-    
     def test_repair_returns_mesh_and_fixes(self):
         """Test that repair returns both mesh and list of fixes."""
         vertices = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
@@ -289,11 +269,6 @@ class TestMeshReport(unittest.TestCase):
 
 class TestOptimizationValidation(unittest.TestCase):
     """Test validation of mesh optimization quality."""
-    
-    def setUp(self):
-        """Skip tests if trimesh is not available."""
-        if not is_trimesh_available():
-            self.skipTest("Trimesh not available")
     
     def test_validate_optimization_with_same_mesh(self):
         """Test validation when original and optimized are the same."""

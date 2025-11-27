@@ -14,20 +14,12 @@ The validation functions help ensure meshes are:
 
 from typing import List, Tuple, Dict, Optional, Any
 import logging
+import trimesh
+import trimesh.repair
+import numpy as np
 
 # Set up logging for this module
 logger = logging.getLogger(__name__)
-
-# Try to import trimesh - it's an optional dependency
-try:
-    import trimesh
-    import trimesh.repair
-    import numpy as np
-    TRIMESH_AVAILABLE = True
-except ImportError:
-    TRIMESH_AVAILABLE = False
-    trimesh = None
-    np = None
 
 # Import our mesh type
 from .mesh_generator import Mesh
@@ -66,16 +58,6 @@ class ValidationResult:
         return f"ValidationResult({status}, errors={len(self.errors)}, warnings={len(self.warnings)})"
 
 
-def is_trimesh_available() -> bool:
-    """
-    Check if trimesh is available for enhanced validation.
-    
-    Returns:
-        True if trimesh is installed and available
-    """
-    return TRIMESH_AVAILABLE
-
-
 def validate_mesh(mesh: Mesh, mesh_name: str = "mesh") -> ValidationResult:
     """
     Validate a mesh for 3D printing readiness.
@@ -96,12 +78,6 @@ def validate_mesh(mesh: Mesh, mesh_name: str = "mesh") -> ValidationResult:
         ValidationResult with detailed findings
     """
     result = ValidationResult()
-    
-    if not TRIMESH_AVAILABLE:
-        # Fallback: Basic validation without trimesh
-        result.add_warning("Trimesh not available - using basic validation only")
-        _validate_basic(mesh, mesh_name, result)
-        return result
     
     # Convert to trimesh format
     try:
@@ -148,6 +124,40 @@ def validate_mesh(mesh: Mesh, mesh_name: str = "mesh") -> ValidationResult:
     except Exception as e:
         result.add_warning(f"Could not check winding consistency: {e}")
     
+    # Critical check: Non-manifold edges (edges shared by 3+ faces)
+    # This is what Bambu Studio and other slicers actually care about!
+    try:
+        # Build edge-to-faces mapping
+        edge_face_count = {}
+        for face_idx, face in enumerate(tmesh.faces):
+            # Each triangle has 3 edges
+            edges = [
+                tuple(sorted([face[0], face[1]])),
+                tuple(sorted([face[1], face[2]])),
+                tuple(sorted([face[2], face[0]]))
+            ]
+            for edge in edges:
+                edge_face_count[edge] = edge_face_count.get(edge, 0) + 1
+        
+        # Find non-manifold edges (shared by 3+ faces)
+        nonmanifold_edges = [edge for edge, count in edge_face_count.items() if count > 2]
+        
+        if nonmanifold_edges:
+            result.add_stat("nonmanifold_edges", len(nonmanifold_edges))
+            result.add_error(f"{mesh_name} has {len(nonmanifold_edges)} non-manifold edges")
+            result.add_error(f"  These are edges shared by 3 or more faces (slicers cannot handle this)")
+            
+            # Log first few non-manifold edges for debugging
+            if len(nonmanifold_edges) <= 5:
+                for edge in nonmanifold_edges:
+                    v1, v2 = tmesh.vertices[edge[0]], tmesh.vertices[edge[1]]
+                    face_count = edge_face_count[edge]
+                    result.add_error(f"    Edge {edge[0]}-{edge[1]}: ({v1[0]:.3f},{v1[1]:.3f},{v1[2]:.3f}) -> ({v2[0]:.3f},{v2[1]:.3f},{v2[2]:.3f}) shared by {face_count} faces")
+        else:
+            result.add_stat("nonmanifold_edges", 0)
+    except Exception as e:
+        result.add_warning(f"Could not check for non-manifold edges: {e}")
+    
     # Important check: Valid volume
     try:
         if not tmesh.is_volume:
@@ -188,7 +198,8 @@ def validate_mesh(mesh: Mesh, mesh_name: str = "mesh") -> ValidationResult:
     # Quality check: Face angles
     try:
         if hasattr(tmesh, 'face_angles'):
-            angles_deg = np.degrees(tmesh.face_angles)
+            # Check face angles for degenerate triangles
+            angles_deg = np.degrees(tmesh.face_angles)  # type: ignore[attr-defined]
             min_angle = float(angles_deg.min())
             max_angle = float(angles_deg.max())
             result.add_stat("min_angle_deg", min_angle)
@@ -222,48 +233,6 @@ def validate_mesh(mesh: Mesh, mesh_name: str = "mesh") -> ValidationResult:
     return result
 
 
-def _validate_basic(mesh: Mesh, mesh_name: str, result: ValidationResult) -> None:
-    """
-    Basic validation without trimesh (fallback).
-    
-    Performs minimal validation using just the vertex and triangle data.
-    This is much less comprehensive than the trimesh-based validation.
-    
-    Args:
-        mesh: Mesh to validate
-        mesh_name: Name for error messages
-        result: ValidationResult to populate
-    """
-    # Basic checks
-    result.add_stat("vertices", len(mesh.vertices))
-    result.add_stat("triangles", len(mesh.triangles))
-    
-    if len(mesh.vertices) == 0:
-        result.add_error(f"{mesh_name} has no vertices")
-        return
-    
-    if len(mesh.triangles) == 0:
-        result.add_error(f"{mesh_name} has no triangles")
-        return
-    
-    # Check for degenerate triangles (vertices at same position)
-    degenerate_count = 0
-    for tri in mesh.triangles:
-        v0, v1, v2 = mesh.vertices[tri[0]], mesh.vertices[tri[1]], mesh.vertices[tri[2]]
-        if v0 == v1 or v1 == v2 or v2 == v0:
-            degenerate_count += 1
-    
-    if degenerate_count > 0:
-        result.add_warning(f"{mesh_name} has {degenerate_count} degenerate triangles")
-    
-    # Check vertex indices are in range
-    max_index = len(mesh.vertices) - 1
-    for i, tri in enumerate(mesh.triangles):
-        for j, idx in enumerate(tri):
-            if idx < 0 or idx > max_index:
-                result.add_error(f"{mesh_name} triangle {i} has out-of-range vertex index {idx}")
-
-
 def attempt_repair(mesh: Mesh, mesh_name: str = "mesh") -> Tuple[Mesh, List[str]]:
     """
     Attempt to automatically repair common mesh issues.
@@ -283,10 +252,6 @@ def attempt_repair(mesh: Mesh, mesh_name: str = "mesh") -> Tuple[Mesh, List[str]
         Tuple of (repaired_mesh, list_of_fixes_applied)
     """
     fixes_applied = []
-    
-    if not TRIMESH_AVAILABLE:
-        logger.warning(f"Cannot repair {mesh_name}: trimesh not available")
-        return mesh, ["Trimesh not available for repair"]
     
     # Convert to trimesh
     try:
@@ -464,10 +429,6 @@ def validate_optimization_quality(
         ValidationResult with comparison findings
     """
     result = ValidationResult()
-    
-    if not TRIMESH_AVAILABLE:
-        result.add_warning("Trimesh not available - cannot validate optimization")
-        return result
     
     # Validate both meshes
     orig_result = validate_mesh(original_mesh, "Original")
