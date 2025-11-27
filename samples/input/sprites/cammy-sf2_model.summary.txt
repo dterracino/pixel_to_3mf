@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: cammy-sf2_model.3mf
-Total Colors/Regions: 318
+Total Colors/Regions: 319
 Color Naming Mode: filament
 
 Filaments Used:
@@ -24,7 +24,7 @@ Filaments Used:
 3. Bambu Lab PLA Basic Jade White
    Hex: #FFFFFF
    RGB: (255, 255, 255)
-   Regions: 16
+   Regions: 17 (16 color layer, 1 backing plate)
    Location: 1 (AMS A, Slot 1)
 
 4. Bambu Lab PLA Basic Mistletoe Green

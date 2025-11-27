@@ -346,7 +346,7 @@ def convert_image_to_3mf(
         'model_width_mm': pixel_data.model_width_mm,
         'model_height_mm': pixel_data.model_height_mm,
         'num_pixels': len(pixel_data.pixels),
-        'num_colors': len(pixel_data.get_unique_colors()),
+        'num_colors': len(color_mapping),  # Count unique color names after mapping (not RGB values)
         'num_regions': len(regions),
         'num_vertices': total_vertices,
         'num_triangles': total_triangles,

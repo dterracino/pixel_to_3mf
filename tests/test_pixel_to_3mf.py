@@ -56,7 +56,7 @@ class TestConvertImageTo3MF(unittest.TestCase):
         self.assertEqual(stats['image_width'], 4)
         self.assertEqual(stats['image_height'], 4)
         self.assertEqual(stats['num_pixels'], 16)
-        self.assertEqual(stats['num_colors'], 1)
+        self.assertEqual(stats['num_colors'], 2)  # 1 region color + 1 backing plate color
         self.assertEqual(stats['num_regions'], 1)
         self.assertEqual(stats['output_path'], output_path)
         
@@ -74,8 +74,8 @@ class TestConvertImageTo3MF(unittest.TestCase):
         
         stats = convert_image_to_3mf(input_path, output_path)
         
-        # Should have 2 colors and 2 regions
-        self.assertEqual(stats['num_colors'], 2)
+        # Should have 3 colors (2 region colors + 1 backing plate) and 2 regions
+        self.assertEqual(stats['num_colors'], 3)  # red + blue + white backing plate
         self.assertEqual(stats['num_regions'], 2)
         
         # Verify output
@@ -433,8 +433,8 @@ class TestConvertWithPadding(unittest.TestCase):
             self.assertEqual(stats['image_width'], 10)
             self.assertEqual(stats['image_height'], 10)
             
-            # Should have only 1 color
-            self.assertEqual(stats['num_colors'], 1)
+            # Should have 2 colors (1 region color + 1 backing plate)
+            self.assertEqual(stats['num_colors'], 2)
             
         finally:
             cleanup_test_file(img_path)

@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Color count in conversion summary now matches AMS table and summary file
+  - Previously counted unique RGB values (15 for ken-sf2.png example)
+  - Now counts unique color/filament names after mapping (14 for same example)
+  - Multiple RGB values that map to same color name are counted once
+  - Provides accurate count of filaments needed for printing
 - AMS Slot Assignments now groups by color name instead of RGB values, eliminating duplicate entries when multiple pixel colors map to the same filament/CSS color name
 - Hex values in AMS Slot Assignments now show the matched filament/color RGB instead of detected pixel RGB for clarity
 - Trim disconnected pixels feature (`--trim`) now correctly identifies disconnected pixels without removing pixels inside connected areas
