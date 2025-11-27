@@ -11,6 +11,7 @@ Separation of concerns FTW! 🎯
 
 import argparse
 import sys
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any
@@ -502,10 +503,10 @@ The program will:
     parser.add_argument(
         "--ams-count",
         type=int,
-        default=4,
+        default=AMS_COUNT,
         metavar="N",
-        help="Number of AMS units (1-4). Default is 4 units (16 total slots). "
-             "Each Bambu Lab AMS unit holds 4 spools, and you can chain up to 4 units."
+        help=f"Number of AMS units (1-4). Default is {AMS_COUNT} units ({AMS_COUNT * AMS_SLOTS_PER_UNIT} total slots). "
+             f"Each Bambu Lab AMS unit holds {AMS_SLOTS_PER_UNIT} spools, and you can chain up to 4 units."
     )
     
     parser.add_argument(
@@ -1010,6 +1011,70 @@ The program will:
     
     console.print(stats_table)
     console.print()
+    
+    # Display validation failures (if any)
+    if 'validation_details' in stats:
+        # Filter to only failed meshes
+        failed_meshes = [(name, result) for name, result in stats['validation_details'] 
+                        if not result.is_valid or result.warnings]
+        
+        if failed_meshes:
+            console.print("[bold red]⚠️  Mesh Validation Issues:[/bold red]")
+            console.print()
+            
+            # Create validation issues table
+            validation_table = Table(show_header=True, box=box.ROUNDED, padding=(0, 1))
+            validation_table.add_column("Mesh", style="bold cyan")
+            validation_table.add_column("Status", justify="center")
+            validation_table.add_column("Issues", style="yellow")
+            
+            for name, result in failed_meshes:
+                # Determine status
+                if not result.is_valid:
+                    status = "[bold red]INVALID[/bold red]"
+                else:
+                    status = "[yellow]WARNING[/yellow]"
+                
+                # Combine errors and warnings
+                issues = []
+                for error in result.errors:
+                    issues.append(f"[red]ERROR:[/red] {error}")
+                for warning in result.warnings:
+                    issues.append(f"[yellow]WARN:[/yellow] {warning}")
+                
+                issues_text = "\n".join(issues)
+                validation_table.add_row(name, status, issues_text)
+            
+            console.print(validation_table)
+            console.print()
+            
+            # Log detailed validation results to log file
+            logger = logging.getLogger(__name__)
+            logger.info("=" * 70)
+            logger.info("MESH VALIDATION RESULTS")
+            logger.info("=" * 70)
+            for name, result in failed_meshes:
+                logger.info(f"\n{name}:")
+                logger.info(f"  Status: {'INVALID' if not result.is_valid else 'WARNING'}")
+                logger.info(f"  Vertices: {result.stats.get('vertices', 'N/A')}")
+                logger.info(f"  Triangles: {result.stats.get('triangles', 'N/A')}")
+                
+                if result.errors:
+                    logger.info(f"  Errors ({len(result.errors)}):")
+                    for err in result.errors:
+                        logger.info(f"    - {err}")
+                
+                if result.warnings:
+                    logger.info(f"  Warnings ({len(result.warnings)}):")
+                    for warn in result.warnings:
+                        logger.info(f"    - {warn}")
+                
+                if result.stats:
+                    logger.info(f"  Statistics:")
+                    for key, value in result.stats.items():
+                        if key not in ['vertices', 'triangles']:  # Already logged above
+                            logger.info(f"    {key}: {value}")
+            logger.info("=" * 70)
     
     # Display AMS slot mapping
     if 'color_mapping' in stats and stats['color_mapping']:
