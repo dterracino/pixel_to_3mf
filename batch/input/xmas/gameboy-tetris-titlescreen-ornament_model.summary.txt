@@ -2,8 +2,8 @@
 3MF Conversion Summary
 ======================================================================
 
-3MF File: round-ornament_model.3mf
-Total Colors/Regions: 8
+3MF File: gameboy-tetris-titlescreen-ornament_model.3mf
+Total Colors/Regions: 138
 Color Naming Mode: filament
 
 Filaments Used:
@@ -12,31 +12,25 @@ Filaments Used:
 1. Bambu Lab PLA Basic Black
    Hex: #000000
    RGB: (0, 0, 0)
-   Regions: 1
+   Regions: 48
    Location: 2 (AMS A, Slot 2)
 
 2. Bambu Lab PLA Basic Jade White
-   Hex: #FFFFFF
-   RGB: (255, 255, 255)
-   Regions: 3 (2 color layer, 1 backing plate)
+   Hex: #F7FAF7
+   RGB: (247, 250, 247)
+   Regions: 31
    Location: 1 (AMS A, Slot 1)
 
-3. Bambu Lab PLA Basic Orange
-   Hex: #DF7126
-   RGB: (223, 113, 38)
-   Regions: 1
+3. Bambu Lab PLA Matte Dark Green
+   Hex: #49784F
+   RGB: (73, 120, 79)
+   Regions: 32
    Location: 3 (AMS A, Slot 3)
 
-4. Bambu Lab PLA Matte Mandarin Orange
-   Hex: #D9A066
-   RGB: (217, 160, 102)
-   Regions: 1
+4. Bambu Lab PLA Matte Grass Green
+   Hex: #93BE99
+   RGB: (147, 190, 153)
+   Regions: 27
    Location: 4 (AMS A, Slot 4)
-
-5. Bambu Lab PLA Matte Nardo Gray
-   Hex: #847E87
-   RGB: (132, 126, 135)
-   Regions: 2
-   Location: 5 (AMS B, Slot 1)
 
 ======================================================================
