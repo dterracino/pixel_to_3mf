@@ -2,8 +2,8 @@
 3MF Conversion Summary
 ======================================================================
 
-3MF File: round-ornament_model.3mf
-Total Colors/Regions: 8
+3MF File: nes-link-ornament_model.3mf
+Total Colors/Regions: 20
 Color Naming Mode: filament
 
 Filaments Used:
@@ -15,28 +15,28 @@ Filaments Used:
    Regions: 1
    Location: 2 (AMS A, Slot 2)
 
-2. Bambu Lab PLA Basic Jade White
-   Hex: #FFFFFF
-   RGB: (255, 255, 255)
-   Regions: 3 (2 color layer, 1 backing plate)
-   Location: 1 (AMS A, Slot 1)
-
-3. Bambu Lab PLA Basic Orange
-   Hex: #DF7126
-   RGB: (223, 113, 38)
-   Regions: 1
+2. Bambu Lab PLA Basic Bright Green
+   Hex: #80D010
+   RGB: (128, 208, 16)
+   Regions: 7
    Location: 3 (AMS A, Slot 3)
 
-4. Bambu Lab PLA Matte Mandarin Orange
-   Hex: #D9A066
-   RGB: (217, 160, 102)
-   Regions: 1
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+4. Bambu Lab PLA Basic Pumpkin Orange
+   Hex: #FC9838
+   RGB: (252, 152, 56)
+   Regions: 4
    Location: 4 (AMS A, Slot 4)
 
-5. Bambu Lab PLA Matte Nardo Gray
-   Hex: #847E87
-   RGB: (132, 126, 135)
-   Regions: 2
+5. Bambu Lab PLA Matte Terracotta
+   Hex: #C84C0C
+   RGB: (200, 76, 12)
+   Regions: 7
    Location: 5 (AMS B, Slot 1)
 
 ======================================================================
