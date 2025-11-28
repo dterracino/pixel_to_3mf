@@ -312,3 +312,60 @@ def calculate_expected_vertex_count(num_pixels: int, has_backing: bool = True) -
     return num_pixels * vertices_per_pixel
 
 
+# ============================================================================
+# Mesh Type Adapters
+# ============================================================================
+# These adapters convert between internal Mesh type (from mesh_generator.py)
+# and ThreeMFMesh type (from threemf_core.py) for testing purposes.
+
+
+def mesh_to_threemf(mesh) -> 'ThreeMFMesh':
+    """
+    Convert internal Mesh to ThreeMFMesh for use with threemf_core functions.
+    
+    Args:
+        mesh: A Mesh object from mesh_generator.py
+        
+    Returns:
+        ThreeMFMesh object compatible with threemf_core functions
+    """
+    from pixel_to_3mf.threemf_core import ThreeMFMesh
+    return ThreeMFMesh(vertices=mesh.vertices, triangles=mesh.triangles, metadata={})
+
+
+def count_mesh_stats_adapter(meshes: list[tuple]) -> tuple[int, int]:
+    """
+    Adapter for count_mesh_stats that works with internal Mesh type.
+    
+    Converts list of (Mesh, name) tuples to ThreeMFMesh objects and calls
+    the threemf_core.count_mesh_stats function.
+    
+    Args:
+        meshes: List of (Mesh, name) tuples using internal Mesh type
+        
+    Returns:
+        Tuple of (total_vertices, total_triangles)
+    """
+    from pixel_to_3mf.threemf_core import count_mesh_stats
+    threemf_meshes = [mesh_to_threemf(mesh) for mesh, _ in meshes]
+    return count_mesh_stats(threemf_meshes)
+
+
+def validate_triangle_winding_adapter(mesh) -> str:
+    """
+    Adapter for validate_triangle_winding that works with internal Mesh type.
+    
+    Converts internal Mesh to ThreeMFMesh and calls the threemf_core function.
+    
+    Args:
+        mesh: A Mesh object from mesh_generator.py
+        
+    Returns:
+        "CCW", "CW", "MIXED", or "UNKNOWN"
+    """
+    from pixel_to_3mf.threemf_core import validate_triangle_winding
+    threemf_mesh = mesh_to_threemf(mesh)
+    return validate_triangle_winding(threemf_mesh)
+
+
+

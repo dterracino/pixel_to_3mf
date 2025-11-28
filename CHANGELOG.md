@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Major refactoring**: Separated generic 3MF writer logic into reusable core module
+  - Created new `threemf_core.py` module (991 lines) with generic 3MF file generation
+  - Refactored `threemf_writer.py` from 954 → 379 lines (now pixel art application layer only)
+  - Introduced `ThreeMFWriter` class with callback-based architecture for extensibility
+  - Moved utility functions to core: `count_mesh_stats`, `validate_triangle_winding`, `format_float`, `prettify_xml`
+  - Added new utilities: `calculate_model_bounds`, `calculate_model_center`, `create_centering_transform`
+  - Created `ThreeMFMesh` and `ThreeMFObject` dataclasses for generic mesh representation
+  - Callback system allows customization of: object naming, material slots, transforms, thumbnails
+  - Backward compatible: existing `write_3mf()` function maintains same API
+  - Test helpers: Added adapter functions for converting between internal `Mesh` and `ThreeMFMesh` types
+
 ### Added
 
 - AMS (Automatic Material System) integration with automatic slot assignments

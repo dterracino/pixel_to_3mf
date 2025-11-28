@@ -14,10 +14,8 @@ from pathlib import Path
 # Add parent directory to path to import the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pixel_to_3mf.threemf_writer import (
-    format_float,
-    write_3mf
-)
+from pixel_to_3mf.threemf_writer import write_3mf
+from pixel_to_3mf.threemf_core import format_float
 from pixel_to_3mf.mesh_generator import Mesh
 from pixel_to_3mf.image_processor import PixelData
 from pixel_to_3mf.config import ConversionConfig

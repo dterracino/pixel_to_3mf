@@ -16,15 +16,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf
 from pixel_to_3mf.config import ConversionConfig
-from pixel_to_3mf.mesh_generator import generate_region_mesh, generate_backing_plate
+from pixel_to_3mf.mesh_generator import generate_region_mesh, generate_backing_plate, Mesh
 from pixel_to_3mf.region_merger import Region
 from pixel_to_3mf.image_processor import PixelData
-from pixel_to_3mf.threemf_writer import count_mesh_stats, validate_triangle_winding
 from tests.helpers import (
     create_simple_square_image,
     cleanup_test_file,
     calculate_expected_triangle_count,
-    calculate_expected_vertex_count
+    calculate_expected_vertex_count,
+    count_mesh_stats_adapter,
+    validate_triangle_winding_adapter
 )
 
 
@@ -150,7 +151,7 @@ class TestTriangleWinding(unittest.TestCase):
         mesh = generate_region_mesh(region, pixel_data, config)
         
         # Validate winding
-        winding = validate_triangle_winding(mesh)
+        winding = validate_triangle_winding_adapter(mesh)
         self.assertEqual(winding, "CCW",
                         f"Region mesh should use CCW winding, got {winding}")
     
@@ -171,7 +172,7 @@ class TestTriangleWinding(unittest.TestCase):
         mesh = generate_backing_plate(pixel_data, config)
         
         # Validate winding - backing plate top surface should also be CCW
-        winding = validate_triangle_winding(mesh)
+        winding = validate_triangle_winding_adapter(mesh)
         self.assertEqual(winding, "CCW",
                         f"Backing plate should use CCW winding, got {winding}")
 
@@ -189,7 +190,7 @@ class TestCountMeshStats(unittest.TestCase):
         mesh = Mesh(vertices=vertices, triangles=triangles)
         
         meshes = [(mesh, "test_mesh")]
-        total_vertices, total_triangles = count_mesh_stats(meshes)
+        total_vertices, total_triangles = count_mesh_stats_adapter(meshes)
         
         self.assertEqual(total_vertices, 3)
         self.assertEqual(total_triangles, 1)
@@ -208,7 +209,7 @@ class TestCountMeshStats(unittest.TestCase):
         mesh2 = Mesh(vertices=vertices2, triangles=triangles2)
         
         meshes = [(mesh1, "mesh1"), (mesh2, "mesh2")]
-        total_vertices, total_triangles = count_mesh_stats(meshes)
+        total_vertices, total_triangles = count_mesh_stats_adapter(meshes)
         
         self.assertEqual(total_vertices, 7)  # 3 + 4
         self.assertEqual(total_triangles, 3)  # 1 + 2

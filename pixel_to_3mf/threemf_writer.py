@@ -1,30 +1,29 @@
 """
-3MF file writer module.
+3MF file writer module - Pixel art specific implementation.
 
-This is where we package everything up into the 3MF format! A 3MF file is
-actually just a ZIP archive containing XML files and metadata. We generate:
+This module provides pixel art specific 3MF export functionality built on top
+of the generic threemf_core module. It handles:
 
-1. 3D/Objects/object_1.model - The mesh library (all our geometry)
-2. 3D/3dmodel.model - The main assembly file (references the meshes)
-3. Metadata/model_settings.config - Object names (the color names!)
-4. [Content_Types].xml - Required metadata about file types
-5. _rels/.rels - Required relationships file
-6. Metadata/*.png - Thumbnail images (if enabled)
+1. Color naming (CSS colors, filament matching, hex codes)
+2. AMS slot assignment based on color grouping
+3. Model centering and positioning
+4. Pixel art thumbnail generation
+5. Summary file generation
 
-It's like making a little self-contained package that slicers can open! 📦
+The write_3mf() function is the main entry point and maintains backward
+compatibility with the original API. It uses ThreeMFWriter from threemf_core
+with pixel art specific callbacks.
+
+For reusable 3MF writing in other applications, use threemf_core directly!
 """
 
-import zipfile
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
-from typing import List, Tuple, Dict, TYPE_CHECKING, Optional, Callable
+from typing import List, Tuple, Dict, TYPE_CHECKING, Optional, Callable, Any
 from pathlib import Path
-import uuid
 from PIL import Image
 from functools import lru_cache
 
 from .mesh_generator import Mesh
-from .constants import COORDINATE_PRECISION
+from .threemf_core import ThreeMFWriter, ThreeMFMesh
 from color_tools import Palette, FilamentPalette, rgb_to_lab, rgb_to_hex
 
 # Import for type checking only (avoids circular imports)
@@ -32,500 +31,9 @@ if TYPE_CHECKING:
     from .image_processor import PixelData
     from .config import ConversionConfig
 
-
-# XML namespaces used in 3MF files
-NS_3MF = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"
-NS_PRODUCTION = "http://schemas.microsoft.com/3dmanufacturing/production/2015/06"
-NS_BAMBU = "http://schemas.bambulab.com/package/2021"
-
-
-def prettify_xml(elem: ET.Element) -> str:
-    """
-    Convert an XML element tree to a pretty-printed string.
-    
-    ElementTree's tostring() creates ugly one-line XML. This function
-    makes it readable with proper indentation. Much nicer for debugging!
-    
-    Args:
-        elem: Root element of the XML tree
-    
-    Returns:
-        Pretty-printed XML string
-    """
-    rough_string = ET.tostring(elem, encoding='unicode')
-    reparsed = minidom.parseString(rough_string)
-    return reparsed.toprettyxml(indent="  ")
-
-
-def format_float(value: float, precision: int = COORDINATE_PRECISION) -> str:
-    """
-    Format a float for XML with specified precision.
-    
-    This strips trailing zeros and ensures consistent formatting.
-    Example: 1.50000 -> "1.5", 2.0 -> "2"
-    
-    Args:
-        value: Float value to format
-        precision: Number of decimal places
-    
-    Returns:
-        Formatted string
-    """
-    return f"{value:.{precision}f}".rstrip('0').rstrip('.')
-
-
-def count_mesh_stats(meshes: List[Tuple[Mesh, str]]) -> Tuple[int, int]:
-    """
-    Count total vertices and triangles across all meshes.
-    
-    Useful for reporting mesh complexity to users and validating
-    mesh generation in tests. Larger models will have more triangles.
-    
-    Args:
-        meshes: List of (Mesh, name) tuples
-    
-    Returns:
-        Tuple of (total_vertices, total_triangles)
-    """
-    total_vertices = sum(len(mesh.vertices) for mesh, _ in meshes)
-    total_triangles = sum(len(mesh.triangles) for mesh, _ in meshes)
-    return total_vertices, total_triangles
-
-
-def validate_triangle_winding(mesh: Mesh) -> str:
-    """
-    Determine the predominant winding order of triangles in a mesh.
-    
-    Counter-clockwise (CCW) winding means normals point outward from the surface,
-    which is the standard convention for 3D meshes. Our mesh generator uses CCW.
-    
-    For a 3D mesh with multiple faces (top, bottom, sides), we look at the
-    top surface triangles (those with highest Z coordinate) to determine winding,
-    as those should all face upward (positive Z normal).
-    
-    Args:
-        mesh: The mesh to validate
-    
-    Returns:
-        "CCW" if triangles use counter-clockwise winding (normals point out),
-        "CW" if triangles use clockwise winding (normals point in),
-        "MIXED" if winding is inconsistent,
-        "UNKNOWN" if mesh is empty or all triangles are degenerate
-    """
-    # Check if mesh has triangles
-    if not mesh.triangles:
-        return "UNKNOWN"
-    
-    # Find the max Z coordinate to identify top surface triangles
-    max_z = max(max(mesh.vertices[i][2] for i in tri) for tri in mesh.triangles)
-    
-    # Collect winding for top surface triangles (those with vertices near max_z)
-    top_face_winding = []
-    
-    for tri in mesh.triangles:
-        # Get vertices
-        v0 = mesh.vertices[tri[0]]
-        v1 = mesh.vertices[tri[1]]
-        v2 = mesh.vertices[tri[2]]
-        
-        # Check if this is a top surface triangle (all vertices at max Z)
-        if abs(v0[2] - max_z) < 1e-6 and abs(v1[2] - max_z) < 1e-6 and abs(v2[2] - max_z) < 1e-6:
-            # Compute edge vectors
-            edge1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
-            edge2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
-            
-            # Cross product gives normal vector (right-hand rule)
-            # For top surface, positive Z normal = CCW, negative Z normal = CW
-            normal_z = edge1[0] * edge2[1] - edge1[1] * edge2[0]
-            
-            if abs(normal_z) > 1e-10:  # Not degenerate
-                top_face_winding.append("CCW" if normal_z > 0 else "CW")
-    
-    if not top_face_winding:
-        return "UNKNOWN"
-    
-    # Check consistency
-    ccw_count = sum(1 for w in top_face_winding if w == "CCW")
-    cw_count = sum(1 for w in top_face_winding if w == "CW")
-    
-    if ccw_count > 0 and cw_count == 0:
-        return "CCW"
-    elif cw_count > 0 and ccw_count == 0:
-        return "CW"
-    else:
-        return "MIXED"
-
-
-def generate_object_model_xml(meshes: List[Tuple[Mesh, str]]) -> str:
-    """
-    Generate the XML content for 3D/Objects/object_1.model.
-    
-    This file is like a warehouse - it contains ALL our mesh objects
-    (colored regions + backing plate), each with a unique ID.
-    
-    Args:
-        meshes: List of (Mesh, color_name) tuples
-    
-    Returns:
-        XML string for the object model file
-    """
-    # Create root element with all necessary namespaces
-    root = ET.Element(
-        "model",
-        attrib={
-            "unit": "millimeter",
-            "xml:lang": "en-US",
-            "xmlns": NS_3MF,
-            f"xmlns:BambuStudio": NS_BAMBU,
-            f"xmlns:p": NS_PRODUCTION,
-            "requiredextensions": "p"
-        }
-    )
-    
-    # Add metadata
-    ET.SubElement(root, "metadata", name="BambuStudio:3mfVersion").text = "1"
-    
-    # Create resources container
-    resources = ET.SubElement(root, "resources")
-    
-    # Add each mesh as an object
-    for mesh_id, (mesh, color_name) in enumerate(meshes, start=1):
-        # Generate a UUID for this object (required by some slicers)
-        obj_uuid = str(uuid.uuid4())
-        
-        # Create object element
-        obj = ET.SubElement(
-            resources,
-            "object",
-            attrib={
-                "id": str(mesh_id),
-                f"p:UUID": obj_uuid,
-                "type": "model"
-            }
-        )
-        
-        # Create mesh element
-        mesh_elem = ET.SubElement(obj, "mesh")
-        
-        # Add vertices
-        vertices_elem = ET.SubElement(mesh_elem, "vertices")
-        for x, y, z in mesh.vertices:
-            ET.SubElement(
-                vertices_elem,
-                "vertex",
-                attrib={
-                    "x": format_float(x),
-                    "y": format_float(y),
-                    "z": format_float(z)
-                }
-            )
-        
-        # Add triangles
-        triangles_elem = ET.SubElement(mesh_elem, "triangles")
-        for v1, v2, v3 in mesh.triangles:
-            ET.SubElement(
-                triangles_elem,
-                "triangle",
-                attrib={
-                    "v1": str(v1),
-                    "v2": str(v2),
-                    "v3": str(v3)
-                }
-            )
-    
-    # Add empty build tag (required by spec even though this file isn't directly built)
-    ET.SubElement(root, "build")
-    
-    return prettify_xml(root)
-
-
-def generate_main_model_xml(
-    num_objects: int, 
-    mesh_transforms: List[Tuple[float, float, float]],
-    build_plate_center: Tuple[float, float] = (128.0, 128.0),
-    source_image_name: str | None = None
-) -> str:
-    """
-    Generate the XML content for 3D/3dmodel.model.
-    
-    This is the "assembly" file that references all the objects from
-    object_1.model. It creates a "build" that instances each object.
-    
-    The container object ID should be num_objects (the count of all parts),
-    NOT 0! This is critical for slicers to recognize the structure properly.
-    
-    Args:
-        num_objects: Total number of mesh objects (1-indexed, so if you have
-                    44 meshes, they're numbered 1 through 44)
-        mesh_transforms: List of (x, y, z) translations for each mesh (relative to model center)
-        build_plate_center: (x, y) coordinates for centering on build plate (default: 128, 128)
-        source_image_name: Optional name of source image file (without extension) for Title metadata
-    
-    Returns:
-        XML string for the main model file
-    """
-    # The container object ID should be one more than the last mesh object
-    # For example: if we have 44 mesh objects (IDs 1-44), the container is ID 45
-    container_id = num_objects + 1
-    
-    root = ET.Element(
-        "model",
-        attrib={
-            "unit": "millimeter",
-            "xml:lang": "en-US",
-            "xmlns": NS_3MF,
-            f"xmlns:BambuStudio": NS_BAMBU,
-            f"xmlns:p": NS_PRODUCTION,
-            "requiredextensions": "p"
-        }
-    )
-    
-    # Add metadata
-    ET.SubElement(root, "metadata", name="Application").text = "PixelTo3MF"
-    ET.SubElement(root, "metadata", name="BambuStudio:3mfVersion").text = "1"
-    
-    # Add thumbnail and title metadata
-    # WHY: These metadata entries tell slicers where to find thumbnail images
-    # and what to display as the model name in the UI
-    ET.SubElement(root, "metadata", name="Thumbnail_Middle").text = "/Metadata/plate_1.png"
-    ET.SubElement(root, "metadata", name="Thumbnail_Small").text = "/Metadata/plate_1_small.png"
-    
-    # Use source image name (without extension) as the title, or default to "PixelArt3D"
-    title = source_image_name if source_image_name else "PixelArt3D"
-    ET.SubElement(root, "metadata", name="Title").text = title
-    
-    # Create resources with a main assembly object
-    resources = ET.SubElement(root, "resources")
-    
-    # Create a container object that references all the individual objects
-    # This uses the container_id we calculated above
-    container_uuid = str(uuid.uuid4())
-    container_obj = ET.SubElement(
-        resources,
-        "object",
-        attrib={
-            "id": str(container_id),
-            f"p:UUID": container_uuid,
-            "type": "model"
-        }
-    )
-    
-    components = ET.SubElement(container_obj, "components")
-    
-    # Reference each mesh object in the object_1.model file (IDs 1 through num_objects)
-    # Each component gets its calculated transform (relative to model center)
-    for obj_id in range(1, num_objects + 1):
-        comp_uuid = str(uuid.uuid4())
-        
-        # Get the transform for this mesh (0-indexed in the list)
-        tx, ty, tz = mesh_transforms[obj_id - 1]
-        
-        # Format: scale_x 0 0 0 scale_y 0 0 0 scale_z translate_x translate_y translate_z
-        transform = f"1 0 0 0 1 0 0 0 1 {format_float(tx)} {format_float(ty)} {format_float(tz)}"
-        
-        ET.SubElement(
-            components,
-            "component",
-            attrib={
-                f"p:path": "/3D/Objects/object_1.model",
-                "objectid": str(obj_id),
-                f"p:UUID": comp_uuid,
-                "transform": transform
-            }
-        )
-    
-    # Create build section (what actually gets printed)
-    build_uuid = str(uuid.uuid4())
-    build = ET.SubElement(root, "build", attrib={f"p:UUID": build_uuid})
-    
-    # Build transform to center on build plate
-    # Format: scale_x 0 0 0 scale_y 0 0 0 scale_z translate_x translate_y translate_z
-    # We use z=1 to lift it slightly off the bed (matching the working example)
-    build_transform = f"1 0 0 0 1 0 0 0 1 {build_plate_center[0]} {build_plate_center[1]} 1"
-    
-    item_uuid = str(uuid.uuid4())
-    ET.SubElement(
-        build,
-        "item",
-        attrib={
-            "objectid": str(container_id),
-            f"p:UUID": item_uuid,
-            "transform": build_transform,
-            "printable": "1"
-        }
-    )
-    
-    return prettify_xml(root)
-
-
-def generate_model_settings_xml(object_names: List[Tuple[int, str, int]]) -> str:
-    """
-    Generate the XML content for Metadata/model_settings.config.
-    
-    This is where the magic happens for object naming! Each object ID
-    gets mapped to its color name and AMS slot, which appears in the slicer UI.
-    
-    Args:
-        object_names: List of (object_id, color_name, extruder_slot) tuples
-                     extruder_slot: 1-N for AMS slots (1 = backing color, skip metadata)
-                                   0 = container object (no extruder needed)
-    
-    Returns:
-        XML string for the model settings file
-    """
-    root = ET.Element("config")
-    
-    # Get the container object ID (should be the highest object ID)
-    container_id = max(obj_id for obj_id, _, _ in object_names)
-    
-    # Create a parent object entry - the container
-    parent_obj = ET.SubElement(root, "object", id=str(container_id))
-    ET.SubElement(parent_obj, "metadata", key="name", value="PixelArt3D")
-    
-    # Add each named object as a "part" of the parent (excluding the container itself)
-    for obj_id, color_name, extruder_slot in object_names:
-        if obj_id != container_id:  # Don't add the container as a part of itself
-            part = ET.SubElement(parent_obj, "part", id=str(obj_id), subtype="normal_part")
-            ET.SubElement(part, "metadata", key="name", value=color_name)
-            
-            # Add extruder metadata only if slot != 1 (slot 1 is default, no need to specify)
-            if extruder_slot != 1:
-                ET.SubElement(part, "metadata", key="extruder", value=str(extruder_slot))
-    
-    # Add the assemble section at the root level
-    # This tells the slicer how to assemble/place the object
-    assemble = ET.SubElement(root, "assemble")
-    ET.SubElement(
-        assemble,
-        "assemble_item",
-        attrib={
-            "object_id": str(container_id),
-            "instance_id": "0",
-            # Identity transform: no scaling (1, 1, 1), no rotation, no translation
-            "transform": "1 0 0 0 1 0 0 0 1 0 0 0",
-            "offset": "0 0 0"
-        }
-    )
-    
-    # Don't add extra XML declaration - prettify_xml will add it
-    return prettify_xml(root)
-
-
-def generate_content_types_xml() -> str:
-    """
-    Generate [Content_Types].xml - required by 3MF spec.
-    
-    This file tells parsers what kind of files are in the archive.
-    It's boilerplate but necessary!
-    
-    Returns:
-        XML string for content types
-    """
-    root = ET.Element(
-        "Types",
-        xmlns="http://schemas.openxmlformats.org/package/2006/content-types"
-    )
-    
-    # Define content types for our files
-    ET.SubElement(
-        root,
-        "Default",
-        attrib={
-            "Extension": "rels",
-            "ContentType": "application/vnd.openxmlformats-package.relationships+xml"
-        }
-    )
-    
-    ET.SubElement(
-        root,
-        "Default",
-        attrib={
-            "Extension": "model",
-            "ContentType": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml"
-        }
-    )
-    
-    ET.SubElement(
-        root,
-        "Default",
-        attrib={
-            "Extension": "png",
-            "ContentType": "image/png"
-        }
-    )
-    
-    ET.SubElement(
-        root,
-        "Default",
-        attrib={
-            "Extension": "gcode",
-            "ContentType": "text/x.gcode"
-        }
-    )
-    
-    # Don't add extra XML declaration - prettify_xml will add it
-    return prettify_xml(root)
-
-
-def generate_rels_xml() -> str:
-    """
-    Generate _rels/.rels - required relationships file.
-    
-    This tells the parser where to find the main 3D model file.
-    More boilerplate, but hey, that's XML for you! 🤷
-    
-    Returns:
-        XML string for relationships
-    """
-    root = ET.Element(
-        "Relationships",
-        xmlns="http://schemas.openxmlformats.org/package/2006/relationships"
-    )
-    
-    ET.SubElement(
-        root,
-        "Relationship",
-        attrib={
-            "Target": "/3D/3dmodel.model",
-            "Id": "rel-1",
-            "Type": "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"
-        }
-    )
-    
-    # Don't add extra XML declaration - prettify_xml will add it
-    return prettify_xml(root)
-
-
-def generate_3dmodel_rels_xml() -> str:
-    """
-    Generate 3D/_rels/3dmodel.model.rels - relationships for the main model.
-    
-    This is almost identical to the root .rels file, but it links the main model
-    to the object library. Both files use the same structure, just different targets.
-    
-    CRITICAL: Without this file, the slicer can't find the mesh geometry in object_1.model!
-    
-    Returns:
-        XML string for 3dmodel relationships
-    """
-    root = ET.Element(
-        "Relationships",
-        xmlns="http://schemas.openxmlformats.org/package/2006/relationships"
-    )
-    
-    ET.SubElement(
-        root,
-        "Relationship",
-        attrib={
-            "Target": "/3D/Objects/object_1.model",
-            "Id": "rel-1",
-            "Type": "http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"
-        }
-    )
-    
-    # Don't add extra XML declaration - prettify_xml will add it
-    return prettify_xml(root)
-
+# ============================================================================
+# Color Naming Functions (Pixel Art Specific)
+# ============================================================================
 
 @lru_cache(maxsize=256)
 def _get_filament_name_cached(
@@ -705,19 +213,74 @@ def get_color_name_and_rgb(rgb: Tuple[int, int, int], config: 'ConversionConfig'
         return _get_css_color_with_rgb_cached(rgb)
 
 
+# ============================================================================
+# Pixel Art Specific Callbacks for ThreeMFWriter
+# ============================================================================
+
+def _pixel_art_thumbnail_callback(output_path: str, context: Any) -> List[Tuple[str, bytes]]:
+    """
+    Generate pixel art thumbnails from source image.
+    
+    This callback generates all 5 required thumbnail types for Bambu Studio:
+    - top_1.png: 512x512 overhead view
+    - pick_1.png: 512x512 gray silhouette
+    - plate_1.png: 512x512 isometric with shadow
+    - plate_1_small.png: 128x128 downscaled
+    - plate_no_light_1.png: 512x512 isometric no shadow
+    
+    Args:
+        output_path: Path where 3MF will be saved (unused, kept for API consistency)
+        context: config object with source_image_path attribute
+    
+    Returns:
+        List of (zip_path, image_bytes) tuples for each thumbnail
+    """
+    from .thumbnail_generator import (
+        generate_top_view,
+        generate_pick_view,
+        generate_plate_view,
+        generate_plate_small,
+        generate_plate_no_light
+    )
+    
+    config = context
+    thumbnails = []
+    
+    # Load source image in RGBA mode for thumbnail generation
+    source_path = Path(config.source_image_path) if config.source_image_path else None
+    if source_path and source_path.exists():
+        source_img = Image.open(source_path).convert('RGBA')
+        
+        # Generate all 5 thumbnail types
+        thumbnails.append(("Metadata/top_1.png", generate_top_view(source_img)))
+        thumbnails.append(("Metadata/pick_1.png", generate_pick_view(source_img)))
+        
+        plate_view = generate_plate_view(source_img)
+        thumbnails.append(("Metadata/plate_1.png", plate_view))
+        thumbnails.append(("Metadata/plate_1_small.png", generate_plate_small(plate_view)))
+        thumbnails.append(("Metadata/plate_no_light_1.png", generate_plate_no_light(source_img)))
+    
+    return thumbnails
+
+
+# ============================================================================
+# Main Export Function (Backward Compatible API)
+# ============================================================================
+
 def write_3mf(
     output_path: str,
     meshes: List[Tuple[Mesh, str]],
     region_colors: List[Tuple[int, int, int]],
-    pixel_data: 'PixelData',  # We need this to calculate positions
+    pixel_data: 'PixelData',
     config: 'ConversionConfig',
     progress_callback: Optional[Callable[[str, str], None]] = None
 ) -> Tuple[Optional[str], List[Tuple[int, str, Tuple[int, int, int]]]]:
     """
-    Write all meshes to a 3MF file.
+    Write all meshes to a 3MF file (pixel art specific wrapper).
 
     This is the main export function! It takes all our generated meshes,
-    figures out color names, and packages everything into a proper 3MF file.
+    figures out color names, and packages everything into a proper 3MF file
+    using the generic ThreeMFWriter from threemf_core.
 
     The 3MF structure:
     - [Content_Types].xml (required metadata)
@@ -744,157 +307,100 @@ def write_3mf(
         if progress_callback:
             progress_callback("export", message)
 
-    # Determine if we have a backing plate (check if config.base_height_mm > 0)
+    # Determine if we have a backing plate
     has_backing_plate = config.base_height_mm > 0
-    
-    # Generate color names for regions
-    # If we have a backing plate, the last mesh is the backing plate, so we skip it
-    # Otherwise, all meshes are regions
     num_regions = len(region_colors)
 
     _progress(f"Assigning names to {num_regions} color regions...")
 
-    # Calculate the center of our model for positioning
-    # The model spans from (0, 0) to (model_width, model_height)
+    # Calculate model center for positioning
     model_center_x = pixel_data.model_width_mm / 2.0
     model_center_y = pixel_data.model_height_mm / 2.0
 
-    # Create a list of (mesh_index, rgb, color_name) for sorting
-    # mesh_index is 0-based index into the meshes list
+    # Create region data: (mesh_index, rgb, color_name) for each region
     region_data = []
     for i, rgb in enumerate(region_colors):
         color_name = get_color_name(rgb, config)
         region_data.append((i, rgb, color_name))
     
     # Sort alphabetically by color name for easier slicer workflow
-    region_data.sort(key=lambda x: x[2])  # Sort by color_name
+    region_data.sort(key=lambda x: x[2])
     
     # Build AMS slot mapping based on UNIQUE COLOR NAMES (not RGB values)
-    # WHY: Multiple RGB values can map to the same color name (e.g., two slightly
-    # different reds both map to "Red"). We want them to share the same AMS slot.
-    # This matches how the summary file groups colors.
-    # - Slot 1: Backing plate color (typically white)
-    # - Slots 2-N: All other unique color names in sorted order
-    
-    # First, get the backing plate color name
+    # WHY: Multiple RGB values can map to the same color name.
+    # We want them to share the same AMS slot.
     backing_color_name = get_color_name(config.backing_color, config)
     
     # Create mapping from color_name -> slot
-    name_to_slot: Dict[str, int] = {}
-    name_to_slot[backing_color_name] = 1
+    name_to_slot: Dict[str, int] = {backing_color_name: 1}
     
-    # Assign slots 2-N to other unique color names (in sorted order)
+    # Assign slots 2-N to other unique color names
     next_slot = 2
     for _, rgb, color_name in region_data:
         if color_name not in name_to_slot:
             name_to_slot[color_name] = next_slot
             next_slot += 1
     
-    # Also maintain color_to_slot for backward compatibility (maps RGB -> slot)
-    # Multiple RGB values can map to the same slot if they have the same name
-    color_to_slot: Dict[Tuple[int, int, int], int] = {}
-    color_to_slot[config.backing_color] = 1
+    # Maintain color_to_slot for backward compatibility
+    color_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
     for _, rgb, color_name in region_data:
         color_to_slot[rgb] = name_to_slot[color_name]
-    
-    # Now create the object_names and mesh_transforms in sorted order
-    # Objects are numbered 1, 2, 3, ... N (the meshes)
-    # Then we need the container object at N+1
-    # object_names now includes: (obj_id, color_name, extruder_slot)
-    object_names: List[Tuple[int, str, int]] = []
-    
-    # Also track mesh positions (transforms relative to model center)
-    mesh_transforms: List[Tuple[float, float, float]] = []
-    
-    for obj_id, (mesh_idx, rgb, color_name) in enumerate(region_data, start=1):
-        extruder_slot = color_to_slot[rgb]
-        object_names.append((obj_id, color_name, extruder_slot))
-        # Colored regions are at z=0 (on top of backing plate)
-        # Fix: Use POSITIVE offsets - we were backwards!
-        mesh_transforms.append((model_center_x, model_center_y, 0.0))
-    
-    # Add the backing plate if it exists (last mesh object)
-    if has_backing_plate:
-        backing_plate_id = len(meshes)
-        # Backing plate always uses slot 1 (backing color)
-        object_names.append((backing_plate_id, "Backing", 1))
-        # Backing plate mesh is already at correct z coords (-base_height to 0)
-        # Transform should be z=0, not z=-base_height (that would double the offset!)
-        mesh_transforms.append((model_center_x, model_center_y, 0.0))
-    
-    # Add the container object (one more than the last mesh)
-    # Container doesn't need an extruder slot (it's not a physical part)
-    container_id = len(meshes) + 1
-    object_names.append((container_id, "PixelArt3D", 0))  # 0 = no slot needed
     
     # Reorder meshes to match the sorted color order
     sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
     if has_backing_plate:
-        sorted_meshes.append(meshes[-1])  # Add backing plate at the end
-
-    _progress("Generating 3MF XML structure...")
-
-    # Generate XML content for all files
-    object_model_xml = generate_object_model_xml(sorted_meshes)
-    main_model_xml = generate_main_model_xml(len(sorted_meshes), mesh_transforms, source_image_name=config.model_title)
-    settings_xml = generate_model_settings_xml(object_names)
-    content_types_xml = generate_content_types_xml()
-    rels_xml = generate_rels_xml()
-    model_rels_xml = generate_3dmodel_rels_xml()
-
-    _progress(f"Writing {len(sorted_meshes)} objects to 3MF archive...")
-
-    # Create the 3MF file (which is just a ZIP with specific structure)
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Write all the XML files
-        zf.writestr("[Content_Types].xml", content_types_xml)
-        zf.writestr("_rels/.rels", rels_xml)
-        zf.writestr("3D/3dmodel.model", main_model_xml)
-        zf.writestr("3D/_rels/3dmodel.model.rels", model_rels_xml)  # Fixed filename!
-        zf.writestr("3D/Objects/object_1.model", object_model_xml)
-        zf.writestr("Metadata/model_settings.config", settings_xml)
-        
-        # Generate and add thumbnails (always enabled)
-        _progress("Generating thumbnails...")
-        from .thumbnail_generator import (
-            generate_top_view,
-            generate_pick_view,
-            generate_plate_view,
-            generate_plate_small,
-            generate_plate_no_light
-        )
-        
-        # Load source image in RGBA mode for thumbnail generation
-        source_path = Path(config.source_image_path) if config.source_image_path else None
-        if source_path and source_path.exists():
-            source_img = Image.open(source_path).convert('RGBA')
-            
-            # Generate all 5 thumbnail types
-            _progress("  - Generating top_1.png (512x512 overhead view)...")
-            top_view = generate_top_view(source_img)
-            zf.writestr("Metadata/top_1.png", top_view)
-            
-            _progress("  - Generating pick_1.png (512x512 gray silhouette)...")
-            pick_view = generate_pick_view(source_img)
-            zf.writestr("Metadata/pick_1.png", pick_view)
-            
-            _progress("  - Generating plate_1.png (512x512 isometric with shadow)...")
-            plate_view = generate_plate_view(source_img)
-            zf.writestr("Metadata/plate_1.png", plate_view)
-            
-            _progress("  - Generating plate_1_small.png (128x128 downscaled)...")
-            plate_small = generate_plate_small(plate_view)
-            zf.writestr("Metadata/plate_1_small.png", plate_small)
-            
-            _progress("  - Generating plate_no_light_1.png (512x512 isometric no shadow)...")
-            plate_no_light = generate_plate_no_light(source_img)
-            zf.writestr("Metadata/plate_no_light_1.png", plate_no_light)
-            
-            _progress("✅ All 5 thumbnails generated")
-        else:
-            _progress(f"⚠️  Source image not found, skipping thumbnails: {config.source_image_path}")
+        sorted_meshes.append(meshes[-1])
     
-    # Report completion through progress callback
+    # Convert to ThreeMFMesh objects with metadata
+    threemf_meshes = []
+    for idx, (mesh, _) in enumerate(sorted_meshes):
+        # Determine color name and slot based on position
+        if idx < len(region_data):
+            _, rgb, color_name = region_data[idx]
+            ams_slot = name_to_slot[color_name]
+        else:
+            # Backing plate
+            color_name = "Backing"
+            ams_slot = 1
+        
+        threemf_mesh = ThreeMFMesh(
+            vertices=mesh.vertices,
+            triangles=mesh.triangles,
+            metadata={
+                'color_name': color_name,
+                'ams_slot': ams_slot,
+                'model_center_x': model_center_x,
+                'model_center_y': model_center_y
+            }
+        )
+        threemf_meshes.append(threemf_mesh)
+    
+    # Define callbacks for ThreeMFWriter
+    def naming_callback(obj_id: int, mesh: ThreeMFMesh) -> str:
+        return mesh.metadata['color_name']
+    
+    def slot_callback(obj_id: int, mesh: ThreeMFMesh) -> int:
+        return mesh.metadata['ams_slot']
+    
+    def transform_callback(obj_id: int, mesh: ThreeMFMesh, context: Any) -> Tuple[float, float, float]:
+        # All objects centered on model center, z=0
+        return (mesh.metadata['model_center_x'], mesh.metadata['model_center_y'], 0.0)
+    
+    # Create ThreeMFWriter with pixel art callbacks
+    writer = ThreeMFWriter(
+        naming_callback=naming_callback,
+        slot_callback=slot_callback,
+        transform_callback=transform_callback,
+        thumbnail_callback=_pixel_art_thumbnail_callback,
+        progress_callback=progress_callback,
+        container_name="PixelArt3D",
+        model_title=config.model_title
+    )
+    
+    # Write the 3MF file
+    writer.write(output_path, threemf_meshes, context=config)
+    
+    # Report completion
     _progress(f"✨ 3MF file written to: {output_path}")
     if has_backing_plate:
         _progress(f"{len(region_colors)} colored regions + 1 backing plate")
@@ -909,29 +415,25 @@ def write_3mf(
         
         _progress("Generating summary file...")
         
-        # Extract RGB colors and names from region_data (already sorted)
+        # Extract RGB colors and names from region_data
         summary_colors = [rgb for _, rgb, _ in region_data]
         summary_names = [color_name for _, _, color_name in region_data]
         
-        # Always add backing plate color as a separate region (if it exists)
-        # This allows write_summary_file to distinguish backing from color layer regions
+        # Add backing plate color as a separate region
         if has_backing_plate:
             backing_name = get_color_name(config.backing_color, config)
             summary_colors.append(config.backing_color)
             summary_names.append(backing_name)
         
-        summary_path = write_summary_file(output_path, summary_colors, summary_names, color_to_slot, config, has_backing_plate)
+        summary_path = write_summary_file(
+            output_path, summary_colors, summary_names,
+            color_to_slot, config, has_backing_plate
+        )
         _progress(f"📄 Summary written to: {summary_path}")
     
     # Build color mapping for CLI display
-    # Create a list of (slot, color_name, rgb) sorted by slot number
-    # Build from name_to_slot to show only unique color names (no duplicates)
-    # For RGB, we use the MATCHED color/filament RGB, not the detected pixel RGB
-    # WHY: Users need to see the hex value of the actual filament they should load,
-    # not the hex value of the detected pixel color
+    # Use MATCHED RGB values (from filament/color lookup), not detected pixel RGB
     slot_to_color: Dict[int, Tuple[str, Tuple[int, int, int]]] = {}
-    
-    # Track which names we've already added to find their matched RGB value
     name_to_rgb: Dict[str, Tuple[int, int, int]] = {}
     
     # Build name_to_rgb mapping using matched RGB values
@@ -943,12 +445,12 @@ def write_3mf(
             _, matched_rgb = get_color_name_and_rgb(detected_rgb, config)
             name_to_rgb[color_name] = matched_rgb
     
-    # Now build slot_to_color using unique names and matched RGB values
+    # Build slot_to_color using unique names and matched RGB values
     for color_name, slot in name_to_slot.items():
         matched_rgb = name_to_rgb[color_name]
         slot_to_color[slot] = (color_name, matched_rgb)
     
-    # Convert to sorted list of (slot, color_name, rgb) tuples
+    # Convert to sorted list
     color_mapping = [(slot, name, rgb) for slot, (name, rgb) in sorted(slot_to_color.items())]
     
     return summary_path, color_mapping

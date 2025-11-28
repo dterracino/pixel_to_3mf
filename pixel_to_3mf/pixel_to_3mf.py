@@ -17,7 +17,7 @@ from pathlib import Path
 from .image_processor import load_image, PixelData
 from .region_merger import merge_regions, trim_disconnected_pixels, Region
 from .mesh_generator import generate_region_mesh, generate_backing_plate
-from .threemf_writer import write_3mf, count_mesh_stats
+from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
 
@@ -335,8 +335,10 @@ def convert_image_to_3mf(
         )
         _progress("render", f"Render saved to: {render_path}")
     
-    # Count mesh statistics
-    total_vertices, total_triangles = count_mesh_stats(meshes)
+    # Count mesh statistics (extract Mesh objects from tuples)
+    mesh_objects = [mesh for mesh, _ in meshes]
+    total_vertices = sum(len(mesh.vertices) for mesh in mesh_objects)
+    total_triangles = sum(len(mesh.triangles) for mesh in mesh_objects)
     
     # Return statistics
     stats = {

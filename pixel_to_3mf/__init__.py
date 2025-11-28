@@ -15,7 +15,7 @@ from .pixel_to_3mf import convert_image_to_3mf
 from .config import ConversionConfig
 
 # Mesh utility functions for validation and statistics
-from .threemf_writer import count_mesh_stats, validate_triangle_winding
+from .threemf_core import count_mesh_stats, validate_triangle_winding
 
 # Optimization statistics functions (only available if polygon_optimizer is installed)
 try:
