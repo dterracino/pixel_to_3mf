@@ -914,6 +914,10 @@ model.3mf (ZIP archive)
 - **Thumbnail references**: Points to embedded preview images
 - **Object names**: Color names for each region in the slicer UI
 
+**Implementation:**
+
+3MF generation is handled by modular components: `threemf_core.py` provides a generic, reusable 3MF writer with pluggable callbacks for naming, slot assignment, transforms, and thumbnails; `threemf_writer.py` implements the pixel art-specific logic (color naming, AMS slot assignment, model centering, thumbnail generation).
+
 **Advantages over STL:**
 
 - ✅ Supports multiple objects with names
@@ -1137,7 +1141,8 @@ pixel_to_3mf/
 ├── region_merger.py         # Flood-fill algorithm (configurable connectivity), trim disconnected
 ├── mesh_generator.py        # 3D geometry generation (manifold meshes), original path
 ├── polygon_optimizer.py     # Polygon-based mesh optimization (shapely + triangle)
-├── threemf_writer.py        # 3MF file export (ZIP + XML)
+├── threemf_core.py          # Generic 3MF writer core (reusable for other applications)
+├── threemf_writer.py        # Pixel art specific 3MF export (uses threemf_core)
 ├── summary_writer.py        # Summary file generation (.summary.txt)
 ├── find_filament_by_color.py # Filament color matching utilities
 └── color_tools/             # External color matching library
