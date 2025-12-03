@@ -1,0 +1,60 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: goku-kamehameha-ornament_model.3mf
+Total Colors/Regions: 77
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 12
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Blue
+   Hex: #000080
+   RGB: (0, 0, 128)
+   Regions: 5
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Cyan
+   Hex: #0080FF
+   RGB: (0, 128, 255)
+   Regions: 32
+   Location: 4 (AMS A, Slot 4)
+
+4. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 3 (2 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+5. Bambu Lab PLA Basic Orange
+   Hex: #FF6E01
+   RGB: (255, 110, 1)
+   Regions: 12
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Basic Yellow
+   Hex: #FFFF00
+   RGB: (255, 255, 0)
+   Regions: 2
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Matte Desert Tan
+   Hex: #F5D3A1
+   RGB: (245, 211, 161)
+   Regions: 4
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Ice Blue
+   Hex: #00EBFF
+   RGB: (0, 235, 255)
+   Regions: 7
+   Location: 8 (AMS B, Slot 4)
+
+======================================================================
