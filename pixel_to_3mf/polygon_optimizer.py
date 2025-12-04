@@ -425,21 +425,27 @@ def triangulate_polygon_2d(poly: Polygon) -> Tuple[List[Tuple[float, float]], Li
     # 'p' = Planar Straight Line Graph (respects boundary edges and holes)
     # 'Q' = Quiet mode (suppress output)
     # 'Y' = Prohibit Steiner points on boundaries (more reliable with holes)
+    # 'YY' = Even stricter - prohibit ALL Steiner points (may reduce quality but improves manifold guarantee)
     
     logger.debug("Calling triangle library for triangulation...")
     try:
-        logger.debug("Attempting triangulation with 'pQY' flags...")
-        result = tr.triangulate(triangle_input, 'pQY')
-        logger.debug("Triangulation with 'pQY' succeeded")
+        # Try with strictest flags first - no Steiner points at all
+        logger.debug("Attempting triangulation with 'pQYY' flags (no Steiner points)...")
+        result = tr.triangulate(triangle_input, 'pQYY')
+        logger.debug("Triangulation with 'pQYY' succeeded")
     except Exception as e:
-        logger.warning(f"Triangulation with 'pQY' failed: {e}, trying 'pQ'...")
-        # If triangulation with holes fails, try without the Y flag
+        logger.warning(f"Triangulation with 'pQYY' failed: {e}, trying 'pQY'...")
         try:
-            result = tr.triangulate(triangle_input, 'pQ')
-            logger.debug("Triangulation with 'pQ' succeeded")
+            result = tr.triangulate(triangle_input, 'pQY')
+            logger.debug("Triangulation with 'pQY' succeeded")
         except Exception as e2:
-            logger.error(f"Both triangulation attempts failed: primary={e}, fallback={e2}")
-            raise RuntimeError(f"Triangulation failed: {e}, retry also failed: {e2}")
+            logger.warning(f"Triangulation with 'pQY' also failed: {e2}, trying 'pQ' as last resort...")
+            try:
+                result = tr.triangulate(triangle_input, 'pQ')
+                logger.debug("Triangulation with 'pQ' succeeded")
+            except Exception as e3:
+                logger.error(f"All triangulation attempts failed: YY={e}, Y={e2}, basic={e3}")
+                raise RuntimeError(f"Triangulation failed with all flag combinations")
     
     # Extract results
     vertices_2d = [tuple(v) for v in result['vertices']]
@@ -650,6 +656,7 @@ def extrude_polygon_to_mesh(
         # Start a new loop
         next_v, seg_idx = unused_neighbors[0]
         loop = [start_vertex]
+        loop_segs = [seg_idx]  # Track segments used in this loop attempt
         current = start_vertex
         
         # Follow the loop until we return to start
@@ -657,27 +664,47 @@ def extrude_polygon_to_mesh(
         steps = 0
         
         while next_v != start_vertex and steps < max_steps:
-            used_segs.add(seg_idx)
             loop.append(next_v)
             
             # Find next segment (the one we haven't used yet from next_v)
+            # Don't exclude loop_segs - we need to check the current loop attempt
             next_options = [(v, s) for v, s in adjacency[next_v] 
                            if s not in used_segs and v != current]
             
             if not next_options:
-                # No more unused segments - loop complete or broken
+                # No more unused segments - loop didn't close, abandon it
                 break
             
             current = next_v
             next_v, seg_idx = next_options[0]
+            
+            # Check if we're about to re-use a segment in this loop
+            if seg_idx in loop_segs:
+                # This would create a self-intersecting loop, abandon it
+                break
+                
+            loop_segs.append(seg_idx)
             steps += 1
         
         if next_v == start_vertex and len(loop) >= 3:
-            # Successfully closed the loop
-            used_segs.add(seg_idx)  # Mark the closing segment as used
+            # Successfully closed the loop - now mark all segments as used
+            for seg in loop_segs:
+                used_segs.add(seg)
             loops.append(loop)
     
     logger.debug(f"Extracted {len(loops)} loops from {len(segments_2d)} segments")
+    logger.debug(f"Used {len(used_segs)} segments total")
+    
+    # Verify no segment is used multiple times
+    if len(used_segs) != len(segments_2d):
+        unused_count = len(segments_2d) - len(used_segs)
+        logger.warning(f"{unused_count} segments were not included in any closed loop!")
+        logger.warning("These segments will have no walls, creating boundary edges")
+    
+    # Debug: Check for vertex reuse
+    logger.debug(f"Total 3D vertices so far: {len(vertices_3d)}")
+    logger.debug(f"Expected: {len(vertices_2d) * 2} (top + bottom faces)")
+
     
     # Create walls for each loop with proper winding
     for loop_idx, loop in enumerate(loops):
