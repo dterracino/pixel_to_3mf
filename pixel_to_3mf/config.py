@@ -127,6 +127,8 @@ class ConversionConfig:
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
         quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
         generate_summary: If True, generate a summary file listing colors/filaments used
+        optimize_mesh: If True, use optimized polygon-based mesh generation (enables validate_mesh automatically)
+        validate_mesh: If True, run mesh post-processing validation and repair on all meshes
         ams_count: Number of AMS units available (1-4, default 4). Total slots = ams_count × ams_slots_per_unit
         ams_slots_per_unit: Number of filament slots per AMS unit (default 4 for Bambu Lab AMS)
     """
@@ -160,6 +162,10 @@ class ConversionConfig:
     
     # Summary file options
     generate_summary: bool = False
+    
+    # Mesh optimization and validation
+    optimize_mesh: bool = False
+    validate_mesh: bool = False
     
     # AMS configuration
     ams_count: int = AMS_COUNT
@@ -223,6 +229,12 @@ class ConversionConfig:
             raise ValueError(f"ams_count must be positive, got {self.ams_count}")
         if self.ams_count > 4:
             raise ValueError(f"ams_count cannot exceed 4 AMS units, got {self.ams_count}")
+        
+        # Auto-enable validate_mesh when optimize_mesh is used
+        # WHY: Optimized mesh generation can produce non-manifold edges in edge cases,
+        # so we automatically run post-processing validation/repair for safety
+        if self.optimize_mesh and not self.validate_mesh:
+            self.validate_mesh = True
         
         # Set default filament filters if None
         if self.filament_maker is None:

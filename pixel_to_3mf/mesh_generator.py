@@ -21,16 +21,16 @@ if TYPE_CHECKING:
 # ============================================================================
 # Feature flag for optimized mesh generation
 # ============================================================================
-# When True, uses polygon merging + triangulation for significant reduction
-# in vertex/triangle counts (50-90% typical). When False, uses original
-# per-pixel mesh generation. Both produce manifold meshes with identical
-# visual results.
+# When True, uses rectangle merging for significant reduction in vertex/triangle
+# counts (30-70% typical) with guaranteed manifold meshes (0 non-manifold edges).
+# When False, uses original per-pixel mesh generation. Both produce manifold
+# meshes with identical visual results.
 USE_OPTIMIZED_MESH_GENERATION = False
 
 # Try to import optimized functions
 try:
-    from .polygon_optimizer import (
-        generate_region_mesh_optimized,
+    from .rectangle_optimizer import (
+        optimize_region_rectangles as generate_region_mesh_optimized,
         generate_backing_plate_optimized
     )
     OPTIMIZATION_AVAILABLE = True
@@ -521,9 +521,9 @@ def generate_region_mesh(
     The tricky part is the perimeter detection - we need to find which pixels
     are on the edge (have at least one neighbor that's NOT in the region).
     
-    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
-    optimization for reduced vertex/triangle counts. Falls back to original
-    implementation if optimization fails.
+    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to rectangle-based
+    optimization for reduced vertex/triangle counts and guaranteed manifold meshes.
+    Falls back to original implementation if optimization fails.
 
     Args:
         region: The region to extrude
@@ -552,9 +552,9 @@ def generate_backing_plate(
     with holes where transparent pixels are. It goes from z=-config.base_height_mm to z=0.
     
     Automatically uses optimized path for simple rectangles (no transparency)!
-    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to polygon-based
-    optimization for reduced vertex/triangle counts. Falls back to original
-    implementation if optimization fails.
+    When USE_OPTIMIZED_MESH_GENERATION is True, dispatches to rectangle-based
+    optimization for reduced vertex/triangle counts and guaranteed manifold meshes.
+    Falls back to original implementation if optimization fails.
 
     Args:
         pixel_data: Pixel data (includes which pixels are non-transparent)

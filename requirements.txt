@@ -19,3 +19,9 @@ color-match-tools>=3.0.0
 
 # 3D visualization and rendering
 matplotlib>=3.5.0
+
+# Mesh processing and repair
+trimesh>=4.0.0
+
+# Optional: Advanced mesh repair (if needed)
+# pymesh2  # Uncomment if aggressive mesh repair is required

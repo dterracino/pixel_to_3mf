@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Mesh validation and post-processing infrastructure** (experimental)
+  - New `mesh_postprocessor.py` module for detecting and repairing mesh issues
+  - Added `--validate-mesh` flag to manually enable validation on any conversion
+  - Automatic validation when using `--optimize-mesh` flag
+  - Three-pass system: scan for issues, apply fixes, validate results
+  - Rich console output showing detected issues and applied fixes per mesh
+  - Detects: unreferenced vertices, degenerate faces, non-manifold edges, boundary edges
+  - Applies: vertex merging, degenerate face removal, duplicate face removal, winding fixes, hole filling, normal correction
+  - Uses `trimesh` library for mesh analysis and repair operations
+  - Added dependencies: `scipy`, `networkx` (required by trimesh)
+  - **Note**: Currently detects many non-manifold edges that may be false positives due to analyzing separate mesh objects independently. These edges occur at boundaries between region layers and backing plate, which is expected for multi-object 3MF files. Further investigation needed to determine if aggressive repair is required or if current mesh quality is acceptable for slicing/printing.
+
 ### Changed
 
 - **Major refactoring**: Separated generic 3MF writer logic into reusable core module
