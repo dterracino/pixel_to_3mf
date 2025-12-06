@@ -1,0 +1,130 @@
+{
+  "filename": "test_ryu.3mf",
+  "filepath": "E:\\pixel_to_3mf\\test_ryu.3mf",
+  "file_hash": "c4e2c5d9a0334b0bfeae29f8b51dc81bb6c1fe224830a60d8dafb72a2f2015f7",
+  "timestamp": "2025-12-06T14:54:37.300469",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Gold",
+      "hex": "#e4bd68",
+      "rgb": [
+        228,
+        189,
+        104
+      ],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [
+        193,
+        46,
+        31
+      ],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Bone White",
+      "hex": "#cbc6b8",
+      "rgb": [
+        203,
+        198,
+        184
+      ],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Caramel",
+      "hex": "#ae835b",
+      "rgb": [
+        174,
+        131,
+        91
+      ],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Brown",
+      "hex": "#7d6556",
+      "rgb": [
+        125,
+        101,
+        86
+      ],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Chocolate",
+      "hex": "#4d3324",
+      "rgb": [
+        77,
+        51,
+        36
+      ],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Desert Tan",
+      "hex": "#e8dbb7",
+      "rgb": [
+        232,
+        219,
+        183
+      ],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Mandarin Orange",
+      "hex": "#f99963",
+      "rgb": [
+        249,
+        153,
+        99
+      ],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Terracotta",
+      "hex": "#b15533",
+      "rgb": [
+        177,
+        85,
+        51
+      ],
+      "ams_slot": "C-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 32.77777777777778,
+    "height_mm": 50.0,
+    "pixel_size_mm": 0.5555555555555556
+  },
+  "mesh_stats": {
+    "num_vertices": 21416,
+    "num_triangles": 39896,
+    "num_regions": 455,
+    "num_colors": 11
+  }
+}

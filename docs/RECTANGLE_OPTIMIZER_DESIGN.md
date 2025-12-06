@@ -3,6 +3,7 @@
 ## Problem Statement
 
 The current `polygon_optimizer.py` uses shapely polygon union + triangle library triangulation. This approach:
+
 - Creates 54+ non-manifold edges on simple models
 - Is over-engineered for axis-aligned pixel grids
 - Produces unreliable mesh topology
@@ -14,7 +15,7 @@ Instead of treating pixels as arbitrary polygons, treat them as what they are: *
 
 ### Core Insight
 
-**Region merger connectivity ≠ Mesh topology connectivity**
+#### Region merger connectivity ≠ Mesh topology connectivity
 
 - Region merger can use 8-connectivity for color grouping (includes diagonals)
 - Mesh optimizer MUST use 4-connectivity only (edge-adjacent only)
@@ -27,6 +28,7 @@ Instead of treating pixels as arbitrary polygons, treat them as what they are: *
 **Input**: Region with pixels grouped by color (may have 8-connectivity)
 
 **Process**:
+
 1. For each color region from region_merger
 2. Extract the set of pixel coordinates
 3. Run 4-connectivity flood-fill on those pixels
@@ -41,6 +43,7 @@ Instead of treating pixels as arbitrary polygons, treat them as what they are: *
 **Input**: 4-connected sub-region (set of pixel coordinates)
 
 **Process**:
+
 1. Sort pixels by (y, x) - row-by-row, left-to-right
 2. For each row (same y-coordinate):
    - Find runs of consecutive x-coordinates
@@ -48,7 +51,8 @@ Instead of treating pixels as arbitrary polygons, treat them as what they are: *
 3. Result: List of horizontal strips
 
 **Example**:
-```
+
+```text
 Pixels: (0,0), (1,0), (2,0), (4,0), (5,0), (0,1), (1,1)
 Row 0: (0,0)-(2,0) gap (4,0)-(5,0) → strips [(0,2,0), (4,5,0)]
 Row 1: (0,1)-(1,1) → strip [(0,1,1)]
@@ -63,6 +67,7 @@ Row 1: (0,1)-(1,1) → strip [(0,1,1)]
 **Input**: List of horizontal strips
 
 **Process**:
+
 1. Sort strips by (y, x_start)
 2. For each strip, try to merge with strips from row below:
    - If strip[row].x_start == strip[row+1].x_start
@@ -72,7 +77,8 @@ Row 1: (0,1)-(1,1) → strip [(0,1,1)]
 4. Result: List of rectangles
 
 **Example**:
-```
+
+```text
 Strips: [(0,2,0), (4,5,0), (0,2,1), (0,2,2)]
 Strip (0,2,0) matches (0,2,1) → merge to (0,2,0-1)
 Rectangle (0,2,0-1) matches (0,2,2) → merge to (0,2,0-2)
@@ -90,6 +96,7 @@ Rectangles: [(0,2,0,2), (4,5,0,0)]
 **Input**: List of rectangles
 
 **Process**:
+
 1. For each rectangle (x_start, x_end, y_start, y_end):
    - Calculate 4 corners in pixel coordinates
    - Convert to world coordinates (mm) using pixel_size
@@ -98,6 +105,7 @@ Rectangles: [(0,2,0,2), (4,5,0,0)]
 3. When adjacent rectangles share corners, reuse vertex index
 
 **Data Structure**:
+
 ```python
 # Vertex lookup for manifold sharing
 vertex_map: Dict[Tuple[float, float, float], int] = {}
@@ -112,7 +120,8 @@ else:
     vertex_map[key] = vertex_idx
 ```
 
-**Output**: 
+**Output**:
+
 - `vertices: List[Tuple[float, float, float]]`
 - `vertex_map: Dict[corner_coord, vertex_index]`
 
@@ -125,7 +134,8 @@ else:
 **Process**: For each rectangle, generate triangles:
 
 **Top face** (2 triangles, CCW winding when viewed from above):
-```
+
+```text
    v1 ---- v2
    |  \     |
    |    \   |
@@ -137,13 +147,15 @@ Triangle 2: (v0, v2, v3)  # Bottom-left, top-right, bottom-right
 ```
 
 **Bottom face** (2 triangles, CCW winding when viewed from below = CW from above):
-```
+
+```text
 Triangle 1: (v4, v6, v5)  # Bottom-left, top-right, top-left (reversed)
 Triangle 2: (v4, v7, v6)  # Bottom-left, bottom-right, top-right (reversed)
 ```
 
 **Side walls** (8 triangles total, 2 per side):
-```
+
+```text
 Left wall (x=x_start):
   Triangle 1: (v0, v5, v1)
   Triangle 2: (v0, v4, v5)
@@ -168,6 +180,7 @@ Top wall (y=y_end):
 ## Data Structures
 
 ### Region (from region_merger.py)
+
 ```python
 class Region:
     color: Tuple[int, int, int]  # RGB
@@ -175,24 +188,28 @@ class Region:
 ```
 
 ### Sub-Region (internal)
+
 ```python
 # 4-connected split of original region
 SubRegion = Set[Tuple[int, int]]  # Pixel coordinates
 ```
 
 ### Horizontal Strip (internal)
+
 ```python
 # Consecutive horizontal run of pixels
 Strip = Tuple[int, int, int]  # (x_start, x_end, y)
 ```
 
 ### Rectangle (internal)
+
 ```python
 # Merged vertical strips
 Rectangle = Tuple[int, int, int, int]  # (x_start, x_end, y_start, y_end)
 ```
 
 ### Mesh (output, from mesh_generator.py)
+
 ```python
 class Mesh:
     vertices: List[Tuple[float, float, float]]  # (x_mm, y_mm, z_mm)
@@ -202,6 +219,7 @@ class Mesh:
 ## Expected Results
 
 ### Manifold Properties
+
 - ✅ Every edge shared by exactly 2 triangles
 - ✅ No boundary edges (0 edges with only 1 triangle)
 - ✅ No non-manifold edges (0 edges with 3+ triangles)
@@ -209,12 +227,14 @@ class Mesh:
 - ✅ CCW winding on all triangles
 
 ### Reduction Estimates
+
 - Small pixel art (16x16): 10-30% reduction
 - Medium pixel art (64x64): 30-50% reduction
 - Large screenshots (320x200): 50-70% reduction
 - Solid color blocks: 90%+ reduction
 
 ### Reliability
+
 - 100% success rate (no fallback needed)
 - No external dependencies (shapely, triangle)
 - Simple pure Python + NumPy
@@ -225,6 +245,7 @@ class Mesh:
 ### New Module: `rectangle_optimizer.py`
 
 **Main entry point**:
+
 ```python
 def optimize_region_rectangles(
     region: Region,
@@ -240,6 +261,7 @@ def optimize_region_rectangles(
 ```
 
 **Internal functions**:
+
 ```python
 def split_to_4_connectivity(pixels: Set[Tuple[int, int]]) -> List[Set[Tuple[int, int]]]:
     """Phase 1: Split 8-connectivity region into 4-connected sub-regions."""
@@ -272,6 +294,7 @@ def generate_triangles(
 ### Integration
 
 Update `pixel_to_3mf.py`:
+
 ```python
 # Replace polygon_optimizer import with rectangle_optimizer
 from .rectangle_optimizer import optimize_region_rectangles

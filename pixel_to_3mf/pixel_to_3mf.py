@@ -10,9 +10,12 @@ No print statements, no argparse, just clean conversion logic! 🎯
 
 import math
 import os
+import logging
 
 from typing import Optional, Callable, Dict, Any, List, Set, Tuple
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from .image_processor import load_image, PixelData
 from .region_merger import merge_regions, trim_disconnected_pixels, Region
@@ -387,7 +390,8 @@ def convert_image_to_3mf(
         'num_triangles': total_triangles,
         'output_path': output_path,
         'file_size': format_filesize(os.path.getsize(output_path)),
-        'color_mapping': color_mapping  # AMS slot assignments
+        'color_mapping': color_mapping,  # AMS slot assignments
+        'config': config  # Store config for batch checking
     }
     
     # Add validation results if available
@@ -401,5 +405,13 @@ def convert_image_to_3mf(
     # Add render path if generated
     if render_path:
         stats['render_path'] = render_path
+    
+    # Write model info file for batch checking
+    from .model_info import write_model_info
+    try:
+        info_path = write_model_info(output_path, stats, converter_version="0.x.x")
+        stats['info_path'] = info_path
+    except Exception as e:
+        logger.warning(f"Failed to write model info file: {e}")
     
     return stats

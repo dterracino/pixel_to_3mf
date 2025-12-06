@@ -1,0 +1,60 @@
+{
+  "filename": "test_link.3mf",
+  "filepath": "E:\\pixel_to_3mf\\test_link.3mf",
+  "file_hash": "2f6b68b3e509eec6a8f996d1e261ab467668934cdc47e061412f3697917ab55d",
+  "timestamp": "2025-12-06T13:11:52.314361",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bright Green",
+      "hex": "#becf00",
+      "rgb": [
+        190,
+        207,
+        0
+      ],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pumpkin Orange",
+      "hex": "#ff9016",
+      "rgb": [
+        255,
+        144,
+        22
+      ],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Terracotta",
+      "hex": "#b15533",
+      "rgb": [
+        177,
+        85,
+        51
+      ],
+      "ams_slot": "A-4"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 46.875,
+    "height_mm": 50.0,
+    "pixel_size_mm": 3.125
+  },
+  "mesh_stats": {
+    "num_vertices": 1144,
+    "num_triangles": 2220,
+    "num_regions": 18,
+    "num_colors": 4
+  }
+}

@@ -286,6 +286,165 @@ winding = validate_triangle_winding(mesh)
 print(f"Winding order: {winding}")  # Should be "CCW" for proper normals
 ```
 
+### Batch Compatibility Checker 🎯
+
+When printing multiple models together, the batch compatibility checker analyzes which models can be printed in a single batch based on your AMS capacity.
+
+**Key Features:**
+
+- 🎨 **Color aggregation** across all models
+- 🔢 **Smart AMS slot assignment** (4 units × 4 slots = 16 total)
+- ✅ **Complete model guarantee** - ensures at least one model can print
+- 🎯 **Overlap optimization** - prioritizes models sharing colors
+- 🌈 **Visual highlighting** - see which colors need swapping
+- 🔐 **Hash verification** - detects modified files
+
+**Prerequisites:**
+
+The batch checker requires `.info.json` files for each 3MF model. Generate these during conversion:
+
+```bash
+# Convert with --summary to generate .info.json files
+python run_converter.py sprite1.png --summary
+python run_converter.py sprite2.png --summary
+python run_converter.py sprite3.png --summary
+
+# Or use batch mode with --summary
+python run_converter.py --batch --summary
+```
+
+**Basic Usage:**
+
+```bash
+# Check if models can print together
+python run_converter.py --check-batch model1.3mf model2.3mf model3.3mf
+
+# Flexible path handling - all these work:
+python run_converter.py --check-batch output/model1.3mf output/model2.3mf
+python run_converter.py --check-batch model1 model2 model3  # Auto-adds .3mf
+python run_converter.py --check-batch ./batch/output/*.3mf  # Wildcard expansion
+```
+
+**Understanding the Output:**
+
+The batch checker provides comprehensive analysis:
+
+#### 1. Model Loading & Hash Verification
+
+```text
+Loading model information...
+  ✓ test_samus.3mf: File hash matches - data is current
+  ✓ test_pacman.3mf: File hash matches - data is current
+  ⚠ test_link.3mf: File modified since conversion
+```
+
+#### 2. Color Aggregation
+
+```text
+Found 22 unique colors:
+  • Bambu Lab PLA Basic Jade White (used 5 times)
+  • Bambu Lab PLA Basic Black (used 4 times)
+  • Bambu Lab PLA Basic Gold (used 2 times)
+  ...
+```
+
+#### 3. Smart Slot Assignment
+
+The algorithm follows this priority:
+
+1. **Most common white → Slot A-1** (automatic priority)
+2. **Most common black/charcoal → Slot A-2** (automatic priority)
+3. **Complete model guarantee**: If colors don't fit in 16 slots, the checker:
+   - Calculates overlap score for each model (how many colors are shared with other models)
+   - Prioritizes the model with highest overlap
+   - Loads ALL that model's colors first
+   - Fills remaining slots with most frequent colors
+4. **Frequency-based filling**: Remaining slots sorted by usage count
+
+#### 4. Visual Highlighting
+
+Colors are styled to show their importance:
+
+- **Bold Green**: Colors in ALL models (never need swapping)
+- **Dim**: Colors only in remaining models (could defer loading initially)
+- **Normal**: Colors needed for first batch
+
+```text
+                   Recommended AMS Slot Assignments                   
+┌──────┬──────────────────────────────────┬─────────┬─────────┬───────────┐
+│ Slot │ Color/Filament                   │ Hex     │ Used In │ Models    │
+├──────┼──────────────────────────────────┼─────────┼─────────┼───────────┤
+│ A-1  │ Bambu Lab PLA Basic Jade White   │ #ffffff │     5/5 │ all...    │  ← Bold green
+│ A-2  │ Bambu Lab PLA Basic Black        │ #000000 │     4/5 │ most...   │
+│ A-3  │ Bambu Lab PLA Basic Orange       │ #ff6a13 │     1/5 │ ken only  │
+│ ...  │ ...                              │ ...     │ ...     │ ...       │
+│ D-4  │ Bambu Lab PLA Matte Bone White   │ #f5f1e8 │     1/5 │ ryu only  │  ← Dim
+└──────┴──────────────────────────────────┴─────────┴─────────┴───────────┘
+```
+
+#### 5. Batch Recommendations
+
+When all models fit:
+
+```text
+╭─────────────────────────────── All Models Compatible ───────────────────────────────╮
+│ ✅ All 3 models can print in a single batch!                                        │
+│                                                                                     │
+│ Load these 10 colors into your AMS and start printing.                             │
+╰─────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+When models need multiple batches:
+
+```text
+╭────────────────────────────── Batch Requires Multiple Builds ───────────────────────╮
+│ ⚠ Too many colors for one batch                                                     │
+│                                                                                     │
+│ You have 22 unique colors but only 16 AMS slots.                                   │
+│                                                                                     │
+│ Recommended approach:                                                               │
+│ 1. Load the 16 colors shown above (most frequently used)                           │
+│ 2. Print these models first: test_link.3mf, test_ken.3mf                           │
+│ 3. After first batch, swap filaments for remaining models                          │
+│                                                                                     │
+│ Models needing color swaps: 3                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────╯
+
+Remaining models and their additional colors:
+  • test_ryu.3mf: Bone White, Caramel, Dark Brown, Dark Chocolate
+  • test_pacman.3mf: Purple
+  • test_samus.3mf: Mistletoe Green
+```
+
+**Real-World Example:**
+
+```bash
+# You have 5 sprite models to print
+python run_converter.py --check-batch \
+  test_samus.3mf \
+  test_pacman.3mf \
+  test_link.3mf \
+  test_ryu.3mf \
+  test_ken.3mf
+
+# Result:
+# - 22 unique colors found
+# - Prioritizes test_ken (14 colors, highest overlap with other models)
+# - Loads 16 colors into AMS slots A-1 through D-4
+# - First batch: test_link.3mf and test_ken.3mf (both complete with loaded colors)
+# - Second batch: test_ryu.3mf (swap 4 colors)
+# - Third batch: test_pacman.3mf (swap 1 color)
+# - Fourth batch: test_samus.3mf (swap 1 color)
+```
+
+**Tips:**
+
+- 🎨 Generate `.info.json` files with `--summary` flag during conversion
+- 🔍 Use `--check-batch` BEFORE loading filaments to plan your print batches
+- 🎯 Models with similar color palettes print together more efficiently
+- 📊 Dim-colored entries can wait for later batches
+- ✅ Hash warnings mean you should reconvert the model with `--summary`
+
 ## Examples 📸
 
 ### Sample Files

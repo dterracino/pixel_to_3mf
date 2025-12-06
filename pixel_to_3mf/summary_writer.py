@@ -16,6 +16,39 @@ if TYPE_CHECKING:
     from .config import ConversionConfig
 
 
+def index_to_ams_slot(index: int, ams_count: int, ams_slots_per_unit: int) -> str:
+    """
+    Convert a 0-based slot index to AMS slot name.
+    
+    Index mapping (example with 4 units, 4 slots per unit):
+    - Index 0:  A-1
+    - Index 1:  A-2
+    - Index 3:  A-4
+    - Index 4:  B-1
+    - Index 15: D-4
+    
+    Args:
+        index: 0-based slot index (0 to ams_count * ams_slots_per_unit - 1)
+        ams_count: Number of AMS units (1-4)
+        ams_slots_per_unit: Number of slots per AMS unit (typically 4)
+    
+    Returns:
+        AMS slot name (e.g., "A-1", "B-3", "D-4")
+        
+        If index is out of range, returns "?-{index}"
+    """
+    max_slots = ams_count * ams_slots_per_unit
+    if index < 0 or index >= max_slots:
+        return f"?-{index}"
+    
+    # Calculate AMS unit (A, B, C, D, ...) and slot within unit
+    ams_index = index // ams_slots_per_unit
+    slot_number = (index % ams_slots_per_unit) + 1
+    
+    ams_id = chr(ord('A') + ams_index)
+    return f"{ams_id}-{slot_number}"
+
+
 def _extruder_to_ams_location(extruder: int, ams_count: int, ams_slots_per_unit: int) -> Tuple[str, int]:
     """
     Convert an extruder number to AMS location.

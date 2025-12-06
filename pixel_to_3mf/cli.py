@@ -530,10 +530,27 @@ The program will:
         help="Write debug/info log messages to a file (default: no logging). "
              "Useful for debugging mesh optimization and seeing detailed processing information."
     )
+    
+    # Batch checking arguments
+    parser.add_argument(
+        "--check-batch",
+        type=str,
+        nargs='+',
+        metavar="MODEL",
+        help="Check if multiple 3MF files can be printed together in one batch. "
+             "Reads .info.json files for each model and analyzes color compatibility. "
+             "Example: --check-batch model1.3mf model2.3mf model3.3mf"
+    )
 
 
     # Parse arguments
     args = parser.parse_args()
+    
+    # Handle --check-batch mode (early exit)
+    if args.check_batch:
+        from .batch_checker import check_batch_compatibility
+        check_batch_compatibility(args.check_batch)
+        return  # Exit after batch check
     
     # Configure logging
     import logging
