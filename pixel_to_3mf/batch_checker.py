@@ -15,6 +15,44 @@ from rich.panel import Panel
 from .model_info import find_info_file_for_model, verify_model_info
 
 
+def check_batch_compatibility_folder(folder_path: str) -> None:
+    """
+    Check batch compatibility for all .3MF files in a folder.
+    
+    Scans the specified folder for all .3mf files (case-insensitive),
+    then calls check_batch_compatibility() with the discovered files.
+    
+    Args:
+        folder_path: Path to folder containing .3mf files. Defaults to current directory.
+    """
+    console = Console()
+    folder = Path(folder_path).resolve()
+    
+    if not folder.exists():
+        console.print(f"[red]❌ Error: Folder not found: {folder}[/red]")
+        return
+    
+    if not folder.is_dir():
+        console.print(f"[red]❌ Error: Not a directory: {folder}[/red]")
+        return
+    
+    # Find all .3mf files (case-insensitive)
+    model_files = sorted([
+        str(f) for f in folder.glob('*')
+        if f.suffix.lower() == '.3mf' and f.is_file()
+    ])
+    
+    if not model_files:
+        console.print(f"[yellow]⚠️  No .3MF files found in: {folder}[/yellow]")
+        return
+    
+    console.print(f"[cyan]📁 Found {len(model_files)} .3MF file(s) in: {folder}[/cyan]")
+    console.print()
+    
+    # Call the regular batch checker with discovered files
+    check_batch_compatibility(model_files)
+
+
 def check_batch_compatibility(model_paths: List[str]) -> None:
     """
     Check if multiple 3MF models can be printed together in one batch.
@@ -45,14 +83,15 @@ def check_batch_compatibility(model_paths: List[str]) -> None:
     
     for model_path_str in model_paths:
         # Normalize the path:
-        # - If no extension, add .3mf
+        # - If no .3mf extension, add it
         # - Convert to Path object
         # - If relative, resolve against current working directory
         model_path = Path(model_path_str)
         
         # Add .3mf extension if missing
-        if model_path.suffix.lower() != '.3mf':
-            model_path = model_path.with_suffix('.3mf')
+        # Use endswith() instead of suffix to handle filenames with dots (e.g., "3.5-floppy.png")
+        if not model_path_str.lower().endswith('.3mf'):
+            model_path = Path(model_path_str + '.3mf')
         
         # If path doesn't exist, try current directory
         if not model_path.exists():
@@ -195,63 +234,101 @@ def check_batch_compatibility(model_paths: List[str]) -> None:
     colors_fit = total_colors <= max_slots
     
     if not colors_fit:
-        # We can't fit everything. Ensure at least one complete model can print.
-        # Strategy: Pick the model whose colors have the MOST overlap with other models.
-        # This maximizes the usefulness of the loaded colors for subsequent batches.
+        # We can't fit everything. Goal: Maximize the NUMBER of models that can print.
+        # Strategy: Find the combination of colors that allows the most models to complete.
+        
         slots_used = len(priority_colors)
         slots_remaining = max_slots - slots_used
         
-        # For each model, calculate how useful its colors are
-        model_scores = []
+        console.print(f"[dim]Optimizing color selection to maximize printable models...[/dim]")
+        
+        # Build list of all models with their color requirements
+        model_requirements = []
         for model_path, info in models_data:
             model_colors = {c['name'] for c in info.get('colors', [])}
-            # Count how many colors this model needs that aren't already included
             additional_needed = model_colors - included_color_names
-            num_additional = len(additional_needed)
-            
-            # Calculate overlap score: how many OTHER models use this model's colors
-            overlap_score = 0
-            for color_name in model_colors:
-                if color_name in color_aggregation:
-                    # Count how many models use this color (subtract 1 for current model)
-                    overlap_score += color_aggregation[color_name]['count'] - 1
-            
-            model_scores.append((
-                model_path.name,
-                model_colors,
-                additional_needed,
-                num_additional,
-                overlap_score
-            ))
+            model_requirements.append({
+                'name': model_path.name,
+                'all_colors': model_colors,
+                'additional_needed': additional_needed,
+                'num_additional': len(additional_needed)
+            })
         
-        # Sort by:
-        # 1. Models that fit (num_additional <= slots_remaining)
-        # 2. Highest overlap score (most shared with other models)
-        # 3. Fewest additional colors needed (tiebreaker)
-        model_scores.sort(key=lambda x: (
-            x[3] > slots_remaining,  # False (fits) sorts before True (doesn't fit)
-            -x[4],                   # Higher overlap score first
-            x[3],                    # Fewer additional colors first
-            x[0]                     # Model name for stable sort
-        ))
+        # Try greedy approach: repeatedly pick the model that adds the FEWEST new colors
+        # while maximizing total printable models
+        selected_colors = set(included_color_names)
+        printable_models = []
         
-        # Try to fit the best model
-        best_model = model_scores[0]
-        model_name, model_colors, additional_needed, num_additional, overlap_score = best_model
+        while slots_remaining > 0:
+            best_choice = None
+            best_new_printable = 0
+            
+            # For each model not yet printable, see how many slots it would need
+            for model_req in model_requirements:
+                if model_req['name'] in [m['name'] for m in printable_models]:
+                    continue  # Already printable
+                
+                # Calculate colors needed for this model
+                colors_needed = model_req['all_colors'] - selected_colors
+                num_needed = len(colors_needed)
+                
+                if num_needed == 0:
+                    # This model is already printable! Add it.
+                    printable_models.append(model_req)
+                    continue
+                
+                if num_needed > slots_remaining:
+                    continue  # Can't fit this model
+                
+                # If we add this model's colors, how many NEW models become printable?
+                test_colors = selected_colors | colors_needed
+                new_printable_count = 0
+                new_printable_models = []
+                
+                for other_model in model_requirements:
+                    if other_model['name'] in [m['name'] for m in printable_models]:
+                        continue
+                    if other_model['all_colors'].issubset(test_colors):
+                        new_printable_count += 1
+                        new_printable_models.append(other_model)
+                
+                # Pick the model that enables the most new printable models
+                # Tiebreaker: fewest colors needed
+                if new_printable_count > best_new_printable or \
+                   (new_printable_count == best_new_printable and 
+                    (best_choice is None or num_needed < len(best_choice['colors_needed']))):
+                    best_new_printable = new_printable_count
+                    best_choice = {
+                        'model': model_req,
+                        'colors_needed': colors_needed,
+                        'new_printable': new_printable_models
+                    }
+            
+            # If we found a beneficial choice, apply it
+            if best_choice and best_new_printable > 0:
+                model_name = best_choice['model']['name']
+                colors_to_add = best_choice['colors_needed']
+                
+                console.print(f"[dim]  Adding {len(colors_to_add)} colors for {model_name} (enables {best_new_printable} model(s))[/dim]")
+                
+                for color_name in colors_to_add:
+                    priority_colors.append((color_name, color_aggregation[color_name]))
+                    selected_colors.add(color_name)
+                
+                slots_remaining -= len(colors_to_add)
+                
+                # Mark all newly printable models
+                for new_model in best_choice['new_printable']:
+                    printable_models.append(new_model)
+            else:
+                # No beneficial choice found, stop optimization
+                break
         
-        if num_additional <= slots_remaining:
-            # This model fits! Add all its colors to priority
-            console.print(f"[dim]Prioritizing {model_name}: needs {num_additional} additional colors, shared with {overlap_score} other model uses[/dim]")
-            
-            for color_name in additional_needed:
-                priority_colors.append((color_name, color_aggregation[color_name]))
-                included_color_names.add(color_name)
-            
-            slots_remaining -= num_additional
-        else:
-            console.print(f"[bold red]⚠ Warning: Cannot fit all colors for any single model in {max_slots} slots![/bold red]")
-            console.print(f"[yellow]The best candidate model ({model_name}) needs {num_additional + slots_used} total slots[/yellow]")
-            console.print()
+        # Update included_color_names with optimized selection
+        included_color_names = selected_colors
+        
+        console.print(f"[dim]Optimization complete: {len(printable_models)} model(s) can print with {max_slots - slots_remaining} colors[/dim]")
+        console.print()
     
     # Sort remaining colors by count (desc), then name (asc)
     # Only exclude colors already included in priority_colors

@@ -316,13 +316,17 @@ python run_converter.py --batch --summary
 **Basic Usage:**
 
 ```bash
-# Check if models can print together
+# Check specific models
 python run_converter.py --check-batch model1.3mf model2.3mf model3.3mf
+
+# Check all models in a folder (easiest for many files)
+python run_converter.py --check-batch-folder samples/output/
+python run_converter.py --check-batch-folder  # Uses current directory
 
 # Flexible path handling - all these work:
 python run_converter.py --check-batch output/model1.3mf output/model2.3mf
 python run_converter.py --check-batch model1 model2 model3  # Auto-adds .3mf
-python run_converter.py --check-batch ./batch/output/*.3mf  # Wildcard expansion
+python run_converter.py --check-batch ./batch/output/*.3mf  # Wildcard expansion (shell expands *)
 ```
 
 **Understanding the Output:**
@@ -354,11 +358,12 @@ The algorithm follows this priority:
 
 1. **Most common white → Slot A-1** (automatic priority)
 2. **Most common black/charcoal → Slot A-2** (automatic priority)
-3. **Complete model guarantee**: If colors don't fit in 16 slots, the checker:
-   - Calculates overlap score for each model (how many colors are shared with other models)
-   - Prioritizes the model with highest overlap
-   - Loads ALL that model's colors first
-   - Fills remaining slots with most frequent colors
+3. **Batch optimization**: If colors don't fit in 16 slots, the checker:
+   - **Maximizes the number of models** that can print in the first batch
+   - Uses greedy optimization: iteratively picks models that enable the most additional printable models
+   - Prioritizes models with fewer unique colors when choices are equal
+   - Ensures at least one complete model can always print
+   - Example: With 9 models and 30 colors, optimizes to fit 5 models in first batch instead of just 1
 4. **Frequency-based filling**: Remaining slots sorted by usage count
 
 #### 4. Visual Highlighting

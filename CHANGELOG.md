@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Batch compatibility checker**: Fixed bug where filenames containing dots (e.g., `3.5-floppy-ornament_model`) would not be recognized when passed without the `.3mf` extension. Now correctly uses `endswith('.3mf')` check instead of relying on Path.suffix property.
+
 ### Added
 
 - **Bambu Lab printer integration** for querying printer status and AMS information
@@ -27,13 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Batch compatibility checker** for multi-model printing
   - New `--check-batch` command to analyze compatibility of multiple 3MF files
+  - New `--check-batch-folder` command to check all .3mf files in a directory
+    - Scans folder for all .3MF files automatically
+    - No need to type individual filenames
+    - Defaults to current directory if no folder specified
+    - Example: `python run_converter.py --check-batch-folder samples/output/`
   - Flexible path handling: supports full paths, relative paths, or simple filenames (auto-adds .3mf)
   - Color aggregation across all models with usage tracking
-  - Smart AMS slot assignment algorithm:
+  - Intelligent batch optimization algorithm:
+    - **Maximizes number of models** that can print in first batch
     - Most common white → Slot A-1 (automatic priority)
     - Most common black/charcoal → Slot A-2 (automatic priority)
-    - Complete model guarantee: ensures at least one model can print with selected colors
-    - Overlap optimization: prioritizes model with most color sharing across batch
+    - Greedy optimization: iteratively selects models that enable most additional printable models
+    - Minimizes color swaps needed for subsequent batches
     - Frequency-based slot filling for remaining colors
   - Three-tier visual highlighting in results:
     - Bold green: Colors in ALL models (never need swapping)
@@ -43,7 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Remaining batch analysis: lists models needing color swaps with specific colors required
   - Hash verification: detects if 3MF files modified since conversion
   - Requires `.info.json` files generated during conversion (automatic with `--summary`)
-  - Example: `python run_converter.py --check-batch model1.3mf model2.3mf model3.3mf`
+  - Examples:
+    - `python run_converter.py --check-batch model1.3mf model2.3mf model3.3mf`
+    - `python run_converter.py --check-batch-folder samples/output/`
 
 - **JSON formatting utilities** for consistent output styling
   - New `json_utils.py` module with reusable JSON formatting functions

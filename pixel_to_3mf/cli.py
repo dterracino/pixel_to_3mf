@@ -541,10 +541,27 @@ The program will:
              "Reads .info.json files for each model and analyzes color compatibility. "
              "Example: --check-batch model1.3mf model2.3mf model3.3mf"
     )
+    
+    parser.add_argument(
+        "--check-batch-folder",
+        type=str,
+        nargs='?',
+        const='.',
+        metavar="FOLDER",
+        help="Check all .3MF files in a folder for batch compatibility. "
+             "If no folder specified, uses current directory. "
+             "Example: --check-batch-folder samples/output/"
+    )
 
 
     # Parse arguments
     args = parser.parse_args()
+    
+    # Handle --check-batch-folder mode (early exit)
+    if args.check_batch_folder:
+        from .batch_checker import check_batch_compatibility_folder
+        check_batch_compatibility_folder(args.check_batch_folder)
+        return  # Exit after batch check
     
     # Handle --check-batch mode (early exit)
     if args.check_batch:
