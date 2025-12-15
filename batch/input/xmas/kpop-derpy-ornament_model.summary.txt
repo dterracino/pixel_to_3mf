@@ -1,0 +1,72 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: kpop-derpy-ornament_model.3mf
+Total Colors/Regions: 42
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #211F1D
+   RGB: (33, 31, 29)
+   Regions: 11
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Cobalt Blue
+   Hex: #0669DF
+   RGB: (6, 105, 223)
+   Regions: 1
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 6 (5 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+4. Bambu Lab PLA Basic Maroon Red
+   Hex: #880111
+   RGB: (136, 1, 17)
+   Regions: 3
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Orange
+   Hex: #F56C0B
+   RGB: (245, 108, 11)
+   Regions: 4
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Basic Pink
+   Hex: #F57484
+   RGB: (245, 116, 132)
+   Regions: 1
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Basic Red
+   Hex: #C20219
+   RGB: (194, 2, 25)
+   Regions: 5
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Basic Sunflower Yellow
+   Hex: #FDC838
+   RGB: (253, 200, 56)
+   Regions: 2
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Sakura Pink
+   Hex: #F6B5D7
+   RGB: (246, 181, 215)
+   Regions: 2
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Sky Blue
+   Hex: #5DA6FC
+   RGB: (93, 166, 252)
+   Regions: 7
+   Location: 10 (AMS C, Slot 2)
+
+======================================================================

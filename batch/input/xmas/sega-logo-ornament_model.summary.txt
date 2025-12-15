@@ -1,0 +1,30 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: sega-logo-ornament_model.3mf
+Total Colors/Regions: 13
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 1
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Cobalt Blue
+   Hex: #0162AF
+   RGB: (1, 98, 175)
+   Regions: 9
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 3 (2 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+======================================================================

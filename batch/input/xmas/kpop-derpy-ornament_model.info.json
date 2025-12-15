@@ -1,0 +1,80 @@
+{
+  "filename": "kpop-derpy-ornament_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\xmas\\kpop-derpy-ornament_model.3mf",
+  "file_hash": "b62cbd2919486948669692f0eb5131e38f00af07a7cbfafc897e1d73fb66adb5",
+  "timestamp": "2025-12-06T16:01:09.330114",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Cobalt Blue",
+      "hex": "#0056b8",
+      "rgb": [0, 86, 184],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Maroon Red",
+      "hex": "#9d2235",
+      "rgb": [157, 34, 53],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Orange",
+      "hex": "#ff6a13",
+      "rgb": [255, 106, 19],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pink",
+      "hex": "#f55a74",
+      "rgb": [245, 90, 116],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Sunflower Yellow",
+      "hex": "#fec600",
+      "rgb": [254, 198, 0],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Sakura Pink",
+      "hex": "#e8afcf",
+      "rgb": [232, 175, 207],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Sky Blue",
+      "hex": "#56b7e6",
+      "rgb": [86, 183, 230],
+      "ams_slot": "C-2"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 178.94736842105266,
+    "pixel_size_mm": 10.526315789473685
+  },
+  "mesh_stats": {
+    "num_vertices": 1888,
+    "num_triangles": 3444,
+    "num_regions": 41,
+    "num_colors": 10
+  }
+}
