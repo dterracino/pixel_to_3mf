@@ -1,0 +1,62 @@
+{
+  "filename": "decepticons-ornament_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\batch\\output\\decepticons-ornament_model.3mf",
+  "file_hash": "7f94e18800e9791724714a1cbea418c0d6d384bede7d37702a34a46345704643",
+  "timestamp": "2025-12-09T15:07:41.691224",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Dark Gray",
+      "hex": "#545454",
+      "rgb": [84, 84, 84],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Indigo Purple",
+      "hex": "#482960",
+      "rgb": [72, 41, 96],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Purple",
+      "hex": "#5e43b7",
+      "rgb": [94, 67, 183],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Silver",
+      "hex": "#a6a9aa",
+      "rgb": [166, 169, 170],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Ice Blue",
+      "hex": "#a3d8e1",
+      "rgb": [163, 216, 225],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lilac Purple",
+      "hex": "#ae96d4",
+      "rgb": [174, 150, 212],
+      "ams_slot": "B-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 170.37037037037038,
+    "height_mm": 200.0,
+    "pixel_size_mm": 7.407407407407407
+  },
+  "mesh_stats": {
+    "num_vertices": 3602,
+    "num_triangles": 7016,
+    "num_regions": 23,
+    "num_colors": 7
+  }
+}
