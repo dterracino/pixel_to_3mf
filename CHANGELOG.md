@@ -8,6 +8,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Batch compatibility checker**: Fixed bug where filenames containing dots (e.g., `3.5-floppy-ornament_model`) would not be recognized when passed without the `.3mf` extension. Now correctly uses `endswith('.3mf')` check instead of relying on Path.suffix property.
+
+### Added
+
+- **Bambu Lab printer integration** for querying printer status and AMS information
+  - New `bambu_ams_info.py` module to query printer via local HTTP API
+  - Retrieves AMS info: slot status, filament types, colors, humidity
+  - Retrieves printer status: job state, temperatures, errors
+  - `--test-connection` flag for debugging and raw JSON output
+  - Configuration system with priority order:
+    1. Command-line arguments (highest priority)
+    2. Environment variables
+    3. `.env` file (project-level config)
+    4. BambuStudio.conf file (application config)
+  - `--use-conf` flag to load credentials from BambuStudio's configuration
+  - Auto-detects BambuStudio.conf location based on OS (Windows/macOS/Linux)
+  - Added `python-dotenv` dependency for .env file support
+  - Comprehensive configuration guide in `docs/BAMBU_CONFIG_GUIDE.md`
+
+- **Batch compatibility checker** for multi-model printing
+  - New `--check-batch` command to analyze compatibility of multiple 3MF files
+  - New `--check-batch-folder` command to check all .3mf files in a directory
+    - Scans folder for all .3MF files automatically
+    - No need to type individual filenames
+    - Defaults to current directory if no folder specified
+    - Example: `python run_converter.py --check-batch-folder samples/output/`
+  - Flexible path handling: supports full paths, relative paths, or simple filenames (auto-adds .3mf)
+  - Color aggregation across all models with usage tracking
+  - Intelligent batch optimization algorithm:
+    - **Maximizes number of models** that can print in first batch
+    - Most common white → Slot A-1 (automatic priority)
+    - Most common black/charcoal → Slot A-2 (automatic priority)
+    - Greedy optimization: iteratively selects models that enable most additional printable models
+    - Minimizes color swaps needed for subsequent batches
+    - Frequency-based slot filling for remaining colors
+  - Three-tier visual highlighting in results:
+    - Bold green: Colors in ALL models (never need swapping)
+    - Dim: Colors only in remaining models (could defer loading)
+    - Normal: Colors needed for first batch
+  - First batch recommendations: shows which models can print immediately
+  - Remaining batch analysis: lists models needing color swaps with specific colors required
+  - Hash verification: detects if 3MF files modified since conversion
+  - Requires `.info.json` files generated during conversion (automatic with `--summary`)
+  - Examples:
+    - `python run_converter.py --check-batch model1.3mf model2.3mf model3.3mf`
+    - `python run_converter.py --check-batch-folder samples/output/`
+
+- **JSON formatting utilities** for consistent output styling
+  - New `json_utils.py` module with reusable JSON formatting functions
+  - `dumps_compact_arrays()` function keeps arrays on single lines while maintaining indentation
+  - Used in model info files to format RGB arrays compactly: `[255, 0, 0]` instead of multi-line
+  - Configurable to compact specific fields or all numeric arrays
+
+- **Mesh validation and post-processing infrastructure** (experimental)
+  - New `mesh_postprocessor.py` module for detecting and repairing mesh issues
+  - Added `--validate-mesh` flag to manually enable validation on any conversion
+  - Automatic validation when using `--optimize-mesh` flag
+  - Three-pass system: scan for issues, apply fixes, validate results
+  - Rich console output showing detected issues and applied fixes per mesh
+  - Detects: unreferenced vertices, degenerate faces, non-manifold edges, boundary edges
+  - Applies: vertex merging, degenerate face removal, duplicate face removal, winding fixes, hole filling, normal correction
+  - Uses `trimesh` library for mesh analysis and repair operations
+  - Added dependencies: `scipy`, `networkx` (required by trimesh)
+  - **Note**: Currently detects many non-manifold edges that may be false positives due to analyzing separate mesh objects independently. These edges occur at boundaries between region layers and backing plate, which is expected for multi-object 3MF files. Further investigation needed to determine if aggressive repair is required or if current mesh quality is acceptable for slicing/printing.
+
 ### Changed
 
 - **Major refactoring**: Separated generic 3MF writer logic into reusable core module

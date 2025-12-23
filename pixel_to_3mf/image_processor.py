@@ -369,19 +369,41 @@ def load_image(
                 # If still too many colors after quantization, raise error
                 if num_colors > effective_max_colors:
                     backing_name = f"RGB{config.backing_color}"
-                    raise ValueError(
-                        f"Image has {num_colors} unique colors after quantization, but maximum allowed is {effective_max_colors} {color_status_msg}.\n"
-                        f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
-                        f"Try reducing --quantize-colors further or increase --max-colors."
-                    )
+                    
+                    # Build error message with correct backing color status
+                    if backing_in_image:
+                        error_msg = (
+                            f"Image has {num_colors} unique colors after quantization, but maximum allowed is {config.max_colors}.\n"
+                            f"Backing color {backing_name} is already in the image.\n"
+                            f"Try reducing --quantize-colors further or increase --max-colors."
+                        )
+                    else:
+                        error_msg = (
+                            f"Image has {num_colors} unique colors after quantization, but maximum allowed is {effective_max_colors} (backing color not in image - reserving 1 slot).\n"
+                            f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
+                            f"Try reducing --quantize-colors further or increase --max-colors."
+                        )
+                    
+                    raise ValueError(error_msg)
         else:
             # Quantization not enabled, raise the original error
             backing_name = f"RGB{config.backing_color}"
-            raise ValueError(
-                f"Image has {num_colors} unique colors, but maximum allowed is {effective_max_colors} {color_status_msg}.\n"
-                f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
-                f"Try reducing colors in your image editor, enable --quantize, or increase --max-colors."
-            )
+            
+            # Build error message with correct backing color status
+            if backing_in_image:
+                error_msg = (
+                    f"Image has {num_colors} unique colors, but maximum allowed is {config.max_colors}.\n"
+                    f"Backing color {backing_name} is already in the image.\n"
+                    f"Try reducing colors in your image editor, enable --quantize, or increase --max-colors."
+                )
+            else:
+                error_msg = (
+                    f"Image has {num_colors} unique colors, but maximum allowed is {effective_max_colors} (backing color not in image - reserving 1 slot).\n"
+                    f"Backing color {backing_name} is not in the image, so 1 slot is reserved.\n"
+                    f"Try reducing colors in your image editor, enable --quantize, or increase --max-colors."
+                )
+            
+            raise ValueError(error_msg)
     
     return PixelData(
         width=width,

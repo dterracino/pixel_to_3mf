@@ -1,0 +1,42 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: glassjoe_model.3mf
+Total Colors/Regions: 41
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Brown
+   Hex: #923404
+   RGB: (146, 52, 4)
+   Regions: 2
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Gold
+   Hex: #CC9E22
+   RGB: (204, 158, 34)
+   Regions: 1
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 20 (19 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+4. Bambu Lab PLA Matte Dark Green
+   Hex: #21350C
+   RGB: (33, 53, 12)
+   Regions: 14
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Matte Sakura Pink
+   Hex: #FAC3E7
+   RGB: (250, 195, 231)
+   Regions: 4
+   Location: 5 (AMS B, Slot 1)
+
+======================================================================

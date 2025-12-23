@@ -1,0 +1,42 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: gameboy-zelda-titlescreen_model.3mf
+Total Colors/Regions: 187
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Dark Gray
+   Hex: #313D25
+   RGB: (49, 61, 37)
+   Regions: 43
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+3. Bambu Lab PLA Basic Mistletoe Green
+   Hex: #6E8953
+   RGB: (110, 137, 83)
+   Regions: 26
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Matte Bone White
+   Hex: #C1D0B2
+   RGB: (193, 208, 178)
+   Regions: 30
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Matte Grass Green
+   Hex: #8FAB74
+   RGB: (143, 171, 116)
+   Regions: 87
+   Location: 5 (AMS B, Slot 1)
+
+======================================================================

@@ -10,9 +10,12 @@ No print statements, no argparse, just clean conversion logic! 🎯
 
 import math
 import os
+import logging
 
 from typing import Optional, Callable, Dict, Any, List, Set, Tuple
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from .image_processor import load_image, PixelData
 from .region_merger import merge_regions, trim_disconnected_pixels, Region
@@ -251,14 +254,6 @@ def convert_image_to_3mf(
         mesh = generate_region_mesh(region, pixel_data, config)
         meshes.append((mesh, f"region_{i}"))
         region_colors.append(region.color)
-    
-    # Log optimization summary if optimization was enabled
-    if mg.USE_OPTIMIZED_MESH_GENERATION:
-        try:
-            from .polygon_optimizer import log_optimization_summary
-            log_optimization_summary()
-        except ImportError:
-            pass  # Optimization not available
 
     # Generate backing plate (if base_height > 0)
     if config.base_height_mm > 0:
@@ -266,6 +261,47 @@ def convert_image_to_3mf(
         # CRITICAL FIX: Filter pixel_data to only include pixels from regions
         # This ensures backing plate matches the colored regions exactly,
         # even if some pixels were filtered out during region merging/optimization
+        filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
+        backing_mesh = generate_backing_plate(filtered_pixel_data, config)
+        meshes.append((backing_mesh, "backing_plate"))
+    else:
+        _progress("mesh", "Skipping backing plate (base height is 0)")
+    
+    # Step 3.5: Post-process and validate meshes if requested
+    validation_results = []  # Collect diagnostics for later display
+    if config.validate_mesh:
+        from .mesh_postprocessor import validate_and_fix_mesh
+        
+        _progress("postprocess", "Post-processing meshes...")
+        
+        for i, (mesh, name) in enumerate(meshes):
+            _progress("postprocess", f"Validating and repairing {name}...")
+            
+            # Run post-processing with verbose output disabled for progress callback
+            # (verbose Rich output would conflict with progress bars)
+            fixed_mesh, diagnostics = validate_and_fix_mesh(
+                mesh,
+                name=name,
+                verbose=False,  # Don't use Rich output here (conflicts with progress)
+                progress_callback=lambda msg: _progress("postprocess", msg)
+            )
+            
+            # Update mesh in list
+            meshes[i] = (fixed_mesh, name)
+            
+            # Collect diagnostics for display after progress completes
+            validation_results.append({
+                'name': name,
+                'diagnostics': diagnostics
+            })
+            
+            # Log results
+            if diagnostics['is_valid']:
+                _progress("postprocess", f"✓ {name}: Manifold and valid")
+            else:
+                _progress("postprocess", f"⚠ {name}: Still has issues after repair")
+    
+    # # Step 4: Validate meshes
         filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
         backing_mesh = generate_backing_plate(filtered_pixel_data, config)
         meshes.append((backing_mesh, "backing_plate"))
@@ -354,20 +390,13 @@ def convert_image_to_3mf(
         'num_triangles': total_triangles,
         'output_path': output_path,
         'file_size': format_filesize(os.path.getsize(output_path)),
-        'color_mapping': color_mapping  # AMS slot assignments
+        'color_mapping': color_mapping,  # AMS slot assignments
+        'config': config  # Store config for batch checking
     }
     
-    # # Add validation results if available
-    # if validation_results:
-    #     validation_summary = {
-    #         'total_meshes': len(validation_results),
-    #         'valid_meshes': sum(1 for _, v in validation_results if v.is_valid),
-    #         'invalid_meshes': sum(1 for _, v in validation_results if not v.is_valid),
-    #         'total_errors': sum(len(v.errors) for _, v in validation_results),
-    #         'total_warnings': sum(len(v.warnings) for _, v in validation_results)
-    #     }
-    #     stats['validation'] = validation_summary
-    #     stats['validation_details'] = validation_results
+    # Add validation results if available
+    if validation_results:
+        stats['validation_results'] = validation_results
     
     # Add summary path if generated
     if summary_path:
@@ -376,5 +405,13 @@ def convert_image_to_3mf(
     # Add render path if generated
     if render_path:
         stats['render_path'] = render_path
+    
+    # Write model info file for batch checking
+    from .model_info import write_model_info
+    try:
+        info_path = write_model_info(output_path, stats, converter_version="0.x.x")
+        stats['info_path'] = info_path
+    except Exception as e:
+        logger.warning(f"Failed to write model info file: {e}")
     
     return stats

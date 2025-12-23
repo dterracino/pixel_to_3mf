@@ -1,0 +1,50 @@
+{
+  "filename": "fallout-ornament_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\xmas\\fallout-ornament_model.3mf",
+  "file_hash": "9d2e7f1d186494ee0dc1dc8a20301a1b9ddff67c39bf2977f83d9d1dc4d64deb",
+  "timestamp": "2025-12-11T15:00:31.130718",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Blue",
+      "hex": "#0a2989",
+      "rgb": [10, 41, 137],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Yellow",
+      "hex": "#f4ee2a",
+      "rgb": [244, 238, 42],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Desert Tan",
+      "hex": "#e8dbb7",
+      "rgb": [232, 219, 183],
+      "ams_slot": "B-1"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 176.92307692307693,
+    "height_mm": 200.0,
+    "pixel_size_mm": 7.6923076923076925
+  },
+  "mesh_stats": {
+    "num_vertices": 2302,
+    "num_triangles": 4436,
+    "num_regions": 23,
+    "num_colors": 5
+  }
+}

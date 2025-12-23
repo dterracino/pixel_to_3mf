@@ -1,0 +1,50 @@
+{
+  "filename": "mario-yoshicoin-ornament_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\batch\\output\\mario-yoshicoin-ornament_model.3mf",
+  "file_hash": "7ef8116c80321d2b4a194c29b942fb2f5ae1b8ff03dff7364badb9c172ec7167",
+  "timestamp": "2025-12-09T15:07:46.939763",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Gold",
+      "hex": "#e4bd68",
+      "rgb": [228, 189, 104],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Yellow",
+      "hex": "#f4ee2a",
+      "rgb": [244, 238, 42],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lemon Yellow",
+      "hex": "#f7d959",
+      "rgb": [247, 217, 89],
+      "ams_slot": "B-1"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 114.28571428571429,
+    "height_mm": 200.0,
+    "pixel_size_mm": 7.142857142857143
+  },
+  "mesh_stats": {
+    "num_vertices": 2360,
+    "num_triangles": 4556,
+    "num_regions": 22,
+    "num_colors": 5
+  }
+}

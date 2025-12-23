@@ -470,6 +470,13 @@ The program will:
     )
     
     parser.add_argument(
+        "--validate-mesh",
+        action="store_true",
+        help="Run mesh post-processing validation and repair on all generated meshes. "
+             "Automatically enabled when --optimize-mesh is used. Can be used standalone for extra safety."
+    )
+    
+    parser.add_argument(
         "--quantize",
         action="store_true",
         help="Automatically reduce colors when image exceeds max-colors. "
@@ -523,10 +530,44 @@ The program will:
         help="Write debug/info log messages to a file (default: no logging). "
              "Useful for debugging mesh optimization and seeing detailed processing information."
     )
+    
+    # Batch checking arguments
+    parser.add_argument(
+        "--check-batch",
+        type=str,
+        nargs='+',
+        metavar="MODEL",
+        help="Check if multiple 3MF files can be printed together in one batch. "
+             "Reads .info.json files for each model and analyzes color compatibility. "
+             "Example: --check-batch model1.3mf model2.3mf model3.3mf"
+    )
+    
+    parser.add_argument(
+        "--check-batch-folder",
+        type=str,
+        nargs='?',
+        const='.',
+        metavar="FOLDER",
+        help="Check all .3MF files in a folder for batch compatibility. "
+             "If no folder specified, uses current directory. "
+             "Example: --check-batch-folder samples/output/"
+    )
 
 
     # Parse arguments
     args = parser.parse_args()
+    
+    # Handle --check-batch-folder mode (early exit)
+    if args.check_batch_folder:
+        from .batch_checker import check_batch_compatibility_folder
+        check_batch_compatibility_folder(args.check_batch_folder)
+        return  # Exit after batch check
+    
+    # Handle --check-batch mode (early exit)
+    if args.check_batch:
+        from .batch_checker import check_batch_compatibility
+        check_batch_compatibility(args.check_batch)
+        return  # Exit after batch check
     
     # Configure logging
     import logging
@@ -632,7 +673,9 @@ The program will:
             quantize_colors=args.quantize_colors,
             generate_summary=args.summary,
             ams_count=args.ams_count,
-            render_model=args.render
+            render_model=args.render,
+            optimize_mesh=args.optimize_mesh,
+            validate_mesh=args.validate_mesh
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
@@ -641,13 +684,15 @@ The program will:
     # =========================================================================
     # Enable optimized mesh generation if requested
     # =========================================================================
-    if args.optimize_mesh:
+    if config.optimize_mesh:
         import pixel_to_3mf.mesh_generator as mg
         
         # Enable optimized mesh generation
         # Note: Logging configuration removed - library code should not print to screen
         # as it breaks Rich progress output. Logging still works internally for debugging.
         mg.USE_OPTIMIZED_MESH_GENERATION = True
+        
+        # Note: validate_mesh is auto-enabled in config.__post_init__ when optimize_mesh is True
 
     # =========================================================================
     # BATCH MODE
@@ -778,6 +823,11 @@ The program will:
     # Mesh optimization
     import pixel_to_3mf.mesh_generator as mg
     config_table.add_row("Mesh Optimization", "Enabled" if mg.USE_OPTIMIZED_MESH_GENERATION else "Disabled")
+    
+    # Mesh validation (show if enabled, auto or manual)
+    if config.validate_mesh:
+        validation_status = "Enabled (automatic)" if config.optimize_mesh else "Enabled (manual)"
+        config_table.add_row("Mesh Validation", validation_status)
     
     # Color quantization
     if config.quantize:
@@ -981,6 +1031,68 @@ The program will:
             import traceback
             traceback.print_exc()
             sys.exit(1)
+    
+    # Display validation diagnostics if available
+    if 'validation_results' in stats and stats['validation_results']:
+        console.print()
+        console.print(Panel.fit(
+            "[bold cyan]🔍 Mesh Validation & Repair Report[/bold cyan]",
+            border_style="cyan"
+        ))
+        
+        for result in stats['validation_results']:
+            name = result['name']
+            diag = result['diagnostics']
+            issues = diag['issues']
+            fixes = diag['fixes']
+            
+            console.print(f"\n[bold]{name}[/bold]")
+            
+            # Issues found
+            if issues['total'] > 0:
+                issue_table = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
+                issue_table.add_column("Issue Type", style="yellow")
+                issue_table.add_column("Count", justify="right", style="white")
+                
+                if issues['unreferenced_vertices'] > 0:
+                    issue_table.add_row("Unreferenced Vertices", str(issues['unreferenced_vertices']))
+                if issues['degenerate_faces'] > 0:
+                    issue_table.add_row("Degenerate Faces", str(issues['degenerate_faces']))
+                if issues['non_manifold_edges'] > 0:
+                    issue_table.add_row("Non-Manifold Edges", str(issues['non_manifold_edges']))
+                if issues['boundary_edges'] > 0:
+                    issue_table.add_row("Boundary Edges (Holes)", str(issues['boundary_edges']))
+                
+                console.print("  [yellow]Issues Detected:[/yellow]")
+                console.print(issue_table)
+            
+            # Fixes applied
+            if fixes:
+                fix_table = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
+                fix_table.add_column("Fix Applied", style="green")
+                fix_table.add_column("Count", justify="right", style="white")
+                
+                if fixes.get('vertices_merged', 0) > 0:
+                    fix_table.add_row("Duplicate Vertices Merged", str(fixes['vertices_merged']))
+                if fixes.get('duplicate_faces_removed', 0) > 0:
+                    fix_table.add_row("Degenerate/Duplicate Faces Removed", str(fixes['duplicate_faces_removed']))
+                if fixes.get('unreferenced_vertices_removed', 0) > 0:
+                    fix_table.add_row("Unreferenced Vertices Removed", str(fixes['unreferenced_vertices_removed']))
+                if fixes.get('holes_filled', 0) > 0:
+                    fix_table.add_row("Holes Filled", "✓")
+                if fixes.get('normals_fixed'):
+                    fix_table.add_row("Normals Fixed", "✓")
+                
+                console.print("  [green]Fixes Applied:[/green]")
+                console.print(fix_table)
+            
+            # Final status
+            if diag['is_valid']:
+                console.print(f"  [green]✅ Final Status: Manifold and Valid[/green]")
+            else:
+                console.print(f"  [red]⚠️  Final Status: Still has issues[/red]")
+            
+            console.print(f"  Final: {diag['final_vertices']:,} vertices, {diag['final_faces']:,} faces")
     
     # Print summary
     console.print()

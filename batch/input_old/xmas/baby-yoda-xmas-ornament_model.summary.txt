@@ -1,0 +1,60 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: baby-yoda-xmas-ornament_model.3mf
+Total Colors/Regions: 37
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 4
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Brown
+   Hex: #753D2A
+   RGB: (117, 61, 42)
+   Regions: 1
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 5 (4 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+4. Bambu Lab PLA Basic Red
+   Hex: #C62828
+   RGB: (198, 40, 40)
+   Regions: 1
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Matte Apple Green
+   Hex: #AED581
+   RGB: (174, 213, 129)
+   Regions: 5
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Matte Dark Chocolate
+   Hex: #693726
+   RGB: (105, 55, 38)
+   Regions: 4
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Matte Dark Green
+   Hex: #33691E
+   RGB: (51, 105, 30)
+   Regions: 6
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Desert Tan
+   Hex: #F5EBCF
+   RGB: (245, 235, 207)
+   Regions: 11
+   Location: 8 (AMS B, Slot 4)
+
+======================================================================

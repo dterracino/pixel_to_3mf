@@ -1,0 +1,56 @@
+{
+  "filename": "autobots-ornament_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\xmas\\autobots-ornament_model.3mf",
+  "file_hash": "099a7ba2d4f477913be7324a164dbd17dd4c0529698cf6c4fdc8f14bcb082059",
+  "timestamp": "2025-12-10T10:46:11.583934",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Cobalt Blue",
+      "hex": "#0056b8",
+      "rgb": [0, 86, 184],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Dark Gray",
+      "hex": "#545454",
+      "rgb": [84, 84, 84],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Ice Blue",
+      "hex": "#a3d8e1",
+      "rgb": [163, 216, 225],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Sakura Pink",
+      "hex": "#e8afcf",
+      "rgb": [232, 175, 207],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Scarlet Red",
+      "hex": "#de4343",
+      "rgb": [222, 67, 67],
+      "ams_slot": "B-2"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 169.23076923076923,
+    "height_mm": 200.0,
+    "pixel_size_mm": 7.6923076923076925
+  },
+  "mesh_stats": {
+    "num_vertices": 2638,
+    "num_triangles": 5080,
+    "num_regions": 22,
+    "num_colors": 6
+  }
+}

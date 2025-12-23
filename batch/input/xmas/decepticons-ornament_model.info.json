@@ -1,0 +1,44 @@
+{
+  "filename": "decepticons-ornament_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\xmas\\decepticons-ornament_model.3mf",
+  "file_hash": "d73d4f198e49c356610114f6c659e31ac0d8f9e472ecc9de5bb2ef8436071036",
+  "timestamp": "2025-12-10T10:46:27.494245",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Dark Gray",
+      "hex": "#545454",
+      "rgb": [84, 84, 84],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Purple",
+      "hex": "#5e43b7",
+      "rgb": [94, 67, 183],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lilac Purple",
+      "hex": "#ae96d4",
+      "rgb": [174, 150, 212],
+      "ams_slot": "A-4"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 184.0,
+    "height_mm": 200.0,
+    "pixel_size_mm": 8.0
+  },
+  "mesh_stats": {
+    "num_vertices": 2760,
+    "num_triangles": 5372,
+    "num_regions": 10,
+    "num_colors": 4
+  }
+}
