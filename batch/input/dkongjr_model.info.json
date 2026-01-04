@@ -1,0 +1,110 @@
+{
+  "filename": "dkongjr_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\dkongjr_model.3mf",
+  "file_hash": "466d5c1bc0099c2fcd986b494068e072b81886a4a5faee3e8c7aaf187ad442b2",
+  "timestamp": "2026-01-03T14:21:25.686450",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bambu Green",
+      "hex": "#00ae42",
+      "rgb": [0, 174, 66],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Beige",
+      "hex": "#f7e6de",
+      "rgb": [247, 230, 222],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Magenta",
+      "hex": "#ec008c",
+      "rgb": [236, 0, 140],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pumpkin Orange",
+      "hex": "#ff9016",
+      "rgb": [255, 144, 22],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Purple",
+      "hex": "#5e43b7",
+      "rgb": [94, 67, 183],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Grass Green",
+      "hex": "#61c680",
+      "rgb": [97, 198, 128],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Ice Blue",
+      "hex": "#a3d8e1",
+      "rgb": [163, 216, 225],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Latte Brown",
+      "hex": "#d3b7a7",
+      "rgb": [211, 183, 167],
+      "ams_slot": "C-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lemon Yellow",
+      "hex": "#f7d959",
+      "rgb": [247, 217, 89],
+      "ams_slot": "C-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lilac Purple",
+      "hex": "#ae96d4",
+      "rgb": [174, 150, 212],
+      "ams_slot": "D-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Sakura Pink",
+      "hex": "#e8afcf",
+      "rgb": [232, 175, 207],
+      "ams_slot": "D-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Terracotta",
+      "hex": "#b15533",
+      "rgb": [177, 85, 51],
+      "ams_slot": "D-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 224.0,
+    "height_mm": 256.0,
+    "pixel_size_mm": 1.0
+  },
+  "mesh_stats": {
+    "num_vertices": 144048,
+    "num_triangles": 286204,
+    "num_regions": 678,
+    "num_colors": 15
+  }
+}
