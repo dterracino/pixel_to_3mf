@@ -1,0 +1,74 @@
+{
+  "filename": "gradius-nes-titlescreen_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\gradius-nes-titlescreen_model.3mf",
+  "file_hash": "ef9a18d98d89ef0bc51480f9a891fb21d02475fff265b026233dd3db5d1f0adb",
+  "timestamp": "2026-01-04T09:42:50.509497",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Maroon Red",
+      "hex": "#9d2235",
+      "rgb": [157, 34, 53],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pink",
+      "hex": "#f55a74",
+      "rgb": [245, 90, 116],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Turquoise",
+      "hex": "#00b1b7",
+      "rgb": [0, 177, 183],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Blue",
+      "hex": "#042f56",
+      "rgb": [4, 47, 86],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Marine Blue",
+      "hex": "#0078bf",
+      "rgb": [0, 120, 191],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Sakura Pink",
+      "hex": "#e8afcf",
+      "rgb": [232, 175, 207],
+      "ams_slot": "C-1"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 187.5,
+    "pixel_size_mm": 0.78125
+  },
+  "mesh_stats": {
+    "num_vertices": 143502,
+    "num_triangles": 285760,
+    "num_regions": 210,
+    "num_colors": 9
+  }
+}

@@ -331,7 +331,8 @@ def load_image(
         # Too many colors - check if quantization is enabled
         if config.quantize:
             # Quantize the image to reduce colors
-            target_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
+            # Use effective_max_colors (accounts for backing color) instead of config.max_colors
+            target_colors = config.quantize_colors if config.quantize_colors is not None else effective_max_colors
             
             # Make sure we don't try to quantize to more colors than we have
             if target_colors >= num_colors:

@@ -22,6 +22,8 @@ from .constants import (
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
     DEFAULT_FILAMENT_FINISH,
+    PREFER_HUE_MATCHING,
+    USE_RGB_BOUNDARY_DETECTION,
     ENABLE_QUANTIZATION,
     QUANTIZATION_ALGORITHM,
     QUANTIZATION_COLORS,
@@ -145,6 +147,8 @@ class ConversionConfig:
     filament_maker: Union[str, List[str], None] = None  # Will be set in __post_init__
     filament_type: Union[str, List[str], None] = None  # Will be set in __post_init__
     filament_finish: Union[str, List[str], None] = None  # Will be set in __post_init__
+    hue_aware_matching: bool = PREFER_HUE_MATCHING  # Penalize hue shifts when matching colors
+    use_rgb_boundary_detection: bool = USE_RGB_BOUNDARY_DETECTION  # Use RGB analysis for blue/purple boundary
     
     # Processing options
     auto_crop: bool = False
@@ -162,6 +166,9 @@ class ConversionConfig:
     
     # Summary file options
     generate_summary: bool = False
+    
+    # Preview image options
+    generate_preview: bool = False
     
     # Mesh optimization and validation
     optimize_mesh: bool = False

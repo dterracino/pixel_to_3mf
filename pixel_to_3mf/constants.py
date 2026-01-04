@@ -82,6 +82,16 @@ DEFAULT_FILAMENT_MAKER = "Bambu Lab"
 DEFAULT_FILAMENT_TYPE = "PLA"
 DEFAULT_FILAMENT_FINISH = ["Basic", "Matte"]  # Multiple finishes allowed
 
+# Hue-aware matching: prioritizes hue preservation over pure perceptual distance
+# When True, penalizes hue shifts to avoid mapping blue→purple, red→orange, etc.
+PREFER_HUE_MATCHING = True
+
+# RGB-based boundary detection for blue/purple distinction
+# This is a workaround for filament palettes with gaps between blue and purple
+# Uses red component analysis: R < 50 = blue, R > 80 = purple, 50-80 = boundary zone
+# Disable if your palette has good coverage and you want pure Delta E matching
+USE_RGB_BOUNDARY_DETECTION = True
+
 # ============================================================================
 # Color Quantization
 # ============================================================================

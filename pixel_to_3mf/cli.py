@@ -36,6 +36,7 @@ from .constants import (
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
     DEFAULT_FILAMENT_FINISH,
+    PREFER_HUE_MATCHING,
     PADDING_COLOR,
     AMS_COUNT,
     AMS_SLOTS_PER_UNIT,
@@ -420,6 +421,19 @@ The program will:
     )
     
     parser.add_argument(
+        "--prefer-hue",
+        action="store_true",
+        default=None,
+        help="Prioritize hue preservation when matching colors (avoids blue→purple). Enabled by default. Use --no-prefer-hue to disable"
+    )
+    
+    parser.add_argument(
+        "--no-prefer-hue",
+        action="store_true",
+        help="Disable hue-aware matching, use pure perceptual distance (Delta E 2000)"
+    )
+    
+    parser.add_argument(
         "--auto-crop",
         action="store_true",
         help="Automatically crop away fully transparent edges before processing"
@@ -505,6 +519,14 @@ The program will:
         action="store_true",
         help="Generate a summary file listing all colors/filaments used in the conversion. "
              "Summary is saved as {output_name}.summary.txt in the same location as the output file."
+    )
+    
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Generate a preview image showing mapped filament colors. "
+             "Preview is saved as {output_name}_preview.png in the same location as the output file. "
+             "Useful for checking color accuracy before printing."
     )
     
     parser.add_argument(
@@ -647,6 +669,14 @@ The program will:
     filament_finish = DEFAULT_FILAMENT_FINISH
     if args.filament_finish:
         filament_finish = [f.strip() for f in args.filament_finish.split(',')]
+    
+    # Determine hue-aware matching preference
+    if args.no_prefer_hue:
+        hue_aware = False
+    elif args.prefer_hue:
+        hue_aware = True
+    else:
+        hue_aware = None  # Use default from constants
 
     # Build config object from CLI arguments
     try:
@@ -663,6 +693,7 @@ The program will:
             filament_maker=filament_maker,
             filament_type=filament_type,
             filament_finish=filament_finish,
+            hue_aware_matching=hue_aware if hue_aware is not None else PREFER_HUE_MATCHING,
             auto_crop=args.auto_crop,
             connectivity=args.connectivity,
             trim_disconnected=args.trim,
@@ -672,6 +703,7 @@ The program will:
             quantize_algo=args.quantize_algo,
             quantize_colors=args.quantize_colors,
             generate_summary=args.summary,
+            generate_preview=args.preview,
             ams_count=args.ams_count,
             render_model=args.render,
             optimize_mesh=args.optimize_mesh,
@@ -942,6 +974,7 @@ The program will:
         mesh_task = None
         validate_task = None
         export_task = None
+        preview_task = None
         render_task = None
         
         # Track current stage and last message for each stage (for checkmark updates)
@@ -952,11 +985,12 @@ The program will:
             'mesh': '',
             'validate': '',
             'export': '',
+            'preview': '',
             'render': ''
         }
         
         def progress_callback(stage: str, message: str):
-            nonlocal current_stage, merge_task, mesh_task, validate_task, export_task, render_task
+            nonlocal current_stage, merge_task, mesh_task, validate_task, export_task, preview_task, render_task
             
             # Track the message for this stage
             last_messages[stage] = message
@@ -986,9 +1020,17 @@ The program will:
                         # Complete validate with checkmark
                         progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {last_messages['validate']}", completed=True)
                     export_task = progress.add_task("[green]📦 Writing 3MF file...", total=None)
-                elif stage == 'render':
+                elif stage == 'preview':
                     if export_task is not None:
                         # Complete export with checkmark
+                        progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
+                    preview_task = progress.add_task("[cyan]🖼️  Generating color preview...", total=None)
+                elif stage == 'render':
+                    if preview_task is not None:
+                        # Complete preview with checkmark
+                        progress.update(preview_task, description=f"[cyan]✓ Generating color preview... {last_messages['preview']}", completed=True)
+                    elif export_task is not None:
+                        # Complete export with checkmark (if no preview)
                         progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
                     render_task = progress.add_task("[magenta]🎨 Rendering preview...", total=None)
             else:
@@ -1003,6 +1045,8 @@ The program will:
                     progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {message}")
                 elif stage == 'export' and export_task is not None:
                     progress.update(export_task, description=f"[green]📦 Writing 3MF file... {message}")
+                elif stage == 'preview' and preview_task is not None:
+                    progress.update(preview_task, description=f"[cyan]🖼️  Generating color preview... {message}")
                 elif stage == 'render' and render_task is not None:
                     progress.update(render_task, description=f"[magenta]🎨 Rendering preview... {message}")
         
@@ -1016,8 +1060,10 @@ The program will:
                 warning_callback=warning_callback
             )
             # Mark final task as complete with checkmark
-            if export_task is not None:
+            if export_task is not None and preview_task is None and render_task is None:
                 progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
+            if preview_task is not None and render_task is None:
+                progress.update(preview_task, description=f"[cyan]✓ Generating color preview... {last_messages['preview']}", completed=True)
             if render_task is not None:
                 progress.update(render_task, description=f"[magenta]✓ Rendering preview... {last_messages['render']}", completed=True)
         except FileNotFoundError as e:
@@ -1112,6 +1158,10 @@ The program will:
     stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
     stats_table.add_row("Mesh:", f"{stats['num_triangles']:,} triangles, {stats['num_vertices']:,} vertices")
     stats_table.add_row("Output:", f"{stats['output_path']} ({stats['file_size']})")
+    
+    # Add preview path if generated
+    if 'preview_path' in stats:
+        stats_table.add_row("Preview:", stats['preview_path'])
     
     # Add summary path if generated
     if 'summary_path' in stats:

@@ -302,13 +302,6 @@ def convert_image_to_3mf(
                 _progress("postprocess", f"⚠ {name}: Still has issues after repair")
     
     # # Step 4: Validate meshes
-        filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
-        backing_mesh = generate_backing_plate(filtered_pixel_data, config)
-        meshes.append((backing_mesh, "backing_plate"))
-    else:
-        _progress("mesh", "Skipping backing plate (base height is 0)")
-    
-    # # Step 4: Validate meshes
     # validation_results = []
     # _progress("validate", "Validating meshes...")
     # for i, (mesh, name) in enumerate(meshes, start=1):
@@ -344,7 +337,7 @@ def convert_image_to_3mf(
     # Step 6: Write 3MF
     _progress("export", "Writing 3MF file...")
     
-    summary_path, color_mapping = write_3mf(
+    summary_path, preview_mapping, color_mapping = write_3mf(
         output_path, 
         meshes, 
         region_colors, 
@@ -353,6 +346,16 @@ def convert_image_to_3mf(
         progress_callback
     )
     _progress("export", "Complete!")
+    
+    # Step 6.5: Generate color preview if requested
+    preview_path = None
+    if config.generate_preview and preview_mapping:
+        from .threemf_writer import generate_color_preview
+        
+        preview_path = output_path.replace('.3mf', '_preview.png')
+        _progress("preview", "Generating color preview...")
+        generate_color_preview(pixel_data, preview_mapping, preview_path)
+        _progress("preview", "Complete!")
     
     # Step 7: Render model if requested
     render_path = None
@@ -401,6 +404,10 @@ def convert_image_to_3mf(
     # Add summary path if generated
     if summary_path:
         stats['summary_path'] = summary_path
+    
+    # Add preview path if generated
+    if preview_path:
+        stats['preview_path'] = preview_path
     
     # Add render path if generated
     if render_path:

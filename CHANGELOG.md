@@ -11,8 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Batch compatibility checker**: Fixed bug where filenames containing dots (e.g., `3.5-floppy-ornament_model`) would not be recognized when passed without the `.3mf` extension. Now correctly uses `endswith('.3mf')` check instead of relying on Path.suffix property.
+- **Quantization bug**: Fixed quantization target using `config.max_colors` instead of `effective_max_colors`, causing 15 colors when 16 were expected (when backing color is in the image)
+- **Backing plate message**: Fixed "Skipping backing plate (base height is 0)" message appearing even when backing plate was generated (duplicate code block removed)
+- **Blue/purple color matching**: Implemented RGB-based boundary detection to prevent pure blues (#0000FF) from matching to purple filaments. This resolves an issue specific to the Bambu Lab filament palette which has a gap between Purple (#5E43B7) and Blue (#0A2989) with no intermediate colors
 
 ### Added
+
+- **Color preview generation**: New `--preview` flag generates a preview image showing what the model will look like with mapped filament colors
+  - Saved as `{output_name}_preview.png` alongside the 3MF file
+  - Shows exact RGB values of matched filaments applied to source image
+  - Useful for verifying color accuracy before printing
+  - Listed in conversion summary output
+  - Separate progress stage in CLI output
+
+- **RGB boundary detection for blue/purple matching**: Smart color matching to prevent categorical mismatches in filament palettes with gaps (specifically resolves Bambu Lab palette issue)
+  - Uses red component analysis: R < 50 = blue, R > 80 = purple, 50-80 = boundary zone
+  - Only applies to filaments with "blue" or "purple" in their names
+  - Safe for all filament brands - only penalizes clear categorical mismatches
+  - Configurable via `USE_RGB_BOUNDARY_DETECTION` constant (default: enabled)
+  - Prevents pure blues (#0000FF) from matching to purple when Bambu Lab palette has no perfect blue match
+  - Allows bluish-purples (#686CE8) to correctly match purple filaments
+  - Documented in `docs/RGB_BOUNDARY_DETECTION.md`
+  - Marked with TODO comments for future migration to color-tools library
 
 - **Bambu Lab printer integration** for querying printer status and AMS information
   - New `bambu_ams_info.py` module to query printer via local HTTP API
