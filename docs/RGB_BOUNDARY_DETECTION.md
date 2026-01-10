@@ -25,18 +25,36 @@ Pure Delta E would match **pure blue to purple** because mathematically it's 0.6
 
 ### RGB Component Analysis
 
-The fix uses the **red component** to distinguish blue from purple:
+The fix analyzes the **red component** of BOTH the target color and candidate filament to determine their categories:
 
 ```python
-# Blue in RGB: (R=low, G=low, B=high)
-# Purple in RGB: (R=high, G=low, B=high)  ← Red component is key!
+def _rgb_to_blue_purple_category(rgb):
+    """Determine if RGB color is blue, purple, or boundary zone."""
+    r, g, b = rgb
+    
+    if b < 150:
+        return None  # Not in blue/purple range
+    
+    # Purple = Red + Blue in RGB
+    # Blue has low red, Purple has high red
+    BLUE_MAX_RED = 50
+    PURPLE_MIN_RED = 80
+    
+    if r < BLUE_MAX_RED:
+        return 'blue'
+    elif r > PURPLE_MIN_RED:
+        return 'purple'
+    else:
+        return 'boundary'  # 50 ≤ R ≤ 80
 
-if R < 50 and B > 150:
-    color_leans = "blue"
-elif R > 80 and B > 150:
-    color_leans = "purple"
-else:  # 50 ≤ R ≤ 80
-    color_leans = "boundary zone - use pure Delta E"
+# Apply to both colors
+target_category = _rgb_to_blue_purple_category(target_rgb)
+candidate_category = _rgb_to_blue_purple_category(candidate_rgb)
+
+if target_category and candidate_category:
+    if target_category in ('blue', 'purple') and candidate_category in ('blue', 'purple'):
+        if target_category != candidate_category:
+            penalty = 50.0  # Clear category mismatch
 ```
 
 ### When Penalty is Applied
@@ -44,15 +62,17 @@ else:  # 50 ≤ R ≤ 80
 The penalty (50 Delta E points) is ONLY applied when ALL of these are true:
 
 1. `use_rgb_boundary_detection` is enabled (default: True)
-2. The filament name contains "blue" or "purple"
-3. The target color clearly leans toward one category (R < 50 or R > 80)
+2. BOTH target and candidate are in blue/purple range (B > 150)
+3. Target clearly leans toward one category (R < 50 or R > 80)
+4. Candidate clearly leans toward the opposite category
 
 This means:
 
+- ✅ Works for ANY filament naming scheme - no string matching!
 - ✅ Other filament palettes with better coverage are unaffected
 - ✅ Non-blue/purple colors work normally (red, green, yellow, etc.)
 - ✅ Boundary zone colors (50 ≤ R ≤ 80) still use pure Delta E
-- ✅ Filaments without "blue" or "purple" in their names are never penalized
+- ✅ More accurate color matching than name-based checking
 
 ## Configuration
 
@@ -87,9 +107,10 @@ USE_RGB_BOUNDARY_DETECTION = False
 
 The logic is **safe for other filament brands** because:
 
-1. **Filament name checking**: Only applies to filaments named "blue" or "purple"
-2. **Clear thresholds**: Only penalizes very obvious cases (R < 50 or R > 80)
+1. **RGB-based analysis**: Analyzes actual color values, not filament names
+2. **Clear thresholds**: Only penalizes very obvious category mismatches (R < 50 vs R > 80)
 3. **Boundary zone**: Middle range (50-80) uses pure Delta E
+4. **Both colors analyzed**: Penalty only when target AND candidate are in opposite clear categories
 
 ### Example: Other Filament Brands
 
@@ -115,12 +136,12 @@ All of this logic is marked with `TODO` comments indicating it should move to th
 
 ### Functions to Move
 
-1. **`_filament_name_category()`** ([threemf_writer.py:77-115](e:\pixel_to_3mf\pixel_to_3mf\threemf_writer.py#L77-L115))
-   - Extracts color category from filament name
-   - Should be part of `FilamentPalette` class
+1. **`_rgb_to_blue_purple_category()`** ([threemf_writer.py:77-115](e:\pixel_to_3mf\pixel_to_3mf\threemf_writer.py#L77-L115))
+   - Analyzes RGB components to determine blue/purple/boundary category
+   - Should be part of `color-tools` color analysis utilities
 
 2. **`_calculate_hue_weighted_distance()`** ([threemf_writer.py:118-185](e:\pixel_to_3mf\pixel_to_3mf\threemf_writer.py#L118-L185))
-   - Applies RGB boundary detection
+   - Applies RGB boundary detection for both target and candidate
    - Should be integrated into `palette.find_nearest()` logic
 
 3. **Manual search loops** ([threemf_writer.py:258-270](e:\pixel_to_3mf\pixel_to_3mf\threemf_writer.py#L258-L270) and [threemf_writer.py:333-343](e:\pixel_to_3mf\pixel_to_3mf\threemf_writer.py#L333-L343))

@@ -280,7 +280,7 @@ def load_image(
     # This adds an outline around the content we just cropped
     # Must happen AFTER auto-crop but BEFORE pixel extraction
     if should_apply_padding(config.padding_size):
-        img = add_padding(img, config.padding_size, config.padding_color)
+        img = add_padding(img, config.padding_size, config.padding_color, config.padding_type)
 
     # Get image dimensions (after auto-crop and padding)
     width, height = img.size

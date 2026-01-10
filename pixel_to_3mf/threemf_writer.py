@@ -84,36 +84,45 @@ def _get_color_category(hue: float, saturation: float) -> str:
         return 'magenta'
 
 
-def _filament_name_category(name: str) -> str | None:
+def _rgb_to_blue_purple_category(rgb: Tuple[int, int, int]) -> str | None:
     """
-    Extract color category from filament name.
+    Determine if an RGB color is blue, purple, or boundary zone based on RGB components.
     
-    Returns the primary color mentioned in the name, or None if no clear category.
-    This helps detect when a filament name contradicts the target color category.
+    TODO: This function should be moved to color-tools library.
+    
+    Uses RGB component analysis to categorize colors in the blue/purple range:
+    - **Blue**: Low red component (R < 50), high blue (B > 150)
+    - **Purple**: Significant red component (R > 80), high blue (B > 150)
+      - Purple in RGB = Red + Blue, so purple has more red than pure blue
+    - **Boundary zone**: 50 ≤ R ≤ 80, can match either
+    - **None**: Not in blue/purple range (B < 150)
+    
+    This is more robust than string matching on filament names, which breaks
+    for names like "Ocean", "Sky", "Lavender", "Violet", etc.
+    
+    Args:
+        rgb: RGB tuple (0-255 for each component)
+        
+    Returns:
+        'blue', 'purple', 'boundary', or None
     """
-    name_lower = name.lower()
+    r, g, b = rgb
     
-    # Check for color keywords in priority order (specific to general)
-    if 'purple' in name_lower or 'violet' in name_lower or 'lavender' in name_lower:
-        return 'purple'
-    elif 'magenta' in name_lower or 'pink' in name_lower or 'fuchsia' in name_lower:
-        return 'magenta'
-    elif 'blue' in name_lower and 'green' not in name_lower:  # Exclude "blue-green"
+    # Must have significant blue component to be in this range
+    if b < 150:
+        return None
+    
+    # Distinguish based on red component
+    # Purple = Red + Blue in RGB, so purple has more red
+    BLUE_MAX_RED = 50  # Blue should have R < 50
+    PURPLE_MIN_RED = 80  # Purple should have R > 80
+    
+    if r < BLUE_MAX_RED:
         return 'blue'
-    elif 'cyan' in name_lower or 'turquoise' in name_lower or 'aqua' in name_lower:
-        return 'cyan'
-    elif 'green' in name_lower:
-        return 'green'
-    elif 'yellow' in name_lower or 'gold' in name_lower:
-        return 'yellow'
-    elif 'orange' in name_lower:
-        return 'orange'
-    elif 'red' in name_lower or 'scarlet' in name_lower or 'crimson' in name_lower or 'maroon' in name_lower:
-        return 'red'
-    elif 'gray' in name_lower or 'grey' in name_lower or 'white' in name_lower or 'black' in name_lower:
-        return 'gray'
-    
-    return None
+    elif r > PURPLE_MIN_RED:
+        return 'purple'
+    else:
+        return 'boundary'  # 50 <= R <= 80, could be either
 
 
 def _calculate_hue_weighted_distance(
@@ -145,20 +154,22 @@ def _calculate_hue_weighted_distance(
     - **Purple**: Significant red component (R > 80), high blue (B > 150)
     - **Boundary zone**: 50 ≤ R ≤ 80 can match either (decided by Delta E)
     
-    The penalty is ONLY applied when:
+    The penalty is applied when:
     1. use_rgb_boundary_detection is enabled
-    2. The filament name contains "blue" or "purple"
-    3. The target color clearly leans toward one category
+    2. BOTH target and candidate are in blue/purple range (B > 150)
+    3. Target clearly leans toward one category (R < 50 or R > 80)
+    4. Candidate clearly leans toward the opposite category
     
     This means:
-    - Other palettes with better coverage are unaffected (no penalty applied)
+    - Works for ANY filament naming scheme (no string matching!)
+    - Other palettes with better coverage are unaffected
     - Non-blue/purple colors work normally
     - Boundary zone colors still use pure Delta E
     
     Args:
         target_rgb: Target color to match
-        candidate_rgb: Candidate color from palette (not currently used)
-        candidate_name: Name of the candidate filament (e.g., "Bambu Lab PLA Basic Purple")
+        candidate_rgb: Candidate color from palette
+        candidate_name: Name of the candidate filament (unused after refactor, kept for compatibility)
         base_delta_e: Already-calculated Delta E 2000 distance
         use_rgb_boundary_detection: Enable RGB component analysis (default True)
         category_mismatch_penalty: Penalty for matching across categories (default 50.0)
@@ -171,34 +182,19 @@ def _calculate_hue_weighted_distance(
     if not use_rgb_boundary_detection:
         return base_delta_e
     
-    # Extract color category from filament name
-    # TODO: This function should also move to color-tools
-    filament_category = _filament_name_category(candidate_name)
+    # Analyze both target and candidate colors using RGB components
+    # TODO: These functions should move to color-tools
+    target_category = _rgb_to_blue_purple_category(target_rgb)
+    candidate_category = _rgb_to_blue_purple_category(candidate_rgb)
     
-    # Only apply penalties for blue/purple boundary (the main problem area)
-    # Other color boundaries work fine with pure Delta E
-    if filament_category in ('blue', 'purple'):
-        target_r, target_g, target_b = target_rgb
-        
-        # Distinguish blue from purple based on red component
-        # Blue: very little red (R < 50)
-        # Purple: significant red (R > 80)
-        # Boundary: 50 <= R <= 80 can match either
-        
-        BLUE_MAX_RED = 50  # Blue should have R < 50
-        PURPLE_MIN_RED = 80  # Purple should have R > 80
-        
-        if target_r < BLUE_MAX_RED and target_b > 150:
-            # Target is clearly blue (low red, high blue)
-            if filament_category == 'purple':
-                # Penalize matching blue to purple
+    # Only apply penalty if both colors are in blue/purple range
+    if target_category and candidate_category:
+        # Check for clear category mismatch
+        # 'boundary' can match either blue or purple, so only penalize clear mismatches
+        if target_category in ('blue', 'purple') and candidate_category in ('blue', 'purple'):
+            if target_category != candidate_category:
+                # Clear mismatch: blue target → purple candidate (or vice versa)
                 return base_delta_e + category_mismatch_penalty
-        elif target_r > PURPLE_MIN_RED and target_b > 150:
-            # Target is clearly purple (significant red, high blue)
-            if filament_category == 'blue':
-                # Penalize matching purple to blue
-                return base_delta_e + category_mismatch_penalty
-        # else: In the boundary zone (50 <= R <= 80), allow either
     
     return base_delta_e
 

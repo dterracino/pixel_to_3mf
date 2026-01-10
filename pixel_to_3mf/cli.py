@@ -458,6 +458,18 @@ The program will:
     )
     
     parser.add_argument(
+        "--padding-type",
+        type=str,
+        choices=["circular", "square", "diamond"],
+        default="circular",
+        help="Padding shape: "
+             "circular = Euclidean distance, smooth rounded corners (default), "
+             "square = Chebyshev distance, sharp 90° corners (perfect for framing), "
+             "diamond = Manhattan distance, 45° diagonal cuts. "
+             "Only used when --padding-size > 0."
+    )
+    
+    parser.add_argument(
         "--connectivity",
         type=int,
         choices=[0, 4, 8],
@@ -699,6 +711,7 @@ The program will:
             trim_disconnected=args.trim,
             padding_size=args.padding_size,
             padding_color=padding_color,
+            padding_type=args.padding_type,
             quantize=args.quantize,
             quantize_algo=args.quantize_algo,
             quantize_colors=args.quantize_colors,

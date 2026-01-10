@@ -29,6 +29,7 @@ from .constants import (
     QUANTIZATION_COLORS,
     PADDING_SIZE_PX,
     PADDING_COLOR,
+    PADDING_TYPE_DEFAULT,
     TRIM_DISCONNECTED_PIXELS,
     AMS_COUNT,
     AMS_SLOTS_PER_UNIT
@@ -124,6 +125,7 @@ class ConversionConfig:
         connectivity: Pixel connectivity mode - 0 (no merge), 4 (edge-connected only), or 8 (includes diagonals)
         padding_size: Size of padding in pixels (0 = disabled, >0 = enabled)
         padding_color: RGB color for the padding outline
+        padding_type: Padding shape - "circular" (rounded), "square" (90° corners), or "diamond" (45° cuts)
         trim_disconnected: If True, remove pixels that only connect via corners (diagonals)
         quantize: If True, automatically reduce colors when image exceeds max_colors
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
@@ -158,6 +160,7 @@ class ConversionConfig:
     # Padding options
     padding_size: int = PADDING_SIZE_PX
     padding_color: Tuple[int, int, int] = PADDING_COLOR
+    padding_type: str = PADDING_TYPE_DEFAULT
     
     # Color quantization options
     quantize: bool = ENABLE_QUANTIZATION
@@ -230,6 +233,11 @@ class ConversionConfig:
         
         if not all(0 <= c <= 255 for c in self.padding_color):
             raise ValueError(f"padding_color RGB values must be 0-255, got {self.padding_color}")
+        
+        # Validate padding type
+        valid_padding_types = {"circular", "square", "diamond"}
+        if self.padding_type not in valid_padding_types:
+            raise ValueError(f"padding_type must be one of {valid_padding_types}, got {self.padding_type}")
         
         # Validate AMS count (number of AMS units, not slots)
         if self.ams_count <= 0:

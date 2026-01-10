@@ -19,7 +19,8 @@ import numpy as np
 def add_padding(
     img: Image.Image,
     padding_size: int,
-    padding_color: Tuple[int, int, int]
+    padding_color: Tuple[int, int, int],
+    padding_type: str = "circular"
 ) -> Image.Image:
     """
     Add padding/outline around non-transparent pixels in an image.
@@ -41,6 +42,8 @@ def add_padding(
         img: PIL Image in RGBA mode
         padding_size: Size of padding in pixels (e.g., 5 means 5-pixel border)
         padding_color: RGB color for the padding
+        padding_type: Distance metric - "circular" (Euclidean, rounded corners),
+                     "square" (Manhattan, sharp corners), or "diamond" (Chebyshev)
         
     Returns:
         New PIL Image with padding applied (expanded canvas)
@@ -52,7 +55,7 @@ def add_padding(
         >>> from PIL import Image
         >>> img = Image.new('RGBA', (10, 10), (0, 0, 0, 0))  # Transparent
         >>> img.putpixel((5, 5), (255, 0, 0, 255))  # One red pixel
-        >>> padded = add_padding(img, 2, (255, 255, 255))
+        >>> padded = add_padding(img, 2, (255, 255, 255), "circular")
         >>> padded.size  # Should be expanded by 2*2 = 4 pixels in each dimension
         (14, 14)
     """
@@ -64,6 +67,10 @@ def add_padding(
     
     if not all(0 <= c <= 255 for c in padding_color):
         raise ValueError(f"padding_color RGB values must be 0-255, got {padding_color}")
+    
+    valid_padding_types = {"circular", "square", "diamond"}
+    if padding_type not in valid_padding_types:
+        raise ValueError(f"padding_type must be one of {valid_padding_types}, got {padding_type}")
     
     # Convert to RGBA if needed
     if img.mode != 'RGBA':
@@ -119,8 +126,16 @@ def add_padding(
         # Add all pixels within padding_size distance
         for dx in range(-padding_size, padding_size + 1):
             for dy in range(-padding_size, padding_size + 1):
-                # Calculate Euclidean distance
-                distance = (dx * dx + dy * dy) ** 0.5
+                # Calculate distance based on padding type
+                if padding_type == "circular":
+                    # Euclidean distance - smooth rounded corners
+                    distance = (dx * dx + dy * dy) ** 0.5
+                elif padding_type == "square":
+                    # Chebyshev distance - sharp 90° corners (perfect square)
+                    distance = max(abs(dx), abs(dy))
+                elif padding_type == "diamond":
+                    # Manhattan distance - 45° diagonal cuts (diamond shape)
+                    distance = abs(dx) + abs(dy)
                 
                 # Only add if within padding_size radius
                 if distance <= padding_size:

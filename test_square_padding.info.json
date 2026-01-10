@@ -1,0 +1,50 @@
+{
+  "filename": "test_square_padding.3mf",
+  "filepath": "E:\\pixel_to_3mf\\test_square_padding.3mf",
+  "file_hash": "5a24f83ed6a56c53acc9ed80afcbc35bc9f062182c1e0483a7ad44e966089e27",
+  "timestamp": "2026-01-04T19:59:22.071579",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Mistletoe Green",
+      "hex": "#3f8e43",
+      "rgb": [63, 142, 67],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pumpkin Orange",
+      "hex": "#ff9016",
+      "rgb": [255, 144, 22],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "B-1"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 123.80952380952381,
+    "height_mm": 200.0,
+    "pixel_size_mm": 4.761904761904762
+  },
+  "mesh_stats": {
+    "num_vertices": 4710,
+    "num_triangles": 9120,
+    "num_regions": 44,
+    "num_colors": 5
+  }
+}

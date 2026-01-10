@@ -67,6 +67,15 @@ PADDING_SIZE_PX = 0
 # White is a good default to create a visible border
 PADDING_COLOR = (255, 255, 255)  # White
 
+# Default padding type - determines the shape of the padding outline
+# - "circular": Euclidean distance, smooth rounded corners
+# - "square": Chebyshev distance, sharp 90° corners (perfect for framing)
+# - "diamond": Manhattan distance, 45° diagonal cuts
+PADDING_TYPE_DEFAULT = "circular"
+
+# TODO: Add --padding-ignore-holes flag to only pad outer edges,
+#       not internal transparent areas (useful for cutout designs)
+
 # ============================================================================
 # Color Naming
 # ============================================================================

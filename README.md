@@ -177,6 +177,7 @@ python run_converter.py --batch \
 | `--auto-crop` | Automatically crop away fully transparent edges | Off |
 | `--padding-size` | Add outline padding around sprites (in pixels) | 0 (disabled) |
 | `--padding-color` | Padding color as R,G,B | `255,255,255` (white) |
+| `--padding-type` | Padding shape: `circular`, `square` (90°), `diamond` (45°) | `circular` |
 | `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
 | `--trim` | Remove disconnected pixels (only corner-connected, no edge connections) | Off |
 | `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
@@ -637,11 +638,14 @@ python run_converter.py sprite.png --auto-crop
 #### Add Padding Around Sprites
 
 ```bash
-# Add 5px white padding (default color)
+# Add 5px white padding with smooth corners (circular, default)
 python run_converter.py sprite.png --padding-size 5
 
-# Add 3px blue padding
-python run_converter.py sprite.png --padding-size 3 --padding-color "0,0,255"
+# Add 3px blue padding with sharp 90° corners (square)
+python run_converter.py sprite.png --padding-size 3 --padding-color "0,0,255" --padding-type square
+
+# Diamond-shaped padding for maximum coverage
+python run_converter.py sprite.png --padding-size 5 --padding-type diamond
 
 # Combine with auto-crop for best results
 python run_converter.py sprite.png --auto-crop --padding-size 5
@@ -649,13 +653,16 @@ python run_converter.py sprite.png --auto-crop --padding-size 5
 
 - **Effect:** Adds an outline around non-transparent pixels, tracing both outer edges and internal holes
 - **Result:** Canvas expands to accommodate padding (e.g., 50x50 → 60x60 with 5px padding)
+- **Padding shapes:**
+  - `circular` (default): Euclidean distance - smooth, rounded corners
+  - `square`: Chebyshev distance - sharp 90° corners, perfect for framing
+  - `diamond`: Manhattan distance - 45° diagonal cuts
 - **Use case:**
   - Filling gaps between diagonally-connected pixels for better 3D printability
   - Adding structural support around thin features
-  - Creating visible borders around sprites
+  - Creating visible borders around sprites or framing borders for mounting
   - Improving adhesion with a surrounding rim
 - **Notes:**
-  - Padding uses circular distance (Euclidean) for smooth outlines
   - Padding is disabled by default (`--padding-size 0`)
   - Original pixels are always preserved (padding never overwrites existing colors)
 

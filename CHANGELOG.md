@@ -25,14 +25,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Separate progress stage in CLI output
 
 - **RGB boundary detection for blue/purple matching**: Smart color matching to prevent categorical mismatches in filament palettes with gaps (specifically resolves Bambu Lab palette issue)
-  - Uses red component analysis: R < 50 = blue, R > 80 = purple, 50-80 = boundary zone
-  - Only applies to filaments with "blue" or "purple" in their names
+  - Uses red component analysis on BOTH target and candidate colors: R < 50 = blue, R > 80 = purple, 50-80 = boundary zone
+  - No string matching on filament names - works for ANY naming scheme ("Ocean", "Sky", "Lavender", etc.)
   - Safe for all filament brands - only penalizes clear categorical mismatches
   - Configurable via `USE_RGB_BOUNDARY_DETECTION` constant (default: enabled)
   - Prevents pure blues (#0000FF) from matching to purple when Bambu Lab palette has no perfect blue match
   - Allows bluish-purples (#686CE8) to correctly match purple filaments
+  - More accurate color matching - may produce slightly different (better) results than previous name-based approach
   - Documented in `docs/RGB_BOUNDARY_DETECTION.md`
   - Marked with TODO comments for future migration to color-tools library
+
+- **Padding type selection**: New `--padding-type` flag allows choosing padding shape
+  - `circular` (default): Euclidean distance - smooth, rounded corners
+  - `square`: Chebyshev distance - sharp 90° corners, perfect for framing
+  - `diamond`: Manhattan distance - 45° diagonal cuts
+  - Configurable via `PADDING_TYPE_DEFAULT` constant
 
 - **Bambu Lab printer integration** for querying printer status and AMS information
   - New `bambu_ams_info.py` module to query printer via local HTTP API
