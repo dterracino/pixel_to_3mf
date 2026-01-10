@@ -19,6 +19,7 @@ from .constants import (
     MAX_COLORS,
     BACKING_COLOR,
     COLOR_NAMING_MODE,
+    MERGE_SIMILAR_COLORS,
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
     DEFAULT_FILAMENT_FINISH,
@@ -117,7 +118,8 @@ class ConversionConfig:
         backing_color: RGB color for the backing plate (reserved if not in image)
         skip_checks: If True, skip resolution warnings entirely
         batch_mode: If True, raise errors immediately instead of prompting user
-        color_naming_mode: How to name objects - "color", "filament", or "hex"
+        color_naming_mode: How to name objects - "color", "filament", "hex", or "generated"
+        merge_similar_colors: If True, merge similar RGBs to same filament. If False, force unique filament per RGB
         filament_maker: Filament maker filter(s) (for filament mode) - can be str or list
         filament_type: Filament type filter(s) (for filament mode) - can be str or list
         filament_finish: Filament finish filter(s) (for filament mode) - can be str or list
@@ -146,6 +148,7 @@ class ConversionConfig:
     skip_checks: bool = False
     batch_mode: bool = False
     color_naming_mode: str = COLOR_NAMING_MODE
+    merge_similar_colors: bool = MERGE_SIMILAR_COLORS
     filament_maker: Union[str, List[str], None] = None  # Will be set in __post_init__
     filament_type: Union[str, List[str], None] = None  # Will be set in __post_init__
     filament_finish: Union[str, List[str], None] = None  # Will be set in __post_init__
@@ -207,7 +210,7 @@ class ConversionConfig:
             raise ValueError(f"backing_color RGB values must be 0-255, got {self.backing_color}")
         
         # Validate color naming mode
-        valid_modes = {"color", "filament", "hex"}
+        valid_modes = {"color", "filament", "hex", "generated"}
         if self.color_naming_mode not in valid_modes:
             raise ValueError(f"color_naming_mode must be one of {valid_modes}, got {self.color_naming_mode}")
         

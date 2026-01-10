@@ -84,7 +84,14 @@ PADDING_TYPE_DEFAULT = "circular"
 # - "color": Use nearest CSS color name (e.g., "red", "coral")
 # - "filament": Use nearest filament name based on filters (e.g., "Bambu Lab PLA Basic Red")
 # - "hex": Use hex color code (e.g., "#FF5733")
+# - "generated": Use descriptive generated names (e.g., "very dark blue", "medium bright blue")
 COLOR_NAMING_MODE = "filament"
+
+# Merge similar colors to same filament
+# When True (default): Multiple RGB colors can map to same filament name (they share AMS slot)
+# When False: Each unique RGB color gets unique filament assignment (greedy matching)
+# Use False to preserve subtle color variations in images with many similar shades
+MERGE_SIMILAR_COLORS = True
 
 # Default filament filters when using filament mode
 DEFAULT_FILAMENT_MAKER = "Bambu Lab"

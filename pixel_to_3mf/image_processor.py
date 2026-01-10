@@ -326,48 +326,45 @@ def load_image(
         effective_max_colors = config.max_colors - 1
         color_status_msg = f"(backing color not in image - reserving 1 slot)"
 
-    # STEP 4: Quantize if needed (AFTER padding so padding color is included)
-    if num_colors > effective_max_colors:
-        # Too many colors - check if quantization is enabled
-        if config.quantize:
-            # Quantize the image to reduce colors
-            # Use effective_max_colors (accounts for backing color) instead of config.max_colors
-            target_colors = config.quantize_colors if config.quantize_colors is not None else effective_max_colors
+    # STEP 4: Quantize if requested (AFTER padding so padding color is included)
+    if config.quantize:
+        # Determine target color count
+        target_colors = config.quantize_colors if config.quantize_colors is not None else effective_max_colors
+        
+        # Only quantize if we actually need to reduce colors
+        if target_colors < num_colors:
+            # Perform quantization
+            img = quantize_image(img, target_colors, config.quantize_algo)
             
-            # Make sure we don't try to quantize to more colors than we have
-            if target_colors >= num_colors:
-                # No need to quantize if target is >= current color count
-                pass
+            # Re-extract pixel data from quantized image
+            pixel_array = np.array(img)
+            pixels = {}
+            
+            for y in range(height):
+                for x in range(width):
+                    r, g, b, a = pixel_array[y, x]
+                    
+                    if a > 0:
+                        flipped_y = height - 1 - y
+                        pixels[(x, flipped_y)] = (int(r), int(g), int(b), int(a))
+            
+            # Recalculate color count after quantization
+            unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
+            num_colors = len(unique_colors)
+            
+            # Check again if we're within limits now
+            backing_in_image = config.backing_color in unique_colors
+            if backing_in_image:
+                effective_max_colors = config.max_colors
+                color_status_msg = f"(including backing color)"
             else:
-                # Perform quantization
-                img = quantize_image(img, target_colors, config.quantize_algo)
-                
-                # Re-extract pixel data from quantized image
-                pixel_array = np.array(img)
-                pixels = {}
-                
-                for y in range(height):
-                    for x in range(width):
-                        r, g, b, a = pixel_array[y, x]
-                        
-                        if a > 0:
-                            flipped_y = height - 1 - y
-                            pixels[(x, flipped_y)] = (int(r), int(g), int(b), int(a))
-                
-                # Recalculate color count after quantization
-                unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
-                num_colors = len(unique_colors)
-                
-                # Check again if we're within limits now
-                backing_in_image = config.backing_color in unique_colors
-                if backing_in_image:
-                    effective_max_colors = config.max_colors
-                    color_status_msg = f"(including backing color)"
-                else:
-                    effective_max_colors = config.max_colors - 1
-                    color_status_msg = f"(backing color not in image - reserving 1 slot)"
-                
-                # If still too many colors after quantization, raise error
+                effective_max_colors = config.max_colors - 1
+                color_status_msg = f"(backing color not in image - reserving 1 slot)"
+    
+    # STEP 5: Validate color count
+    if num_colors > effective_max_colors:
+        # Too many colors - check if quantization could have helped but wasn't enabled
+        if not config.quantize:
                 if num_colors > effective_max_colors:
                     backing_name = f"RGB{config.backing_color}"
                     

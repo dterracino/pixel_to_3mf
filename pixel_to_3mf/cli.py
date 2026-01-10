@@ -394,9 +394,10 @@ The program will:
     parser.add_argument(
         "--color-mode",
         type=str,
-        choices=["color", "filament", "hex"],
+        choices=["color", "filament", "hex", "generated"],
         default=COLOR_NAMING_MODE,
-        help=f"Color naming mode: 'color' for CSS names, 'filament' for filament colors, 'hex' for hex codes (default: {COLOR_NAMING_MODE})"
+        help=f"Color naming mode: 'color' for CSS names, 'filament' for filament colors, "
+             f"'hex' for hex codes, 'generated' for descriptive names (default: {COLOR_NAMING_MODE})"
     )
     
     parser.add_argument(
@@ -418,6 +419,13 @@ The program will:
         type=str,
         default=None,
         help=f"Filament finish filter(s) for 'filament' mode. Comma-separated for multiple (default: {', '.join(DEFAULT_FILAMENT_FINISH)})"
+    )
+    
+    parser.add_argument(
+        "--no-merge-colors",
+        action="store_true",
+        help="Force unique filament assignment per RGB color (greedy matching). "
+             "Prevents merging similar colors to same filament. Useful for preserving subtle variations."
     )
     
     parser.add_argument(
@@ -702,6 +710,7 @@ The program will:
             skip_checks=args.skip_checks,
             batch_mode=args.batch,
             color_naming_mode=args.color_mode,
+            merge_similar_colors=not args.no_merge_colors,
             filament_maker=filament_maker,
             filament_type=filament_type,
             filament_finish=filament_finish,
