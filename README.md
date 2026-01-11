@@ -180,7 +180,8 @@ python run_converter.py --batch \
 | `--padding-type` | Padding shape: `circular`, `square` (90°), `diamond` (45°) | `circular` |
 | `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
 | `--trim` | Remove disconnected pixels (only corner-connected, no edge connections) | Off |
-| `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
+| `--color-mode` | Color naming: `color` (CSS), `filament`, `hex`, `generated` | `color` |
+| `--no-merge-colors` | Prevent merging similar colors - each unique RGB gets unique slot | Off |
 | `--filament-maker` | Filament maker filter(s), comma-separated (for `filament` mode) | `Bambu Lab` |
 | `--filament-type` | Filament type filter(s), comma-separated (for `filament` mode) | `PLA` |
 | `--filament-finish` | Filament finish filter(s), comma-separated (for `filament` mode) | `Basic, Matte` |
@@ -1192,11 +1193,54 @@ The `--auto-crop` feature is helpful when:
 - You want slicer to show real product names
 - Working with specific maker's color palette
 
+**Use Generated mode (`--color-mode generated`)** when:
+
+- You want descriptive human-readable names ("very dark blue", "medium bright red")
+- Planning manual filament selection without database constraints
+- Working with images that have subtle color variations
+- You prefer perceptual color descriptions over product names
+
 **Use Hex mode (`--color-mode hex`)** when:
 
 - You need precise color identification
 - Doing color-accurate reproduction
 - Programmatic processing of output files
+
+### Preserving Color Variations with --no-merge-colors
+
+By default, similar colors that map to the same filament are merged into one slot. Use `--no-merge-colors` when you want to preserve every unique RGB value as a separate slot:
+
+**Use --no-merge-colors when:**
+
+- Image has subtle color variations you want to preserve (gradients, shading)
+- You want manual control to assign different filaments in the slicer
+- Combined with `--quantize` to reduce colors but keep them separate
+- Each color variation should be a different filament/layer
+
+**Examples:**
+
+```bash
+# Greedy filament matching - assigns different filaments to each color
+python run_converter.py image.png --color-mode filament --no-merge-colors
+
+# Quantize 7 blues to 4, then assign each a unique filament
+python run_converter.py image.png \
+  --quantize --quantize-colors 4 \
+  --no-merge-colors \
+  --preview
+
+# Generated names with color preservation
+python run_converter.py image.png \
+  --color-mode generated \
+  --no-merge-colors
+```
+
+**Without --no-merge-colors (default):**
+- 7 similar blues → all match "Bambu Lab PLA Basic Blue" → 1 slot
+
+**With --no-merge-colors:**
+- 7 similar blues → greedy matching → 7 different filaments → 7 slots
+- Or with `--quantize-colors 4` → 4 different filaments → 4 slots
 
 ### Consistent Pixel Sizes Across Multiple Images
 

@@ -44,6 +44,16 @@ from .constants import (
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
+import sys
+
+# Reconfigure stdout to handle Unicode properly on Windows
+# This prevents UnicodeEncodeError when printing emojis in tests
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass  # If reconfigure fails, continue with default encoding
 
 # Create Rich consoles for output and errors
 console = Console()

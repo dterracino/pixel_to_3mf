@@ -10,12 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Quantization trigger**: Fixed quantization only running when color count exceeds `max_colors`. Now runs whenever `--quantize` is True, allowing reduction from any color count to target (e.g., 7 colors → 4 colors even when max is 16)
+- **Preview generation with no-merge-colors**: Fixed preview mapping not including backing color and not handling greedy filament assignments correctly
 - **Batch compatibility checker**: Fixed bug where filenames containing dots (e.g., `3.5-floppy-ornament_model`) would not be recognized when passed without the `.3mf` extension. Now correctly uses `endswith('.3mf')` check instead of relying on Path.suffix property.
 - **Quantization bug**: Fixed quantization target using `config.max_colors` instead of `effective_max_colors`, causing 15 colors when 16 were expected (when backing color is in the image)
 - **Backing plate message**: Fixed "Skipping backing plate (base height is 0)" message appearing even when backing plate was generated (duplicate code block removed)
 - **Blue/purple color matching**: Implemented RGB-based boundary detection to prevent pure blues (#0000FF) from matching to purple filaments. This resolves an issue specific to the Bambu Lab filament palette which has a gap between Purple (#5E43B7) and Blue (#0A2989) with no intermediate colors
 
 ### Added
+
+- **Generated color names mode**: New `--color-mode generated` option generates descriptive color names like "very dark blue", "medium bright red"
+  - Uses perceptual color analysis to create human-readable names
+  - Useful when you want manual filament control without database matching
+  - Works with both merge and no-merge modes
+  - Provided by color-tools library's naming module
+
+- **Greedy filament matching**: New `--no-merge-colors` flag prevents similar colors from collapsing into one slot
+  - Uses greedy algorithm: finds best RGB-filament pair, assigns it, removes filament from pool, repeats
+  - Each unique RGB gets a different actual filament from the database
+  - Essential for images with subtle color variations (gradients, shading)
+  - Enables manual control: assign filaments in slicer, then replace with your preferred colors
+  - Works with all color modes (filament, color, hex, generated)
+  - Especially useful with `--quantize` to preserve quantized color variations
+  - Example: 7 similar blues → quantize to 4 → assign 4 different filaments (Purple, Blue, Dark Blue, Cobalt Blue)
 
 - **Color preview generation**: New `--preview` flag generates a preview image showing what the model will look like with mapped filament colors
   - Saved as `{output_name}_preview.png` alongside the 3MF file
