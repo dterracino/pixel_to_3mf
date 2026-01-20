@@ -155,6 +155,13 @@ AMS_SLOTS_PER_UNIT = 4
 TRIM_DISCONNECTED_PIXELS = False
 
 # ============================================================================
+# Output Generation
+# ============================================================================
+
+# Generate color swatches image showing each color with its name/hex code
+GENERATE_SWATCHES = False
+
+# ============================================================================
 # 3MF File Generation
 # ============================================================================
 

@@ -29,7 +29,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
 - **AMS Integration**: Automatic AMS slot assignments with validation, CLI display table, and summary file recommendations
 - **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used with AMS slot locations (use `--summary`)
-- **Color Preview**: Optional preview image showing what your model will look like with mapped filament colors (use `--preview`)
+- **Color Preview**: Optional side-by-side comparison showing original vs matched filament colors for easy visual verification (use `--preview`)
 - **Mesh Statistics**: Displays triangle and vertex counts in conversion summary for understanding model complexity
 - **Winding Order Validation**: Automatically validates CCW (counter-clockwise) winding for proper surface normals
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations with smart RGB-based boundary detection to prevent blue→purple mismatches in palettes with gaps (e.g., Bambu Lab)
@@ -187,7 +187,7 @@ python run_converter.py --batch \
 | `--filament-finish` | Filament finish filter(s), comma-separated (for `filament` mode) | `Basic, Matte` |
 | `--optimize-mesh` | Use polygon-based mesh optimization | Off |
 | `--summary` | Generate summary file listing colors/filaments used | Off |
-| `--preview` | Generate preview image showing mapped filament colors | Off |
+| `--preview` | Generate side-by-side comparison preview (original vs matched colors) | Off |
 | `--ams-count` | Number of AMS units (1-4). Total slots = ams-count × ams-slots-per-unit | 4 |
 
 #### Batch Mode
@@ -785,7 +785,7 @@ python run_converter.py image.png \
 #### Generate Color Preview
 
 ```bash
-# Generate preview image showing mapped filament colors
+# Generate side-by-side comparison preview (original vs matched colors)
 python run_converter.py image.png --preview
 
 # Combine with filament mode to see actual filament colors
@@ -796,8 +796,10 @@ python run_converter.py image.png \
 ```
 
 - **Effect:** Creates a `_preview.png` file alongside the 3MF output
-- **Contents:** Source image with all colors replaced by their matched filament/color RGB values
-- **Visual verification:** See exactly what colors will be used before printing
+- **Format:** Side-by-side comparison with labels:
+  - Left panel: Original image colors
+  - Right panel: Matched filament/color RGB values
+- **Visual verification:** Easily identify color shifts and assess accuracy before printing
 - **Use case:** Verify color accuracy, check for categorical mismatches (e.g., blue→purple with Bambu Lab palette), preview final appearance
 - **Note:** Preview shows the actual RGB values from the matched filaments, not the original pixel colors
 
@@ -1236,9 +1238,11 @@ python run_converter.py image.png \
 ```
 
 **Without --no-merge-colors (default):**
+
 - 7 similar blues → all match "Bambu Lab PLA Basic Blue" → 1 slot
 
 **With --no-merge-colors:**
+
 - 7 similar blues → greedy matching → 7 different filaments → 7 slots
 - Or with `--quantize-colors 4` → 4 different filaments → 4 slots
 

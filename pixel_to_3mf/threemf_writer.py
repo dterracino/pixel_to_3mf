@@ -523,7 +523,7 @@ def greedy_filament_matching(
         # Fall back to generated color names for remaining RGBs
         from color_tools.naming import generate_color_name
         for rgb in remaining_rgbs:
-            color_name = generate_color_name(rgb)
+            color_name, _ = generate_color_name(rgb)  # Returns (name, match_type)
             assignments[rgb] = (color_name, rgb)
     
     return assignments
@@ -584,39 +584,92 @@ def generate_color_preview(
     output_path: str
 ) -> None:
     """
-    Generate a preview image showing what colors will look like with mapped filaments.
+    Generate a side-by-side comparison preview showing original and mapped colors.
     
-    This creates a version of the source image with all colors replaced by their
-    matched filament colors. Useful for previewing color accuracy before printing.
+    Creates an image with two panels:
+    - Left: Original image colors
+    - Right: Colors after filament matching
+    
+    This side-by-side comparison makes it easy to identify color shifts and
+    assess accuracy before committing to a 3D print.
     
     Args:
         pixel_data: Original pixel data from image processing
         color_mapping: Dict mapping detected RGB → filament RGB
         output_path: Path where preview image should be saved
     """
-    from PIL import Image
+    from PIL import Image, ImageDraw, ImageFont
     import numpy as np
     
-    # Create a blank RGBA image
-    preview = Image.new('RGBA', (pixel_data.width, pixel_data.height), (0, 0, 0, 0))
-    preview_array = np.array(preview)
+    # Create original image (left panel)
+    original = Image.new('RGBA', (pixel_data.width, pixel_data.height), (0, 0, 0, 0))
+    original_array = np.array(original)
     
-    # Replace each pixel with its mapped filament color
+    # Create matched colors image (right panel)
+    matched = Image.new('RGBA', (pixel_data.width, pixel_data.height), (0, 0, 0, 0))
+    matched_array = np.array(matched)
+    
+    # Fill both images with pixel data
     for (x, y), (r, g, b, a) in pixel_data.pixels.items():
         # Flip Y coordinate back (pixel_data has Y=0 at bottom, image has Y=0 at top)
         image_y = pixel_data.height - 1 - y
         
+        # Original colors (left)
+        original_array[image_y, x] = (r, g, b, a)
+        
+        # Matched colors (right)
         detected_rgb = (r, g, b)
         if detected_rgb in color_mapping:
             filament_rgb = color_mapping[detected_rgb]
-            preview_array[image_y, x] = (*filament_rgb, a)
+            matched_array[image_y, x] = (*filament_rgb, a)
         else:
             # Shouldn't happen, but fallback to original color
-            preview_array[image_y, x] = (r, g, b, a)
+            matched_array[image_y, x] = (r, g, b, a)
     
-    # Save the preview
-    preview_img = Image.fromarray(preview_array, 'RGBA')
-    preview_img.save(output_path)
+    # Convert arrays back to images
+    original_img = Image.fromarray(original_array, 'RGBA')
+    matched_img = Image.fromarray(matched_array, 'RGBA')
+    
+    # Create side-by-side comparison with labels
+    gap = 20  # pixels between images
+    label_height = 30  # pixels for labels
+    total_width = pixel_data.width * 2 + gap
+    total_height = pixel_data.height + label_height
+    
+    # Create white background for the comparison
+    comparison = Image.new('RGB', (total_width, total_height), (255, 255, 255))
+    
+    # Paste original image (left) and matched image (right)
+    comparison.paste(original_img, (0, label_height), original_img)
+    comparison.paste(matched_img, (pixel_data.width + gap, label_height), matched_img)
+    
+    # Add labels
+    draw = ImageDraw.Draw(comparison)
+    try:
+        # Try to use a nice font if available
+        font = ImageFont.truetype("arial.ttf", 18)
+    except:
+        # Fallback to default font
+        font = ImageFont.load_default()
+    
+    # Draw labels centered above each panel
+    left_label = "Original Colors"
+    right_label = "Matched Filament Colors"
+    
+    # Calculate text positions to center them
+    left_bbox = draw.textbbox((0, 0), left_label, font=font)
+    right_bbox = draw.textbbox((0, 0), right_label, font=font)
+    left_text_width = left_bbox[2] - left_bbox[0]
+    right_text_width = right_bbox[2] - right_bbox[0]
+    
+    left_x = (pixel_data.width - left_text_width) // 2
+    right_x = pixel_data.width + gap + (pixel_data.width - right_text_width) // 2
+    
+    draw.text((left_x, 5), left_label, fill=(0, 0, 0), font=font)
+    draw.text((right_x, 5), right_label, fill=(0, 0, 0), font=font)
+    
+    # Save the comparison image
+    comparison.save(output_path)
 
 
 # ============================================================================
@@ -757,8 +810,10 @@ def write_3mf(
             color_to_slot[rgb] = name_to_slot[color_name]
     
     else:
-        # NO-MERGE MODE: Each unique RGB gets its own slot with unique filament
-        # Use greedy algorithm to assign different filaments to each RGB
+        # NO-MERGE MODE: Each unique RGB gets its own slot
+        # Behavior depends on color_naming_mode:
+        # - 'filament': Use greedy algorithm to assign unique filaments
+        # - Other modes ('hex', 'color', 'generated'): Just assign each RGB its own slot with appropriate name
         
         # Collect all unique RGB values (excluding backing color)
         unique_rgbs = []
@@ -766,8 +821,12 @@ def write_3mf(
             if rgb not in unique_rgbs and rgb != config.backing_color:
                 unique_rgbs.append(rgb)
         
-        # Use greedy matching to assign unique filaments
-        rgb_to_name_and_matched_rgb = greedy_filament_matching(unique_rgbs, config)
+        # Determine if we should use greedy filament matching
+        use_greedy_matching = config.color_naming_mode == 'filament'
+        
+        if use_greedy_matching:
+            # Use greedy matching to assign unique filaments
+            rgb_to_name_and_matched_rgb = greedy_filament_matching(unique_rgbs, config)
         
         # Build slot mappings
         rgb_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
@@ -775,7 +834,12 @@ def write_3mf(
         
         next_slot = 2
         for rgb in unique_rgbs:
-            filament_name, _ = rgb_to_name_and_matched_rgb[rgb]
+            if use_greedy_matching:
+                filament_name, _ = rgb_to_name_and_matched_rgb[rgb]
+            else:
+                # For hex/color/generated modes, just use the color name from get_color_name()
+                filament_name = get_color_name(rgb, config)
+            
             rgb_to_slot[rgb] = next_slot
             name_to_slot[filament_name] = next_slot
             next_slot += 1
@@ -895,20 +959,21 @@ def write_3mf(
         
         # Find the RGB and matched values for this slot
         if not config.merge_similar_colors:
-            # In no-merge mode, use the greedy assignment results
+            # In no-merge mode, behavior depends on whether we used greedy matching
             for rgb, rgb_slot in rgb_to_slot.items():
                 if rgb_slot == slot:
-                    # Get the matched filament RGB from greedy matching
-                    filament_name, matched_rgb = rgb_to_name_and_matched_rgb[rgb]
+                    if use_greedy_matching:
+                        # Get the matched filament RGB from greedy matching
+                        filament_name, matched_rgb = rgb_to_name_and_matched_rgb[rgb]
+                    else:
+                        # For hex/color/generated modes, use the RGB directly
+                        filament_name = get_color_name(rgb, config)
+                        matched_rgb = rgb  # Use the actual RGB, not a matched one
                     slot_to_color[slot] = (filament_name, matched_rgb)
                     break
         else:
             # In merge mode, find any RGB with this color name
             for _, detected_rgb, color_name in region_data:
-                if color_name == unique_name:
-                    _, matched_rgb = get_color_name_and_rgb(detected_rgb, config)
-                    slot_to_color[slot] = (unique_name, matched_rgb)
-                    break
                 if color_name == unique_name:
                     _, matched_rgb = get_color_name_and_rgb(detected_rgb, config)
                     slot_to_color[slot] = (unique_name, matched_rgb)
@@ -928,9 +993,15 @@ def write_3mf(
         preview_mapping[config.backing_color] = backing_matched_rgb
         
         if not config.merge_similar_colors:
-            # In no-merge mode, use the greedy assignment results
-            for rgb, (filament_name, matched_rgb) in rgb_to_name_and_matched_rgb.items():
-                preview_mapping[rgb] = matched_rgb
+            # In no-merge mode, behavior depends on whether we used greedy matching
+            if use_greedy_matching:
+                # Use the greedy assignment results
+                for rgb, (filament_name, matched_rgb) in rgb_to_name_and_matched_rgb.items():
+                    preview_mapping[rgb] = matched_rgb
+            else:
+                # For hex/color/generated modes, use RGB directly (no matching)
+                for rgb in unique_rgbs:
+                    preview_mapping[rgb] = rgb
         else:
             # In merge mode, look up matched RGB for each detected RGB
             for _, detected_rgb, color_name in region_data:

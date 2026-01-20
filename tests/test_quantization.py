@@ -196,7 +196,7 @@ class TestLoadImageWithQuantization(unittest.TestCase):
             load_image(image_path, config)
         
         self.assertIn("unique colors", str(cm.exception))
-        self.assertIn("enable --quantize", str(cm.exception))
+        self.assertIn("maximum allowed", str(cm.exception))
     
     def test_load_with_quantization_uses_default_colors(self):
         """Test that quantization defaults to max_colors when quantize_colors is None."""
@@ -219,24 +219,24 @@ class TestLoadImageWithQuantization(unittest.TestCase):
         self.assertLessEqual(len(unique_colors), 15)
     
     def test_load_skips_quantization_if_not_needed(self):
-        """Test that quantization is skipped if image already has few enough colors."""
-        # Create image with only 5 colors
-        image_path = self._create_multicolor_image(5)
+        """Test that quantization is skipped if target >= current color count."""
+        # Create image with only 3 colors
+        image_path = self._create_multicolor_image(3)
         
-        # Config with quantization enabled, max_colors=10
+        # Config with quantization enabled, targeting 5 colors (more than we have)
         config = ConversionConfig(
             max_colors=10,
             quantize=True,
-            quantize_colors=3,  # Target fewer colors than we have
+            quantize_colors=5,  # Target MORE colors than we have
             quantize_algo="none"
         )
         
-        # Should succeed without quantizing (since 5 < 10)
+        # Should succeed without quantizing (since target 5 >= current 3)
         pixel_data = load_image(image_path, config)
         
-        # Should still have ~5 colors (not quantized to 3)
+        # Should still have 3 colors (not changed)
         unique_colors = pixel_data.get_unique_colors()
-        self.assertEqual(len(unique_colors), 5)
+        self.assertEqual(len(unique_colors), 3)
     
     def test_load_quantization_respects_backing_color_reservation(self):
         """Test that quantization accounts for backing color slot reservation."""

@@ -142,7 +142,8 @@ def _generate_region_mesh_original(
     # For each pixel, create 2 triangles to form a square
 
     # Map from (x, y) pixel coords to vertex index for top face
-    top_vertex_map: Dict[Tuple[int, int], int] = {}
+    # For diagonal-only pixels, uses 4-tuple keys: ((x,y), cx, cy, "top")
+    top_vertex_map: Dict[Tuple[int, ...], int] = {}
 
     for x, y in region.pixels:
         # Each pixel square has 4 corners
@@ -192,8 +193,8 @@ def _generate_region_mesh_original(
     # Pass 3: Generate bottom face (z = 0)
     # ========================================================================
     # Same as top face, but at z=0 and with reversed winding (for correct normals)
-    
-    bottom_vertex_map: Dict[Tuple[int, int], int] = {}
+    # For diagonal-only pixels, uses 4-tuple keys: ((x,y), cx, cy, "bottom")
+    bottom_vertex_map: Dict[Tuple[int, ...], int] = {}
     
     for x, y in region.pixels:
         corners = [

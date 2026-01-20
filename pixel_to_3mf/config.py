@@ -33,7 +33,8 @@ from .constants import (
     PADDING_TYPE_DEFAULT,
     TRIM_DISCONNECTED_PIXELS,
     AMS_COUNT,
-    AMS_SLOTS_PER_UNIT
+    AMS_SLOTS_PER_UNIT,
+    GENERATE_SWATCHES
 )
 
 
@@ -175,6 +176,9 @@ class ConversionConfig:
     
     # Preview image options
     generate_preview: bool = False
+    
+    # Color swatches image options
+    generate_swatches: bool = GENERATE_SWATCHES
     
     # Mesh optimization and validation
     optimize_mesh: bool = False

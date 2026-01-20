@@ -10,6 +10,7 @@ Separation of concerns FTW! 🎯
 """
 
 import argparse
+import io
 import sys
 import logging
 from pathlib import Path
@@ -44,13 +45,17 @@ from .constants import (
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
-import sys
 
 # Reconfigure stdout to handle Unicode properly on Windows
 # This prevents UnicodeEncodeError when printing emojis in tests
-if hasattr(sys.stdout, 'reconfigure'):
+if isinstance(sys.stdout, io.TextIOWrapper):
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass  # If reconfigure fails, continue with default encoding
+
+if isinstance(sys.stderr, io.TextIOWrapper):
+    try:
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     except Exception:
         pass  # If reconfigure fails, continue with default encoding
@@ -554,9 +559,17 @@ The program will:
     parser.add_argument(
         "--preview",
         action="store_true",
-        help="Generate a preview image showing mapped filament colors. "
+        help="Generate a side-by-side comparison preview showing original vs matched colors. "
              "Preview is saved as {output_name}_preview.png in the same location as the output file. "
-             "Useful for checking color accuracy before printing."
+             "Makes it easy to identify color shifts before printing."
+    )
+    
+    parser.add_argument(
+        "--swatches",
+        action="store_true",
+        help="Generate a color swatches image showing each color with its name/hex code. "
+             "Swatches are saved as {output_name}_swatches.png in the same location as the output file. "
+             "Useful for documenting what colors are needed for printing."
     )
     
     parser.add_argument(
@@ -736,6 +749,7 @@ The program will:
             quantize_colors=args.quantize_colors,
             generate_summary=args.summary,
             generate_preview=args.preview,
+            generate_swatches=args.swatches,
             ams_count=args.ams_count,
             render_model=args.render,
             optimize_mesh=args.optimize_mesh,
@@ -1194,6 +1208,10 @@ The program will:
     # Add preview path if generated
     if 'preview_path' in stats:
         stats_table.add_row("Preview:", stats['preview_path'])
+    
+    # Add swatches path if generated
+    if 'swatches_path' in stats:
+        stats_table.add_row("Swatches:", stats['swatches_path'])
     
     # Add summary path if generated
     if 'summary_path' in stats:

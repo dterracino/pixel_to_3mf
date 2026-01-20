@@ -357,6 +357,18 @@ def convert_image_to_3mf(
         generate_color_preview(pixel_data, preview_mapping, preview_path)
         _progress("preview", "Complete!")
     
+    # Step 6.6: Generate color swatches if requested
+    swatches_path = None
+    if config.generate_swatches and color_mapping:
+        from .swatch_generator import generate_swatches_image
+        
+        _progress("swatches", "Generating color swatches...")
+        # Extract colors and names from color_mapping (slot, name, rgb)
+        swatch_colors = [rgb for _, _, rgb in color_mapping]
+        swatch_names = [name for _, name, _ in color_mapping]
+        swatches_path = str(generate_swatches_image(Path(output_path), swatch_colors, swatch_names))
+        _progress("swatches", f"Swatches saved to: {swatches_path}")
+    
     # Step 7: Render model if requested
     render_path = None
     if config.render_model:
@@ -408,6 +420,10 @@ def convert_image_to_3mf(
     # Add preview path if generated
     if preview_path:
         stats['preview_path'] = preview_path
+    
+    # Add swatches path if generated
+    if swatches_path:
+        stats['swatches_path'] = swatches_path
     
     # Add render path if generated
     if render_path:
