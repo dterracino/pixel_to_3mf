@@ -42,34 +42,41 @@ polymaker-petg-matte-galaxy-black
 
 ### 2. Storage Location
 
-**File:** `~/.color-tools/owned-filaments.txt`
+**File:** `~/.color-tools/owned-filaments.json`
 
-**Format:** Plain text, one filament ID per line
+**Format:** JSON array of filament IDs
 
-```text
-bambu-lab-pla-basic-red
-bambu-lab-pla-basic-blue
-bambu-lab-pla-matte-black
-polymaker-petg-matte-galaxy-black
+```json
+{
+  "owned": [
+    "bambu-lab-pla-basic-red",
+    "bambu-lab-pla-basic-blue",
+    "bambu-lab-pla-matte-black",
+    "polymaker-petg-matte-galaxy-black"
+  ]
+}
 ```
 
 **Rationale:**
 
-- Simple and human-readable
-- Easy to edit manually if needed
+- Structured and extensible (can add metadata later: quantities, notes, purchase dates)
+- Still human-readable and editable
 - Cross-platform (uses home directory)
-- Lightweight (no database needed)
+- Easy to parse and validate
 - Version control friendly (if user wants to track it)
+- Future-proof for features like quantity tracking
 
 ### 3. File Management
 
 **Location logic:**
 
 1. Check `COLORTOOLS_CONFIG` environment variable (if user wants custom location)
-2. Fall back to `~/.color-tools/owned-filaments.txt`
-3. Create directory and file if they don't exist
+2. Fall back to `~/.color-tools/owned-filaments.json`
+3. Create directory and file if they don't exist (initialize with empty owned array)
 
 **Atomicity:** Use temp file + rename pattern for safe writes
+
+**Validation:** Validate JSON structure on load, gracefully handle corrupted files
 
 ---
 
@@ -84,12 +91,13 @@ polymaker-petg-matte-galaxy-black
 Owned filaments management.
 
 Maintains a list of filament IDs that the user owns, stored in
-~/.color-tools/owned-filaments.txt
+~/.color-tools/owned-filaments.json
 """
 
 from pathlib import Path
 from typing import Set, List
 import os
+import json
 
 def get_owned_file_path() -> Path:
     """
@@ -98,11 +106,11 @@ def get_owned_file_path() -> Path:
     Checks COLORTOOLS_CONFIG env var, falls back to ~/.color-tools/
     """
     if env_path := os.getenv('COLORTOOLS_CONFIG'):
-        return Path(env_path) / 'owned-filaments.txt'
+        return Path(env_path) / 'owned-filaments.json'
     
     config_dir = Path.home() / '.color-tools'
     config_dir.mkdir(exist_ok=True)
-    return config_dir / 'owned-filaments.txt'
+    return config_dir / 'owned-filaments.json'
 
 
 def load_owned_filaments() -> Set[str]:
@@ -117,13 +125,14 @@ def load_owned_filaments() -> Set[str]:
     if not owned_file.exists():
         return set()
     
-    owned = set()
-    for line in owned_file.read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if line and not line.startswith('#'):  # Allow comments
-            owned.add(line)
-    
-    return owned
+    try:
+        data = json.loads(owned_file.read_text(encoding='utf-8'))
+        return set(data.get('owned', []))
+    except (json.JSONDecodeError, ValueError) as e:
+        # Corrupted file - return empty set and log warning
+        import warnings
+        warnings.warn(f"Corrupted owned filaments file: {e}. Starting fresh.")
+        return set()
 
 
 def save_owned_filaments(owned: Set[str]) -> None:
@@ -135,9 +144,14 @@ def save_owned_filaments(owned: Set[str]) -> None:
     owned_file = get_owned_file_path()
     temp_file = owned_file.with_suffix('.tmp')
     
+    # Create JSON structure
+    data = {
+        'owned': sorted(owned)  # Sort for consistent ordering
+    }
+    
     # Write to temp file
     temp_file.write_text(
-        '\n'.join(sorted(owned)) + '\n',
+        json.dumps(data, indent=2) + '\n',
         encoding='utf-8'
     )
     
@@ -691,27 +705,26 @@ Full walkthrough of the management tool.
 
 ---
 
-## Questions to Resolve
+## Design Decisions - CONFIRMED ✅
 
-1. **Conflict resolution:** If `--owned-filaments` and `--filament-maker` are both specified, should we:
-   - Intersect (owned AND matches filters) ✅ **Recommended**
-   - Union (owned OR matches filters)
-   - Error (conflicting options)
+1. **Filter combination logic:** If `--owned-filaments` and `--filament-maker` (or other filters) are both specified:
+   - ✅ **AND logic (intersect)**: Filter WITHIN the owned list
+   - Example: `--owned-filaments --filament-maker "Bambu Lab"` → Only Bambu Lab filaments from your owned list
+   - This allows users to further narrow their owned inventory
 
-2. **Empty owned list:** If `--owned-filaments` is used but owned list is empty, should we:
-   - Error (no owned filaments configured) ✅ **Recommended**
-   - Warn and fall back to all filaments
-   - Silently fall back
+2. **Empty owned list behavior:** If `--owned-filaments` is used but owned list is empty:
+   - ✅ **Error with helpful message**: "No owned filaments configured. Use 'python -m pixel_to_3mf.manage_filaments add' to add filaments."
+   - Clear and explicit - user must set up their inventory before using the feature
+   - Prevents confusion from unexpected fallback behavior
 
-3. **Interactive mode dependencies:** The interactive browser needs Rich library. Should we:
-   - Require it (already a dependency of pixel_to_3mf)
-   - Make it optional
-   - Create both CLI and TUI versions
+3. **File format:**
+   - ✅ **JSON from the start**: Use `owned-filaments.json` with structured format
+   - Allows future extensibility (quantities, notes, purchase dates, etc.)
+   - Still human-readable and editable
 
-4. **File format:** Plain text is simple, but should we consider JSON for future extensibility (quantities, notes, etc.)?
-   - Stick with plain text for now ✅ **Recommended**
-   - Use JSON from the start
-   - Support both
+4. **Interactive mode dependencies:**
+   - ✅ **Require Rich**: Already a dependency of pixel_to_3mf, provides excellent UX
+   - No need for separate CLI/TUI versions
 
 ---
 
@@ -719,4 +732,11 @@ Full walkthrough of the management tool.
 
 This feature provides a powerful way to match colors against an actual filament inventory. By implementing the core in color-tools and the UI in pixel_to_3mf, we keep concerns separated and make the feature reusable for other tools.
 
-The design is simple (text file of IDs), extensible (can add JSON later), and user-friendly (interactive browser + command-line management).
+The design is simple (JSON file of IDs), extensible (can add metadata like quantities), and user-friendly (interactive browser + command-line management).
+
+**Key behaviors:**
+
+- `--owned-filaments` matches against your inventory
+- Combine with filters to narrow within owned set: `--owned-filaments --filament-type PLA`
+- Errors if owned list is empty (forces explicit setup)
+- JSON format allows future enhancements without breaking changes
