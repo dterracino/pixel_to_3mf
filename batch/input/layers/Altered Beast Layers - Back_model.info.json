@@ -1,21 +1,57 @@
 {
-  "filename": "Altered Beast Layers - Back_model.3mf",
-  "filepath": "E:\\pixel_to_3mf\\samples\\input\\layers\\Altered Beast Layers - Back_model.3mf",
-  "file_hash": "b7abef1a4af8469c77556e7690d936570d622f1af905444696fd7627e093b05c",
-  "timestamp": "2026-01-09T18:46:46.849165",
+  "filename": "altered beast layers - Back_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\layers\\altered beast layers - Back_model.3mf",
+  "file_hash": "1fda978012201a6af234c62883842b7415ed5edf6d78acc57225e44c1864defc",
+  "timestamp": "2026-01-14T09:47:57.635228",
   "converter_version": "0.x.x",
   "colors": [
     {
-      "name": "Bambu Lab PLA Basic Black",
-      "hex": "#000000",
-      "rgb": [0, 0, 0],
+      "name": "#FFFFFF",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
       "ams_slot": "A-1"
     },
     {
-      "name": "Bambu Lab PLA Basic Blue",
-      "hex": "#0a2989",
-      "rgb": [10, 41, 137],
+      "name": "#00009C",
+      "hex": "#00009c",
+      "rgb": [0, 0, 156],
       "ams_slot": "A-2"
+    },
+    {
+      "name": "#0000AD",
+      "hex": "#0000ad",
+      "rgb": [0, 0, 173],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "#0000BD",
+      "hex": "#0000bd",
+      "rgb": [0, 0, 189],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "#0000CE",
+      "hex": "#0000ce",
+      "rgb": [0, 0, 206],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "#0000DE",
+      "hex": "#0000de",
+      "rgb": [0, 0, 222],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "#0000EF",
+      "hex": "#0000ef",
+      "rgb": [0, 0, 239],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "#0000FF",
+      "hex": "#0000ff",
+      "rgb": [0, 0, 255],
+      "ams_slot": "B-4"
     }
   ],
   "model_dimensions": {
@@ -27,6 +63,6 @@
     "num_vertices": 184938,
     "num_triangles": 366872,
     "num_regions": 600,
-    "num_colors": 2
+    "num_colors": 8
   }
 }

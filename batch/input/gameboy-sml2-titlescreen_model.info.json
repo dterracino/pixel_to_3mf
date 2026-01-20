@@ -1,0 +1,50 @@
+{
+  "filename": "gameboy-sml2-titlescreen_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\gameboy-sml2-titlescreen_model.3mf",
+  "file_hash": "f3b4a6cc1b939bb7596bb16499a5d60f02e0d38c07743f61262fa16a4287c449",
+  "timestamp": "2026-01-16T22:48:43.830871",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bright Green",
+      "hex": "#becf00",
+      "rgb": [190, 207, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Apple Green",
+      "hex": "#c2e189",
+      "rgb": [194, 225, 137],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Dark Gray",
+      "hex": "#545454",
+      "rgb": [84, 84, 84],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Green",
+      "hex": "#68724d",
+      "rgb": [104, 114, 77],
+      "ams_slot": "B-1"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 180.0,
+    "pixel_size_mm": 1.25
+  },
+  "mesh_stats": {
+    "num_vertices": 67902,
+    "num_triangles": 135528,
+    "num_regions": 288,
+    "num_colors": 5
+  }
+}
