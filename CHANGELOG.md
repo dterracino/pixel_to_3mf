@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`--iterate-quantize` backing color accounting**: Fixed iterative quantization producing `max_colors + 1` total slots when backing color is enabled. The iteration now compares against `max_colors - 1` (the actual slots available for image colors) instead of `max_colors`, correctly accounting for the slot reserved by the backing plate.
+- **Pyright type error in iterate-quantize loop**: Fixed union type ambiguity on `unique_names` set (`set[str] | set[Tuple]` inferred instead of `set[str | Tuple]`) by adding an explicit type annotation.
 - **Quantization trigger**: Fixed quantization only running when color count exceeds `max_colors`. Now runs whenever `--quantize` is True, allowing reduction from any color count to target (e.g., 7 colors → 4 colors even when max is 16)
 - **Preview generation with no-merge-colors**: Fixed preview mapping not including backing color and not handling greedy filament assignments correctly
 - **Batch compatibility checker**: Fixed bug where filenames containing dots (e.g., `3.5-floppy-ornament_model`) would not be recognized when passed without the `.3mf` extension. Now correctly uses `endswith('.3mf')` check instead of relying on Path.suffix property.

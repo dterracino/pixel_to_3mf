@@ -215,17 +215,23 @@ def convert_image_to_3mf(
             else:
                 unique_names = set(unique_region_colors)  # no merging → count raw RGBs
 
-            # Account for backing color slot reservation
+            # Account for backing color slot reservation.
+            # Slot 1 is always the backing color when no_backing_color=False.
+            # If the backing color appears in the image it shares slot 1 (discard it so
+            # it isn't double-counted). Either way, image colors can only use
+            # max_colors-1 slots (2..max_colors), so compare against that limit.
             if not config.no_backing_color:
                 if config.merge_similar_colors:
                     unique_names.discard(get_color_name(config.backing_color, config))
                 else:
-                    unique_names.discard(config.backing_color)  # backing always gets slot 1; don't double-count
+                    unique_names.discard(config.backing_color)
+
+            effective_limit = config.max_colors if config.no_backing_color else config.max_colors - 1
 
             merged_count = len(unique_names)
-            _progress("load", f"  → {merged_count} merged colors (target: ≤{config.max_colors})")
+            _progress("load", f"  → {merged_count} merged colors (target: ≤{effective_limit})")
 
-            if merged_count <= config.max_colors:
+            if merged_count <= effective_limit:
                 pixel_data = candidate_pixel_data
                 regions = candidate_regions
                 final_q = current_q
