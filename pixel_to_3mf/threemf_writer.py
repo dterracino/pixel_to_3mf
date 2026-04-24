@@ -795,19 +795,30 @@ def write_3mf(
     if config.merge_similar_colors:
         # MERGE MODE: Group by color name (current behavior)
         # Multiple RGB values with same color name share one AMS slot
-        name_to_slot: Dict[str, int] = {backing_color_name: 1}
+        if config.no_backing_color:
+            # All slots available for image colors; backing plate reuses slot 1
+            name_to_slot: Dict[str, int] = {}
+            next_slot = 1
+        else:
+            name_to_slot: Dict[str, int] = {backing_color_name: 1}
+            next_slot = 2
         
-        # Assign slots 2-N to other unique color names
-        next_slot = 2
+        # Assign slots to other unique color names
         for _, rgb, color_name in region_data:
             if color_name not in name_to_slot:
                 name_to_slot[color_name] = next_slot
                 next_slot += 1
         
         # Maintain color_to_slot for backward compatibility
-        color_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
+        if config.no_backing_color:
+            color_to_slot: Dict[Tuple[int, int, int], int] = {}
+        else:
+            color_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
         for _, rgb, color_name in region_data:
             color_to_slot[rgb] = name_to_slot[color_name]
+        # Ensure backing_color maps to slot 1 (for summary and other lookups)
+        if config.no_backing_color:
+            color_to_slot[config.backing_color] = 1
     
     else:
         # NO-MERGE MODE: Each unique RGB gets its own slot
@@ -829,10 +840,16 @@ def write_3mf(
             rgb_to_name_and_matched_rgb = greedy_filament_matching(unique_rgbs, config)
         
         # Build slot mappings
-        rgb_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
-        name_to_slot: Dict[str, int] = {backing_color_name: 1}
+        if config.no_backing_color:
+            # All slots available for image colors; backing plate reuses slot 1
+            rgb_to_slot: Dict[Tuple[int, int, int], int] = {}
+            name_to_slot: Dict[str, int] = {}
+            next_slot = 1
+        else:
+            rgb_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
+            name_to_slot: Dict[str, int] = {backing_color_name: 1}
+            next_slot = 2
         
-        next_slot = 2
         for rgb in unique_rgbs:
             if use_greedy_matching:
                 filament_name, _ = rgb_to_name_and_matched_rgb[rgb]
@@ -843,6 +860,10 @@ def write_3mf(
             rgb_to_slot[rgb] = next_slot
             name_to_slot[filament_name] = next_slot
             next_slot += 1
+        
+        # Ensure backing_color maps to slot 1 (for summary and other lookups)
+        if config.no_backing_color:
+            rgb_to_slot[config.backing_color] = 1
         
         # For backward compatibility, create color_to_slot
         color_to_slot = rgb_to_slot
@@ -949,12 +970,16 @@ def write_3mf(
     slot_to_color: Dict[int, Tuple[str, Tuple[int, int, int]]] = {}
     
     # Build slot_to_color using matched RGB values
-    _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
-    slot_to_color[1] = (backing_color_name, backing_matched_rgb)
+    if config.no_backing_color:
+        # Slot 1 belongs to the first image color; it will be filled by the loop below
+        pass
+    else:
+        _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
+        slot_to_color[1] = (backing_color_name, backing_matched_rgb)
     
     # Process each unique color/filament assignment
     for unique_name, slot in name_to_slot.items():
-        if slot == 1:  # Skip backing plate (already added)
+        if slot == 1 and not config.no_backing_color:  # Skip backing plate (already added)
             continue
         
         # Find the RGB and matched values for this slot
@@ -988,9 +1013,10 @@ def write_3mf(
         # Build color mapping: detected RGB → matched filament RGB
         preview_mapping = {}
         
-        # Always include backing color mapping
-        _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
-        preview_mapping[config.backing_color] = backing_matched_rgb
+        # Include backing color mapping (unless no_backing_color, where it reuses slot 1)
+        if not config.no_backing_color:
+            _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
+            preview_mapping[config.backing_color] = backing_matched_rgb
         
         if not config.merge_similar_colors:
             # In no-merge mode, behavior depends on whether we used greedy matching

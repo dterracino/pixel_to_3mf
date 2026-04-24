@@ -12,6 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Preview format**: The `--preview` flag now generates a side-by-side comparison image showing original colors (left) and matched filament colors (right) with labeled panels. This makes it much easier to identify color shifts at a glance compared to the previous single-image format.
 
+### Added
+
+- **`--no-backing-color` flag**: Skip reserving an AMS slot for the backing plate, making all color slots available for image colors. The backing plate is assigned to slot 1 (whichever filament the first image color uses), so no slot is wasted on a dedicated backing color.
+  - Useful when you plan to use one of your image colors as the backing filament anyway
+  - Allows a full 16-color image to use all 16 AMS slots (previously 15 were available because 1 was reserved)
+  - Example: `py run_converter.py art.png --no-backing-color`
+
+- **`--iterate-quantize` flag**: Iterative quantization mode that starts at `--quantize-colors` and decrements until the merged color count fits within `--max-colors`. This preserves accent colors that standard quantization would discard.
+  - Standard quantization uses pixel-count weighting, so small but visually important colors (a red headband, a gold button) often get merged into nearby large clusters
+  - With `--iterate-quantize`, you set a higher starting color count (e.g. 25) so accent colors get their own cluster, then the filament merge step collapses *perceptually similar* colors — the accent colors survive because they are perceptually far from everything else
+  - Allows `--quantize-colors` to exceed `--max-colors` as the starting point
+  - Example: `py run_converter.py art.png --quantize --quantize-colors 25 --iterate-quantize`
+
 ### Fixed
 
 - **Quantization trigger**: Fixed quantization only running when color count exceeds `max_colors`. Now runs whenever `--quantize` is True, allowing reduction from any color count to target (e.g., 7 colors → 4 colors even when max is 16)

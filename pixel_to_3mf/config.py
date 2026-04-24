@@ -117,6 +117,8 @@ class ConversionConfig:
         base_height_mm: Height of backing plate in millimeters
         max_colors: Maximum unique colors allowed
         backing_color: RGB color for the backing plate (reserved if not in image)
+        no_backing_color: If True, don't reserve a slot for the backing color; all slots are available
+            for image colors, and the backing plate reuses slot 1 (the first image color)
         skip_checks: If True, skip resolution warnings entirely
         batch_mode: If True, raise errors immediately instead of prompting user
         color_naming_mode: How to name objects - "color", "filament", "hex", or "generated"
@@ -133,6 +135,9 @@ class ConversionConfig:
         quantize: If True, automatically reduce colors when image exceeds max_colors
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
         quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
+        iterate_quantize: If True, start at quantize_colors and decrement until merged color count fits
+            within max_colors. Allows quantize_colors > max_colors as a starting point so accent colors
+            survive longer before being merged away.
         generate_summary: If True, generate a summary file listing colors/filaments used
         optimize_mesh: If True, use optimized polygon-based mesh generation (enables validate_mesh automatically)
         validate_mesh: If True, run mesh post-processing validation and repair on all meshes
@@ -146,6 +151,7 @@ class ConversionConfig:
     base_height_mm: float = BASE_LAYER_HEIGHT_MM
     max_colors: int = MAX_COLORS
     backing_color: Tuple[int, int, int] = BACKING_COLOR
+    no_backing_color: bool = False
     skip_checks: bool = False
     batch_mode: bool = False
     color_naming_mode: str = COLOR_NAMING_MODE
@@ -170,6 +176,7 @@ class ConversionConfig:
     quantize: bool = ENABLE_QUANTIZATION
     quantize_algo: str = QUANTIZATION_ALGORITHM
     quantize_colors: Union[int, None] = QUANTIZATION_COLORS
+    iterate_quantize: bool = False
     
     # Summary file options
     generate_summary: bool = False

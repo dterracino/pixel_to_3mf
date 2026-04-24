@@ -405,6 +405,14 @@ The program will:
         help=f"Backing plate color as R,G,B (e.g., '255,255,255' for white). "
              f"If not in image, reserves 1 color slot. Default: {BACKING_COLOR}"
     )
+
+    parser.add_argument(
+        "--no-backing-color",
+        action="store_true",
+        default=False,
+        help="Don't reserve a color slot for the backing plate. All color slots are available "
+             "for image colors, and the backing plate reuses slot 1 (the first image color)."
+    )
     
     parser.add_argument(
         "--color-mode",
@@ -547,6 +555,15 @@ The program will:
         default=None,
         help="Number of colors to quantize to. Defaults to max-colors if not specified. "
              "Only used when --quantize is enabled."
+    )
+
+    parser.add_argument(
+        "--iterate-quantize",
+        action="store_true",
+        default=False,
+        help="When used with --quantize, start at --quantize-colors and automatically decrement "
+             "until the merged color count fits within --max-colors. Allows --quantize-colors to "
+             "exceed --max-colors so accent colors survive longer before being merged away."
     )
     
     parser.add_argument(
@@ -730,6 +747,7 @@ The program will:
             base_height_mm=args.base_height,
             max_colors=args.max_colors,
             backing_color=backing_color,
+            no_backing_color=args.no_backing_color,
             skip_checks=args.skip_checks,
             batch_mode=args.batch,
             color_naming_mode=args.color_mode,
@@ -747,6 +765,7 @@ The program will:
             quantize=args.quantize,
             quantize_algo=args.quantize_algo,
             quantize_colors=args.quantize_colors,
+            iterate_quantize=args.iterate_quantize,
             generate_summary=args.summary,
             generate_preview=args.preview,
             generate_swatches=args.swatches,
@@ -870,7 +889,7 @@ The program will:
     
     # Colors
     config_table.add_row("Max Colors", str(config.max_colors))
-    config_table.add_row("Backing Color", f"RGB{config.backing_color}")
+    config_table.add_row("Backing Color", f"RGB{config.backing_color}" + (" (slot shared with color 1)" if config.no_backing_color else ""))
     config_table.add_row("Color Naming Mode", config.color_naming_mode)
     
     # AMS Configuration
@@ -910,7 +929,8 @@ The program will:
     # Color quantization
     if config.quantize:
         quant_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
-        config_table.add_row("Color Quantization", f"Enabled ({config.quantize_algo}, {quant_colors} colors)")
+        iterate_suffix = f", iterate from {quant_colors}→{config.max_colors}" if config.iterate_quantize else f", {quant_colors} colors"
+        config_table.add_row("Color Quantization", f"Enabled ({config.quantize_algo}{iterate_suffix})")
     else:
         config_table.add_row("Color Quantization", "Disabled")
     

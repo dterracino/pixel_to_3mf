@@ -171,9 +171,11 @@ python run_converter.py --batch \
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
+| `--no-backing-color` | Don't reserve a slot for the backing plate; backing reuses slot 1 | Off |
 | `--quantize` | Automatically reduce colors when exceeding max-colors | Off |
 | `--quantize-algo` | Quantization algorithm: `none` (fast/sharp), `floyd` (smooth) | `none` |
 | `--quantize-colors` | Target color count for quantization (defaults to max-colors) | `max-colors` |
+| `--iterate-quantize` | Start at `--quantize-colors` and decrement until merged count fits `--max-colors` | Off |
 | `--auto-crop` | Automatically crop away fully transparent edges | Off |
 | `--padding-size` | Add outline padding around sprites (in pixels) | 0 (disabled) |
 | `--padding-color` | Padding color as R,G,B | `255,255,255` (white) |
@@ -550,6 +552,9 @@ python run_converter.py artwork.png --quantize --quantize-algo floyd
 
 # Reduce to specific color count
 python run_converter.py complex_art.png --quantize --quantize-colors 8
+
+# Preserve accent colors with iterative quantization
+python run_converter.py sprite.png --quantize --quantize-colors 25 --iterate-quantize
 ```
 
 - **Benefit:** No need to preprocess images in external applications
@@ -557,6 +562,24 @@ python run_converter.py complex_art.png --quantize --quantize-colors 8
   - `none`: Simple nearest color (faster, sharper edges)
   - `floyd`: Floyd-Steinberg dithering (slower, smoother gradients)
 - **Use case:** Images with slightly more colors than your max-colors setting
+
+##### Why accent colors disappear (and how to fix it)
+
+Standard quantization weights clusters by pixel count. A red headband covering 50 pixels competes against a 5,000-pixel skin tone — the quantizer merges the headband into the nearest large cluster because the pixel-count error is small.
+
+`--iterate-quantize` works around this by starting with more color buckets than your target. At 25 buckets the red headband gets its own cluster. The *filament merge* step then collapses perceptually similar colors (e.g. two slightly different skin tones → same filament), but the red survives because it is perceptually far from everything else.
+
+```bash
+# Start at 25 quantized colors, decrement until merged count ≤ max-colors (16)
+python run_converter.py sprite.png --quantize --quantize-colors 25 --iterate-quantize
+
+# Combine with --no-backing-color to reclaim the backing slot for image colors
+python run_converter.py sprite.png --quantize --quantize-colors 25 --iterate-quantize --no-backing-color
+```
+
+- **Rule of thumb:** Set `--quantize-colors` to ~150% of `--max-colors` as a starting point (e.g. 25 for a 16-color limit)
+- The converter prints which iteration it settled on, so you can see exactly what happened
+- If an accent color still disappears, try a higher `--quantize-colors` value (30, 35...)
 
 #### No Backing Plate (Decals, Stickers)
 
@@ -567,6 +590,16 @@ python run_converter.py decal.png --base-height 0
 - **Output:** Only colored regions, no backing plate
 - **Total height:** Just the color layer (default 1mm)
 - **Use case:** Decals, stickers, or if you want to add your own backing
+
+#### Reclaim the Backing Color Slot
+
+```bash
+python run_converter.py art.png --no-backing-color
+```
+
+- **Default behavior:** One AMS slot is always reserved for the backing plate color, leaving only 15 slots for image colors when `--max-colors 16`
+- **With `--no-backing-color`:** All 16 slots are available for image colors; the backing plate is printed using whichever filament occupies slot 1
+- **Use case:** When you intend to use one of your image's own colors as the backing anyway, so the reserved slot would just be wasted
 
 #### Batch Convert Sprite Collection
 

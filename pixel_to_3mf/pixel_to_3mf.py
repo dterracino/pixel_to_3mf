@@ -176,11 +176,81 @@ def convert_image_to_3mf(
     config.source_image_name = input_file.name
 
     # Config validates itself in __post_init__, so we don't need to validate parameters here
-    
-    # Step 1: Load and process image
+
+    # Step 1: Load and process image (with optional iterative quantization)
     # Note: Auto-crop (if enabled) happens inside load_image() as part of the pipeline
     _progress("load", f"Loading image: {input_file.name}")
-    pixel_data = load_image(str(input_path), config)
+
+    regions = None  # May be set inside the iterate block; checked in Step 2 below
+
+    if config.iterate_quantize and config.quantize:
+        # ITERATIVE MODE: Start at quantize_colors and decrement until the merged color
+        # count fits within max_colors. This gives accent colors a better chance of
+        # surviving quantization — more initial colors means the quantizer has less
+        # reason to collapse small-but-important clusters into nearby larger ones.
+        from .threemf_writer import get_color_name
+
+        start_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
+        min_colors = config.max_colors  # don't go below max_colors; normal rules apply there
+        current_q = start_colors
+
+        pixel_data = None
+        regions = None
+        final_q = current_q
+
+        while current_q >= min_colors:
+            config.quantize_colors = current_q
+            _progress("load", f"Trying quantize-colors={current_q}...")
+            candidate_pixel_data = load_image(str(input_path), config)
+
+            candidate_regions = merge_regions(candidate_pixel_data, config)
+            if config.trim_disconnected:
+                candidate_regions = trim_disconnected_pixels(candidate_regions, candidate_pixel_data.pixels)
+
+            # Count how many unique color names (slots) the merge step would produce
+            unique_region_colors = list({r.color for r in candidate_regions})
+            unique_names: set[str | Tuple[int, int, int]]
+            if config.merge_similar_colors:
+                unique_names = {get_color_name(rgb, config) for rgb in unique_region_colors}
+            else:
+                unique_names = set(unique_region_colors)  # no merging → count raw RGBs
+
+            # Account for backing color slot reservation
+            if not config.no_backing_color:
+                if config.merge_similar_colors:
+                    unique_names.discard(get_color_name(config.backing_color, config))
+                else:
+                    unique_names.discard(config.backing_color)  # backing always gets slot 1; don't double-count
+
+            merged_count = len(unique_names)
+            _progress("load", f"  → {merged_count} merged colors (target: ≤{config.max_colors})")
+
+            if merged_count <= config.max_colors:
+                pixel_data = candidate_pixel_data
+                regions = candidate_regions
+                final_q = current_q
+                break
+
+            current_q -= 1
+
+        if pixel_data is None:
+            # Fell through — even at min_colors it didn't fit; use the last attempt
+            # (load_image at min_colors will raise the normal error if still too many)
+            config.quantize_colors = min_colors
+            pixel_data = load_image(str(input_path), config)
+            regions = merge_regions(pixel_data, config)
+            if config.trim_disconnected:
+                regions = trim_disconnected_pixels(regions, pixel_data.pixels)
+            final_q = min_colors
+
+        if final_q < start_colors:
+            _progress("load", f"Settled on quantize-colors={final_q} (started at {start_colors})")
+        else:
+            _progress("load", f"quantize-colors={final_q} already fits within max-colors={config.max_colors}")
+
+    else:
+        # Normal (non-iterative) load
+        pixel_data = load_image(str(input_path), config)
 
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
                      f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel")
@@ -231,18 +301,21 @@ def convert_image_to_3mf(
                     f"Pixel size would be {pixel_data.pixel_size_mm:.3f}mm (smaller than line width)."
                 )
     
-    # Step 2: Merge regions
-    _progress("merge", "Merging connected pixels into regions...")
-    regions = merge_regions(pixel_data, config)
-    _progress("merge", f"Found {len(regions)} connected regions")
-    
-    # Step 2.5: Trim disconnected pixels if enabled
-    if config.trim_disconnected:
-        _progress("merge", "Trimming disconnected pixels...")
-        original_count = len(regions)
-        regions = trim_disconnected_pixels(regions, pixel_data.pixels)
-        if len(regions) < original_count:
-            _progress("merge", f"Trimmed to {len(regions)} regions (removed {original_count - len(regions)} empty regions)")
+    # Step 2: Merge regions (skip if already done inside the iterate loop above)
+    if regions is None:
+        _progress("merge", "Merging connected pixels into regions...")
+        regions = merge_regions(pixel_data, config)
+        _progress("merge", f"Found {len(regions)} connected regions")
+        
+        # Step 2.5: Trim disconnected pixels if enabled
+        if config.trim_disconnected:
+            _progress("merge", "Trimming disconnected pixels...")
+            original_count = len(regions)
+            regions = trim_disconnected_pixels(regions, pixel_data.pixels)
+            if len(regions) < original_count:
+                _progress("merge", f"Trimmed to {len(regions)} regions (removed {original_count - len(regions)} empty regions)")
+    else:
+        _progress("merge", f"Found {len(regions)} connected regions")
     
     # Step 3: Generate meshes
     _progress("mesh", "Generating 3D geometry...")

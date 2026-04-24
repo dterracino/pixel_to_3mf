@@ -317,7 +317,11 @@ def load_image(
     # Check if we need to reserve a color slot for the backing plate
     backing_in_image = config.backing_color in unique_colors
 
-    if backing_in_image:
+    if config.no_backing_color:
+        # No slot reservation needed — backing plate will reuse slot 1 (first image color)
+        effective_max_colors = config.max_colors
+        color_status_msg = "(no backing color slot reserved)"
+    elif backing_in_image:
         # Backing color is already in the image, no reservation needed
         effective_max_colors = config.max_colors
         color_status_msg = f"(including backing color)"
@@ -354,7 +358,10 @@ def load_image(
             
             # Check again if we're within limits now
             backing_in_image = config.backing_color in unique_colors
-            if backing_in_image:
+            if config.no_backing_color:
+                effective_max_colors = config.max_colors
+                color_status_msg = "(no backing color slot reserved)"
+            elif backing_in_image:
                 effective_max_colors = config.max_colors
                 color_status_msg = f"(including backing color)"
             else:
@@ -362,7 +369,9 @@ def load_image(
                 color_status_msg = f"(backing color not in image - reserving 1 slot)"
     
     # STEP 5: Validate color count
-    if num_colors > effective_max_colors:
+    # Skip this check in iterate_quantize mode — the outer loop in pixel_to_3mf.py
+    # is responsible for validating the final merged color count instead.
+    if not config.iterate_quantize and num_colors > effective_max_colors:
         # Too many colors - check if quantization could have helped but wasn't enabled
         if not config.quantize:
                 if num_colors > effective_max_colors:
