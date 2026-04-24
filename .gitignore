@@ -127,3 +127,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# App-specific ignores
+samples/test/region_reduction/*
