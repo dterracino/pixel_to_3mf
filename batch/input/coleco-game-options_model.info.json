@@ -1,0 +1,38 @@
+{
+  "filename": "coleco-game-options_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\coleco-game-options_model.3mf",
+  "file_hash": "6357cba067d4836690e446ce423c8e1a9602667bdaf87d6761f934b1dba7f655",
+  "timestamp": "2026-01-21T03:58:04.311116",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Blue",
+      "hex": "#0a2989",
+      "rgb": [10, 41, 137],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Light Gray",
+      "hex": "#d1d3d5",
+      "rgb": [209, 211, 213],
+      "ams_slot": "A-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 150.0,
+    "pixel_size_mm": 0.78125
+  },
+  "mesh_stats": {
+    "num_vertices": 111402,
+    "num_triangles": 223604,
+    "num_regions": 196,
+    "num_colors": 3
+  }
+}
