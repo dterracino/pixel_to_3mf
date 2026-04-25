@@ -767,8 +767,9 @@ def write_3mf(
         if progress_callback:
             progress_callback("export", message)
 
-    # Determine if we have a backing plate
-    has_backing_plate = config.base_height_mm > 0
+    # Determine if we have a backing plate / solid core
+    has_backing_plate = config.has_backing_plate
+    has_solid_core = config.has_solid_core
     num_regions = len(region_colors)
 
     _progress(f"Assigning names to {num_regions} color regions...")
@@ -869,15 +870,42 @@ def write_3mf(
         color_to_slot = rgb_to_slot
     
     # Reorder meshes to match the sorted color order
-    sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
-    if has_backing_plate:
-        sorted_meshes.append(meshes[-1])
+    if has_solid_core:
+        # Solid core mode: each logical region produced two meshes — bottom shell
+        # (at index 2*i) and top shell (at index 2*i+1).  The core is the last mesh.
+        sorted_meshes = []
+        for mesh_idx, _, _ in region_data:
+            sorted_meshes.append(meshes[2 * mesh_idx])      # bottom shell
+            sorted_meshes.append(meshes[2 * mesh_idx + 1])  # top shell
+        sorted_meshes.append(meshes[-1])  # solid core
+    else:
+        sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
+        if has_backing_plate:
+            sorted_meshes.append(meshes[-1])
     
     # Convert to ThreeMFMesh objects with metadata
     threemf_meshes = []
     for idx, (mesh, _) in enumerate(sorted_meshes):
         # Determine color name and slot based on position
-        if idx < len(region_data):
+        if has_solid_core:
+            num_color_meshes = num_regions * 2
+            if idx < num_color_meshes:
+                region_idx = idx // 2
+                _, rgb, color_name = region_data[region_idx]
+                if not config.merge_similar_colors:
+                    target_slot = rgb_to_slot[rgb]
+                    for name, slot in name_to_slot.items():
+                        if slot == target_slot:
+                            color_name = name
+                            break
+                    ams_slot = target_slot
+                else:
+                    ams_slot = name_to_slot[color_name]
+            else:
+                # Solid core object
+                color_name = "Core"
+                ams_slot = 1
+        elif idx < len(region_data):
             _, rgb, color_name = region_data[idx]
             
             # In no-merge mode, find the actual unique name we assigned
@@ -936,7 +964,9 @@ def write_3mf(
     
     # Report completion
     _progress(f"✨ 3MF file written to: {output_path}")
-    if has_backing_plate:
+    if has_solid_core:
+        _progress(f"{len(region_colors)} colored regions (×2 shells) + 1 solid core = {len(meshes)} objects")
+    elif has_backing_plate:
         _progress(f"{len(region_colors)} colored regions + 1 backing plate")
     else:
         _progress(f"{len(region_colors)} colored regions (no backing plate)")

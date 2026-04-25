@@ -32,9 +32,11 @@ from .constants import (
     PADDING_COLOR,
     PADDING_TYPE_DEFAULT,
     TRIM_DISCONNECTED_PIXELS,
+    DENOISE_MIN_SIZE,
     AMS_COUNT,
     AMS_SLOTS_PER_UNIT,
-    GENERATE_SWATCHES
+    GENERATE_SWATCHES,
+    SOLID_CORE_HEIGHT_MM
 )
 
 
@@ -119,6 +121,15 @@ class ConversionConfig:
         backing_color: RGB color for the backing plate (reserved if not in image)
         no_backing_color: If True, don't reserve a slot for the backing color; all slots are available
             for image colors, and the backing plate reuses slot 1 (the first image color)
+        no_backing_plate: If True, omit the backing plate entirely and extend color layers downward to
+            fill the same depth. Total model thickness stays the same (base_height_mm + color_height_mm),
+            but the colors are extruded all the way through — ideal for suncatchers or display pieces
+            that need to look correct from both sides.
+        solid_core: If True, sandwich a single solid-core object between two thin color shells. The
+            core spans the full model footprint and fills core_height_mm of depth; the remaining
+            color_height_mm is split equally (color_height_mm / 2 per side). Mutually exclusive with
+            no_backing_plate and has_backing_plate. Total model depth = core_height_mm + color_height_mm.
+        core_height_mm: Thickness of the solid core layer (only used when solid_core=True).
         skip_checks: If True, skip resolution warnings entirely
         batch_mode: If True, raise errors immediately instead of prompting user
         color_naming_mode: How to name objects - "color", "filament", "hex", or "generated"
@@ -131,6 +142,9 @@ class ConversionConfig:
         padding_size: Size of padding in pixels (0 = disabled, >0 = enabled)
         padding_color: RGB color for the padding outline
         padding_type: Padding shape - "circular" (rounded), "square" (90° corners), or "diamond" (45° cuts)
+        denoise_min_size: Minimum region size for blob denoising (0 = disabled). Regions smaller
+            than this are absorbed into their dominant neighbour colour before region merging,
+            removing compression artefacts and stray pixels.
         trim_disconnected: If True, remove pixels that only connect via corners (diagonals)
         quantize: If True, automatically reduce colors when image exceeds max_colors
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
@@ -152,6 +166,9 @@ class ConversionConfig:
     max_colors: int = MAX_COLORS
     backing_color: Tuple[int, int, int] = BACKING_COLOR
     no_backing_color: bool = False
+    no_backing_plate: bool = False
+    solid_core: bool = False
+    core_height_mm: float = SOLID_CORE_HEIGHT_MM
     skip_checks: bool = False
     batch_mode: bool = False
     color_naming_mode: str = COLOR_NAMING_MODE
@@ -165,6 +182,7 @@ class ConversionConfig:
     # Processing options
     auto_crop: bool = False
     connectivity: int = 8  # 0 (no merge), 4 (edge only), or 8 (includes diagonals)
+    denoise_min_size: int = DENOISE_MIN_SIZE
     trim_disconnected: bool = TRIM_DISCONNECTED_PIXELS
     
     # Padding options
@@ -211,6 +229,8 @@ class ConversionConfig:
             raise ValueError(f"color_height_mm must be positive, got {self.color_height_mm}")
         if self.base_height_mm < 0:
             raise ValueError(f"base_height_mm must be non-negative, got {self.base_height_mm}")
+        if self.core_height_mm <= 0:
+            raise ValueError(f"core_height_mm must be positive, got {self.core_height_mm}")
         if self.line_width_mm <= 0:
             raise ValueError(f"line_width_mm must be positive, got {self.line_width_mm}")
         if self.max_colors <= 0:
@@ -280,3 +300,66 @@ class ConversionConfig:
             self.model_title = format_title_from_filename(self.source_image_name)
         elif self.model_title is None:
             self.model_title = "PixelArt3D"
+
+    @property
+    def has_solid_core(self) -> bool:
+        """
+        Whether a solid core will be generated for this configuration.
+
+        When True, each color region is split into two thin shells (top and bottom)
+        with a single full-footprint core object sandwiched between them.
+        Mutually exclusive with has_backing_plate and no_backing_plate.
+        """
+        return self.solid_core
+
+    @property
+    def has_backing_plate(self) -> bool:
+        """
+        Whether a backing plate will be generated for this configuration.
+
+        False when base_height_mm is 0 (disabled) or when no_backing_plate
+        is explicitly set.  This is the single source of truth — use this
+        everywhere instead of re-deriving the condition inline.
+        """
+        return self.base_height_mm > 0 and not self.no_backing_plate
+
+    @property
+    def color_layer_z_bottom(self) -> float:
+        """
+        The Z coordinate for the bottom face of color layer meshes.
+
+        Normally (no_backing_plate=False), color layers sit on top of the backing
+        plate: bottom at z=0, top at z=color_height_mm.
+
+        When no_backing_plate=True, there is no backing plate, so the color
+        layers are pushed down to fill the space: bottom at z=-base_height_mm,
+        top at z=color_height_mm.  Total model depth is unchanged.
+        """
+        return -self.base_height_mm if self.no_backing_plate else 0.0
+
+    @property
+    def core_z_bottom(self) -> float:
+        """
+        Z coordinate of the bottom face of the solid core (only valid when has_solid_core).
+
+        The core is centered on z=0, so it spans [-core_height_mm/2, +core_height_mm/2].
+        Color shells sit immediately outside this range.
+        """
+        return -(self.core_height_mm / 2.0)
+
+    @property
+    def core_z_top(self) -> float:
+        """
+        Z coordinate of the top face of the solid core (only valid when has_solid_core).
+        """
+        return self.core_height_mm / 2.0
+
+    @property
+    def color_shell_half_height(self) -> float:
+        """
+        Thickness of each color shell when solid_core is enabled.
+
+        The total color depth (color_height_mm) is split equally between the
+        bottom shell and the top shell.
+        """
+        return self.color_height_mm / 2.0

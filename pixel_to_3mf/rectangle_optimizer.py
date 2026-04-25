@@ -232,7 +232,7 @@ def generate_vertices(
     vertex_map: Dict[Tuple[float, float, float], int] = {}
     
     pixel_size_mm = pixel_data.pixel_size_mm
-    z_bottom = 0.0
+    z_bottom = config.color_layer_z_bottom
     z_top = config.color_height_mm
     
     def get_or_create_vertex(x_mm: float, y_mm: float, z_mm: float) -> int:
@@ -303,7 +303,7 @@ def generate_triangles(
     triangles: List[Tuple[int, int, int]] = []
     
     pixel_size_mm = pixel_data.pixel_size_mm
-    z_bottom = 0.0
+    z_bottom = config.color_layer_z_bottom
     z_top = config.color_height_mm
     
     def get_vertex_index(x_mm: float, y_mm: float, z_mm: float) -> int:

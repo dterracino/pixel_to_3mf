@@ -34,7 +34,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Winding Order Validation**: Automatically validates CCW (counter-clockwise) winding for proper surface normals
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations with smart RGB-based boundary detection to prevent blue→purple mismatches in palettes with gaps (e.g., Bambu Lab)
 - **Transparent Pixel Support**: Transparent areas become holes in the model
-- **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable)
+- **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable, or use `--no-backing-plate` to omit it entirely while extending color layers to fill the same depth — ideal for suncatchers and reversible pieces). Use `--solid-core` to sandwich a single-filament core between two thin colour shells for faster multi-colour prints.
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
@@ -172,6 +172,9 @@ python run_converter.py --batch \
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
 | `--no-backing-color` | Don't reserve a slot for the backing plate; backing reuses slot 1 | Off |
+| `--no-backing-plate` | Omit the backing plate entirely; color layers extend downward to fill the same total depth | Off |
+| `--solid-core` | Add a single-filament solid core between two thin colour shells; reduces filament-swap time | Off |
+| `--core-height` | Thickness of the solid core in mm (only used with `--solid-core`) | 1.0 |
 | `--quantize` | Automatically reduce colors when exceeding max-colors | Off |
 | `--quantize-algo` | Quantization algorithm: `none` (fast/sharp), `floyd` (smooth) | `none` |
 | `--quantize-colors` | Target color count for quantization (defaults to max-colors) | `max-colors` |

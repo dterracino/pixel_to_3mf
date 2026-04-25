@@ -831,7 +831,7 @@ def generate_region_mesh_optimized(
             triangles_2d, 
             vertices_2d,
             segments_2d,
-            z_bottom=0.0,
+            z_bottom=config.color_layer_z_bottom,
             z_top=config.color_height_mm
         )
         logger.debug(f"3D mesh created: {len(mesh.vertices)} vertices, {len(mesh.triangles)} triangles")
@@ -893,8 +893,8 @@ def generate_backing_plate_optimized(
         # but if the entire set isn't 4-connected, skip optimization
         if not _is_4_connected(all_pixels):
             logger.debug("Backing plate pixels are not 4-connected, falling back to original")
-            from .mesh_generator import _generate_backing_plate_original
-            return _generate_backing_plate_original(pixel_data, config)
+            from .mesh_generator import _generate_slab_mesh
+            return _generate_slab_mesh(pixel_data, -config.base_height_mm, 0.0)
         
         # Step 1: Convert all pixels to polygon
         poly = pixels_to_polygon(all_pixels, pixel_data.pixel_size_mm)
@@ -905,9 +905,8 @@ def generate_backing_plate_optimized(
         if not is_valid:
             logger.warning(f"Optimized backing plate generation failed, falling back to original: {error_msg}")
             # Note: warnings.warn() removed - it breaks rich console output
-            # Import the original implementation to avoid circular dependency
-            from .mesh_generator import _generate_backing_plate_original
-            return _generate_backing_plate_original(pixel_data, config)
+            from .mesh_generator import _generate_slab_mesh
+            return _generate_slab_mesh(pixel_data, -config.base_height_mm, 0.0)
         
         # Step 2: Triangulate the polygon
         vertices_2d, triangles_2d, segments_2d = triangulate_polygon_2d(poly)
@@ -929,6 +928,5 @@ def generate_backing_plate_optimized(
         logger.warning(f"Unexpected error during backing plate optimization, falling back to original: {e}")
         # Note: warnings.warn() removed - it breaks rich console output
         
-        # Import the original implementation to avoid circular dependency
-        from .mesh_generator import _generate_backing_plate_original
-        return _generate_backing_plate_original(pixel_data, config)
+        from .mesh_generator import _generate_slab_mesh
+        return _generate_slab_mesh(pixel_data, -config.base_height_mm, 0.0)

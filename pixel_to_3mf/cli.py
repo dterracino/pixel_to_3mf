@@ -28,6 +28,7 @@ from .constants import (
     LINE_WIDTH_MM,
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
+    SOLID_CORE_HEIGHT_MM,
     DEFAULT_OUTPUT_SUFFIX,
     MAX_COLORS,
     BACKING_COLOR,
@@ -413,7 +414,37 @@ The program will:
         help="Don't reserve a color slot for the backing plate. All color slots are available "
              "for image colors, and the backing plate reuses slot 1 (the first image color)."
     )
-    
+
+    parser.add_argument(
+        "--no-backing-plate",
+        action="store_true",
+        default=False,
+        help="Omit the backing plate and extend color layers to fill the same depth. "
+             "Total model thickness is unchanged (base height + color height), but colors "
+             "are extruded all the way through — ideal for suncatchers and display pieces "
+             "that should look correct from both sides."
+    )
+
+    parser.add_argument(
+        "--solid-core",
+        action="store_true",
+        default=False,
+        help="Add a solid single-color core between two thin colour shells. "
+             "The core spans the full model footprint (same shape as the backing plate) "
+             "and fills core-height mm of depth. The remaining color-height is split "
+             "evenly — half below the core, half above. Automatically disables the backing plate. "
+             "Example: color-height 1mm + core-height 1mm → 0.5mm shell / 1mm core / 0.5mm shell."
+    )
+
+    parser.add_argument(
+        "--core-height",
+        type=float,
+        default=None,
+        metavar="MM",
+        help=f"Thickness of the solid core layer in mm. Only valid with --solid-core. "
+             f"Defaults to {SOLID_CORE_HEIGHT_MM}mm if --solid-core is enabled."
+    )
+
     parser.add_argument(
         "--color-mode",
         type=str,
@@ -517,6 +548,38 @@ The program will:
         action="store_true",
         help="Remove disconnected pixels (pixels that only connect via corners/diagonals). "
              "These pixels are unreliable for 3D printing as they share only a vertex, not an edge."
+    )
+    
+    parser.add_argument(
+        "--denoise",
+        action="store_true",
+        help="Enable pixel-art denoising before region merging. "
+             "Removes compression artefacts and stray pixels. "
+             "Use --denoise-type to select the algorithm (default: blob) and "
+             "the corresponding parameter flag to tune it. "
+             "When used with --preview, also saves a {output_name}_denoised.png "
+             "showing the pixel art after denoising."
+    )
+
+    parser.add_argument(
+        "--denoise-type",
+        choices=["blob"],
+        default="blob",
+        metavar="TYPE",
+        help="Denoising algorithm to use (requires --denoise). "
+             "blob: merge regions smaller than --blob-min-size into their dominant neighbour. "
+             "Default: blob."
+    )
+
+    parser.add_argument(
+        "--blob-min-size",
+        type=int,
+        default=2,
+        metavar="N",
+        help="Minimum region size for blob denoising (requires --denoise --denoise-type blob). "
+             "Any connected same-colour region with fewer than N pixels is absorbed into its "
+             "dominant neighbour colour. "
+             "Default: 2 (removes single stray pixels; ~51%% region reduction with minimal visual change)."
     )
     
     parser.add_argument(
@@ -738,16 +801,29 @@ The program will:
     else:
         hue_aware = None  # Use default from constants
 
+    # --core-height is only meaningful with --solid-core
+    if args.core_height is not None and not args.solid_core:
+        console.print("❌ Error: --core-height is only valid when --solid-core is also specified.")
+        sys.exit(1)
+
+    # --solid-core automatically disables the backing plate; resolve effective values here
+    # so ConversionConfig always receives a consistent state regardless of argparse defaults.
+    base_height: float = 0.0 if args.solid_core else args.base_height
+    core_height: float = args.core_height if args.core_height is not None else SOLID_CORE_HEIGHT_MM
+
     # Build config object from CLI arguments
     try:
         config = ConversionConfig(
             max_size_mm=args.max_size,
             line_width_mm=args.line_width,
             color_height_mm=args.color_height,
-            base_height_mm=args.base_height,
+            base_height_mm=base_height,
             max_colors=args.max_colors,
             backing_color=backing_color,
             no_backing_color=args.no_backing_color,
+            no_backing_plate=args.no_backing_plate,
+            solid_core=args.solid_core,
+            core_height_mm=core_height,
             skip_checks=args.skip_checks,
             batch_mode=args.batch,
             color_naming_mode=args.color_mode,
@@ -772,7 +848,8 @@ The program will:
             ams_count=args.ams_count,
             render_model=args.render,
             optimize_mesh=args.optimize_mesh,
-            validate_mesh=args.validate_mesh
+            validate_mesh=args.validate_mesh,
+            denoise_min_size=args.blob_min_size if args.denoise else 0
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
@@ -886,6 +963,10 @@ The program will:
     # Heights
     config_table.add_row("Color Layer Height", f"{config.color_height_mm}mm")
     config_table.add_row("Base Layer Height", f"{config.base_height_mm}mm" if config.base_height_mm > 0 else "0mm (disabled)")
+    if config.no_backing_plate:
+        config_table.add_row("Backing Plate", "Disabled (colors fill full depth)")
+    if config.has_solid_core:
+        config_table.add_row("Solid Core", f"{config.core_height_mm}mm core / {config.color_shell_half_height}mm shells")
     
     # Colors
     config_table.add_row("Max Colors", str(config.max_colors))
@@ -910,6 +991,12 @@ The program will:
     connectivity_map = {0: "None (separate pixels)", 4: "4-connected (edges only)", 8: "8-connected (includes diagonals)"}
     config_table.add_row("Connectivity", connectivity_map.get(config.connectivity, str(config.connectivity)))
     config_table.add_row("Trim Disconnected", "Enabled" if config.trim_disconnected else "Disabled")
+
+    # Denoising
+    if config.denoise_min_size > 0:
+        config_table.add_row("Denoising", f"blob, min-size={config.denoise_min_size}")
+    else:
+        config_table.add_row("Denoising", "Disabled")
     
     # Padding options
     if config.padding_size > 0:
@@ -1036,6 +1123,7 @@ The program will:
         
         # Create tasks for each stage
         load_task = progress.add_task("[cyan]📁 Loading image...", total=None)
+        denoise_task = None
         merge_task = None
         mesh_task = None
         validate_task = None
@@ -1047,6 +1135,7 @@ The program will:
         current_stage = None
         last_messages = {
             'load': '',
+            'denoise': '',
             'merge': '',
             'mesh': '',
             'validate': '',
@@ -1056,7 +1145,7 @@ The program will:
         }
         
         def progress_callback(stage: str, message: str):
-            nonlocal current_stage, merge_task, mesh_task, validate_task, export_task, preview_task, render_task
+            nonlocal current_stage, denoise_task, merge_task, mesh_task, validate_task, export_task, preview_task, render_task
             
             # Track the message for this stage
             last_messages[stage] = message
@@ -1067,9 +1156,16 @@ The program will:
                 
                 if stage == 'load':
                     progress.update(load_task, description=f"[cyan]📁 Loading image... {message}")
-                elif stage == 'merge':
+                elif stage == 'denoise':
                     # Complete load with checkmark
                     progress.update(load_task, description=f"[cyan]✓ Loading image... {last_messages['load']}", completed=True)
+                    denoise_task = progress.add_task("[yellow]🧹 Denoising blobs...", total=None)
+                elif stage == 'merge':
+                    # Complete load or denoise with checkmark
+                    if denoise_task is not None:
+                        progress.update(denoise_task, description=f"[yellow]✓ Denoising blobs... {last_messages['denoise']}", completed=True)
+                    else:
+                        progress.update(load_task, description=f"[cyan]✓ Loading image... {last_messages['load']}", completed=True)
                     merge_task = progress.add_task("[magenta]🧩 Merging regions...", total=None)
                 elif stage == 'mesh':
                     if merge_task is not None:
@@ -1103,6 +1199,8 @@ The program will:
                 # Update existing task
                 if stage == 'load' and load_task is not None:
                     progress.update(load_task, description=f"[cyan]📁 Loading image... {message}")
+                elif stage == 'denoise' and denoise_task is not None:
+                    progress.update(denoise_task, description=f"[yellow]🧹 Denoising blobs... {message}")
                 elif stage == 'merge' and merge_task is not None:
                     progress.update(merge_task, description=f"[magenta]🧩 Merging regions... {message}")
                 elif stage == 'mesh' and mesh_task is not None:
@@ -1221,7 +1319,11 @@ The program will:
     stats_table.add_row("Image:", f"{stats['image_width']} x {stats['image_height']} pixels")
     stats_table.add_row("Model:", f"{stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
     stats_table.add_row("Pixel size:", f"{round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
-    stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
+    if config.has_solid_core:
+        shell_regions = stats['num_regions'] * 2
+        stats_table.add_row("Regions:", f"{stats['num_regions']} x 2 = {shell_regions:,} ({stats['num_colors']} colors, 2x shells via solid core)")
+    else:
+        stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
     stats_table.add_row("Mesh:", f"{stats['num_triangles']:,} triangles, {stats['num_vertices']:,} vertices")
     stats_table.add_row("Output:", f"{stats['output_path']} ({stats['file_size']})")
     

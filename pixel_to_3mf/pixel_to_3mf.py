@@ -18,11 +18,12 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from .image_processor import load_image, PixelData
-from .region_merger import merge_regions, trim_disconnected_pixels, Region
-from .mesh_generator import generate_region_mesh, generate_backing_plate
+from .region_merger import merge_regions, trim_disconnected_pixels, Region, denoise_blob_pixels
+from .mesh_generator import generate_region_mesh, generate_backing_plate, generate_solid_core, generate_region_mesh_shell
 from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
+from .pipeline_context import PipelineContext, generate_previews
 
 def _create_filtered_pixel_data(regions: List[Region], original_pixel_data: PixelData) -> PixelData:
     """
@@ -177,6 +178,9 @@ def convert_image_to_3mf(
 
     # Config validates itself in __post_init__, so we don't need to validate parameters here
 
+    # Pipeline context — accumulates PixelData snapshots for preview generation
+    ctx = PipelineContext()
+
     # Step 1: Load and process image (with optional iterative quantization)
     # Note: Auto-crop (if enabled) happens inside load_image() as part of the pipeline
     _progress("load", f"Loading image: {input_file.name}")
@@ -202,6 +206,13 @@ def convert_image_to_3mf(
             config.quantize_colors = current_q
             _progress("load", f"Trying quantize-colors={current_q}...")
             candidate_pixel_data = load_image(str(input_path), config)
+
+            if config.denoise_min_size > 0:
+                _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
+                candidate_pixel_data.pixels = denoise_blob_pixels(
+                    candidate_pixel_data.pixels, config.denoise_min_size, config.connectivity
+                )
+                _progress("denoise", "Complete!")
 
             candidate_regions = merge_regions(candidate_pixel_data, config)
             if config.trim_disconnected:
@@ -236,7 +247,6 @@ def convert_image_to_3mf(
                 regions = candidate_regions
                 final_q = current_q
                 break
-
             current_q -= 1
 
         if pixel_data is None:
@@ -244,10 +254,33 @@ def convert_image_to_3mf(
             # (load_image at min_colors will raise the normal error if still too many)
             config.quantize_colors = min_colors
             pixel_data = load_image(str(input_path), config)
+            ctx.snapshot_original(pixel_data)
+            if config.quantize:
+                ctx.snapshot_quantized(pixel_data)
+            if config.denoise_min_size > 0:
+                _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
+                pixel_data.pixels = denoise_blob_pixels(
+                    pixel_data.pixels, config.denoise_min_size, config.connectivity
+                )
+                ctx.snapshot_denoised(pixel_data)
+                _progress("denoise", "Complete!")
             regions = merge_regions(pixel_data, config)
             if config.trim_disconnected:
                 regions = trim_disconnected_pixels(regions, pixel_data.pixels)
             final_q = min_colors
+        else:
+            # Capture snapshots for the winning candidate
+            # Reconstruct: load without quantize to get original, then the
+            # quantized result is already in pixel_data.
+            original_config_q = config.quantize_colors
+            config.quantize = False
+            original_pixel_data = load_image(str(input_path), config)
+            config.quantize = True
+            config.quantize_colors = original_config_q
+            ctx.snapshot_original(original_pixel_data)
+            ctx.snapshot_quantized(pixel_data)
+            if config.denoise_min_size > 0:
+                ctx.snapshot_denoised(pixel_data)
 
         if final_q < start_colors:
             _progress("load", f"Settled on quantize-colors={final_q} (started at {start_colors})")
@@ -256,7 +289,30 @@ def convert_image_to_3mf(
 
     else:
         # Normal (non-iterative) load
-        pixel_data = load_image(str(input_path), config)
+        if config.quantize and config.generate_preview:
+            # Load without quantize first to capture a true "original" snapshot,
+            # then load again with quantize to get the actual working pixel_data.
+            # WHY: quantization happens inside load_image(), so to show a
+            # before/after comparison we need the pre-quantize state separately.
+            original_config_quantize = config.quantize
+            config.quantize = False
+            original_pixel_data = load_image(str(input_path), config)
+            config.quantize = original_config_quantize
+            ctx.snapshot_original(original_pixel_data)
+
+            pixel_data = load_image(str(input_path), config)
+            ctx.snapshot_quantized(pixel_data)
+        else:
+            pixel_data = load_image(str(input_path), config)
+            ctx.snapshot_original(pixel_data)
+
+        if config.denoise_min_size > 0:
+            _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
+            pixel_data.pixels = denoise_blob_pixels(
+                pixel_data.pixels, config.denoise_min_size, config.connectivity
+            )
+            ctx.snapshot_denoised(pixel_data)
+            _progress("denoise", "Complete!")
 
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
                      f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel")
@@ -328,23 +384,47 @@ def convert_image_to_3mf(
     meshes = []
     region_colors = []
 
-    for i, region in enumerate(regions, start=1):
-        _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
-        mesh = generate_region_mesh(region, pixel_data, config)
-        meshes.append((mesh, f"region_{i}"))
-        region_colors.append(region.color)
+    if config.has_solid_core:
+        # Solid-core mode: each region becomes two thin shells (bottom + top).
+        # A single solid core object spans the full model footprint between them.
+        z_core_bot = config.core_z_bottom
+        z_core_top = config.core_z_top
+        z_shell_bot = z_core_bot - config.color_shell_half_height  # below the core
+        z_shell_top = z_core_top + config.color_shell_half_height  # above the core
 
-    # Generate backing plate (if base_height > 0)
-    if config.base_height_mm > 0:
-        _progress("mesh", "Generating backing plate...")
-        # CRITICAL FIX: Filter pixel_data to only include pixels from regions
-        # This ensures backing plate matches the colored regions exactly,
-        # even if some pixels were filtered out during region merging/optimization
+        for i, region in enumerate(regions, start=1):
+            _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels (dual shell)")
+            bottom_shell = generate_region_mesh_shell(region, pixel_data, config, z_shell_bot, z_core_bot)
+            top_shell = generate_region_mesh_shell(region, pixel_data, config, z_core_top, z_shell_top)
+            meshes.append((bottom_shell, f"region_{i}_bottom"))
+            meshes.append((top_shell, f"region_{i}_top"))
+            region_colors.append(region.color)  # one color entry per logical region
+
+        _progress("mesh", "Generating solid core...")
         filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
-        backing_mesh = generate_backing_plate(filtered_pixel_data, config)
-        meshes.append((backing_mesh, "backing_plate"))
+        core_mesh = generate_solid_core(filtered_pixel_data, config)
+        meshes.append((core_mesh, "solid_core"))
     else:
-        _progress("mesh", "Skipping backing plate (base height is 0)")
+        for i, region in enumerate(regions, start=1):
+            _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
+            mesh = generate_region_mesh(region, pixel_data, config)
+            meshes.append((mesh, f"region_{i}"))
+            region_colors.append(region.color)
+
+        # Generate backing plate (if enabled and not omitted by --no-backing-plate)
+        if config.has_backing_plate:
+            _progress("mesh", "Generating backing plate...")
+            # CRITICAL FIX: Filter pixel_data to only include pixels from regions
+            # This ensures backing plate matches the colored regions exactly,
+            # even if some pixels were filtered out during region merging/optimization
+            filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
+            backing_mesh = generate_backing_plate(filtered_pixel_data, config)
+            meshes.append((backing_mesh, "backing_plate"))
+        else:
+            if config.no_backing_plate:
+                _progress("mesh", "Skipping backing plate (--no-backing-plate)")
+            elif config.base_height_mm == 0:
+                _progress("mesh", "Skipping backing plate (base height is 0)")
     
     # Step 3.5: Post-process and validate meshes if requested
     validation_results = []  # Collect diagnostics for later display
@@ -426,14 +506,12 @@ def convert_image_to_3mf(
     )
     _progress("export", "Complete!")
     
-    # Step 6.5: Generate color preview if requested
-    preview_path = None
-    if config.generate_preview and preview_mapping:
-        from .threemf_writer import generate_color_preview
-        
-        preview_path = output_path.replace('.3mf', '_preview.png')
-        _progress("preview", "Generating color preview...")
-        generate_color_preview(pixel_data, preview_mapping, preview_path)
+    # Step 6.5: Generate preview images if requested
+    preview_paths: list[str] = []
+    if config.generate_preview:
+        ctx.color_mapping = preview_mapping or {}
+        _progress("preview", "Generating preview images...")
+        preview_paths = generate_previews(ctx, output_path, progress_callback)
         _progress("preview", "Complete!")
     
     # Step 6.6: Generate color swatches if requested
@@ -496,9 +574,13 @@ def convert_image_to_3mf(
     if summary_path:
         stats['summary_path'] = summary_path
     
-    # Add preview path if generated
-    if preview_path:
-        stats['preview_path'] = preview_path
+    # Add preview paths if generated
+    if preview_paths:
+        # Keep singular key for the primary _preview.png for backward compatibility
+        primary = next((p for p in preview_paths if p.endswith('_preview.png')), None)
+        if primary:
+            stats['preview_path'] = primary
+        stats['preview_paths'] = preview_paths
     
     # Add swatches path if generated
     if swatches_path:

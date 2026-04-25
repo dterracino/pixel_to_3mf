@@ -14,6 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`--no-backing-plate` flag**: Omit the backing plate entirely and extend color layers downward to fill the same total depth. Useful for suncatchers, stained-glass-style pieces, and reversible display items where both sides of the print are visible.
+  - Color layers shift downward by `--base-height` so total model thickness is unchanged
+  - Backing plate objects and its AMS slot are completely omitted from the 3MF
+  - Example: `py run_converter.py art.png --no-backing-plate`
+- **`--solid-core` / `--core-height` flags**: Print the bulk of the model with a single filament (the "core") sandwiched between two thin colour shells — one on the bottom and one on the top.
+  - The core spans the full model footprint (same shape as the backing plate) and is centred on Z=0
+  - `--core-height` controls the core thickness (default: 1mm); the remaining `--color-height` is split evenly above and below (0.5mm each at default settings)
+  - Dramatically reduces filament-swap time — only the two thin surface shells use multi-colour changes
+  - Mutually exclusive with `--no-backing-plate` and `--base-height > 0`
+  - Example: `py run_converter.py art.png --solid-core --base-height 0 --color-height 1`
+- **`ConversionConfig.has_backing_plate` property**: Single authoritative source of truth for whether a backing plate will be generated (`base_height_mm > 0 and not no_backing_plate`). Replaces previously duplicated inline conditions across `pixel_to_3mf.py`, `threemf_writer.py`, and `summary_writer.py`.
+- **`ConversionConfig.has_solid_core` / `core_z_bottom` / `core_z_top` / `color_shell_half_height` properties**: Computed geometry values for the solid-core feature; callers never need to derive Z coordinates manually.
+
 - **`--no-backing-color` flag**: Skip reserving an AMS slot for the backing plate, making all color slots available for image colors. The backing plate is assigned to slot 1 (whichever filament the first image color uses), so no slot is wasted on a dedicated backing color.
   - Useful when you plan to use one of your image colors as the backing filament anyway
   - Allows a full 16-color image to use all 16 AMS slots (previously 15 were available because 1 was reserved)
