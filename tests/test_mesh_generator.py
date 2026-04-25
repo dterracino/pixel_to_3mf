@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from pixel_to_3mf.mesh_generator import (
     Mesh,
     generate_region_mesh,
-    generate_backing_plate
+    generate_backing_plate,
+    generate_solid_core,
+    generate_region_mesh_shell,
 )
 from pixel_to_3mf.region_merger import Region
 from pixel_to_3mf.image_processor import PixelData
@@ -239,6 +241,151 @@ class TestMeshValidity(unittest.TestCase):
         # Actually, it's fine if some vertices aren't used, but let's check no invalid refs
         for idx in used_indices:
             self.assertLess(idx, len(mesh.vertices))
+
+
+class TestGenerateSolidCore(unittest.TestCase):
+    """Tests for generate_solid_core() — the full-footprint slab between the colour shells."""
+
+    def _make_rect_pixel_data(self) -> PixelData:
+        """2×2 fully-filled rectangle — exercises the fast path in _generate_slab_mesh."""
+        pixels = {(x, y): (255, 0, 0, 255) for x in range(2) for y in range(2)}
+        return PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixels)
+
+    def _make_sparse_pixel_data(self) -> PixelData:
+        """L-shaped (non-rectangular) footprint — exercises the slow pixel-by-pixel path."""
+        coords = {(0, 0), (1, 0), (0, 1)}
+        pixels = {c: (255, 0, 0, 255) for c in coords}
+        return PixelData(width=3, height=3, pixel_size_mm=1.0, pixels=pixels)
+
+    def test_produces_vertices_and_triangles(self):
+        """generate_solid_core returns a non-empty mesh."""
+        pixel_data = self._make_rect_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        mesh = generate_solid_core(pixel_data, config)
+        self.assertGreater(len(mesh.vertices), 0)
+        self.assertGreater(len(mesh.triangles), 0)
+
+    def test_all_triangle_indices_valid(self):
+        """Every triangle index references an existing vertex."""
+        pixel_data = self._make_rect_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        mesh = generate_solid_core(pixel_data, config)
+        for tri in mesh.triangles:
+            for idx in tri:
+                self.assertGreaterEqual(idx, 0)
+                self.assertLess(idx, len(mesh.vertices))
+
+    def test_z_extents_match_config(self):
+        """Mesh vertices should span exactly [core_z_bottom, core_z_top]."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=2.0)
+        pixel_data = self._make_rect_pixel_data()
+        mesh = generate_solid_core(pixel_data, config)
+        z_coords = [v[2] for v in mesh.vertices]
+        self.assertAlmostEqual(min(z_coords), config.core_z_bottom)
+        self.assertAlmostEqual(max(z_coords), config.core_z_top)
+
+    def test_z_extents_symmetric_around_zero(self):
+        """Core is centred on z=0, so |z_bottom| == z_top."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        pixel_data = self._make_rect_pixel_data()
+        mesh = generate_solid_core(pixel_data, config)
+        z_coords = [v[2] for v in mesh.vertices]
+        self.assertAlmostEqual(abs(min(z_coords)), max(z_coords))
+
+    def test_no_degenerate_triangles(self):
+        """No triangle should have repeated vertex indices."""
+        pixel_data = self._make_rect_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        mesh = generate_solid_core(pixel_data, config)
+        for tri in mesh.triangles:
+            self.assertEqual(len(set(tri)), 3, f"Degenerate triangle: {tri}")
+
+    def test_sparse_footprint_valid_mesh(self):
+        """L-shaped (non-rectangle) footprint also produces a valid solid-core mesh."""
+        pixel_data = self._make_sparse_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        mesh = generate_solid_core(pixel_data, config)
+        self.assertGreater(len(mesh.vertices), 0)
+        self.assertGreater(len(mesh.triangles), 0)
+        for tri in mesh.triangles:
+            for idx in tri:
+                self.assertLess(idx, len(mesh.vertices))
+
+    def test_backing_plate_and_core_same_xy_footprint(self):
+        """Backing plate and solid core should produce the same XY vertex range
+        (they cover the same model footprint, just at different Z levels)."""
+        pixels = {(x, y): (255, 0, 0, 255) for x in range(3) for y in range(3)}
+        pixel_data = PixelData(width=3, height=3, pixel_size_mm=2.0, pixels=pixels)
+
+        backing_config = ConversionConfig(base_height_mm=1.0)
+        core_config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+
+        backing = generate_backing_plate(pixel_data, backing_config)
+        core = generate_solid_core(pixel_data, core_config)
+
+        backing_xy = {(round(v[0], 6), round(v[1], 6)) for v in backing.vertices}
+        core_xy = {(round(v[0], 6), round(v[1], 6)) for v in core.vertices}
+        self.assertEqual(backing_xy, core_xy)
+
+
+class TestGenerateRegionMeshShell(unittest.TestCase):
+    """Tests for generate_region_mesh_shell() — the thin colour shells in solid-core mode."""
+
+    def _make_region_and_pixel_data(self) -> tuple:
+        pixels = {(0, 0), (1, 0), (0, 1), (1, 1)}
+        region = Region(color=(255, 0, 0), pixels=pixels)
+        pixel_dict = {p: (255, 0, 0, 255) for p in pixels}
+        pixel_data = PixelData(width=2, height=2, pixel_size_mm=1.0, pixels=pixel_dict)
+        return region, pixel_data
+
+    def test_produces_valid_mesh(self):
+        """generate_region_mesh_shell returns a mesh with valid indices."""
+        region, pixel_data = self._make_region_and_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0)
+        mesh = generate_region_mesh_shell(region, pixel_data, config, z_bottom=-0.5, z_top=0.0)
+        self.assertGreater(len(mesh.vertices), 0)
+        self.assertGreater(len(mesh.triangles), 0)
+        for tri in mesh.triangles:
+            for idx in tri:
+                self.assertGreaterEqual(idx, 0)
+                self.assertLess(idx, len(mesh.vertices))
+
+    def test_z_extents_match_arguments(self):
+        """Shell vertices span exactly the z_bottom..z_top range passed in."""
+        region, pixel_data = self._make_region_and_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0)
+        z_bot, z_top = -0.5, 0.0
+        mesh = generate_region_mesh_shell(region, pixel_data, config, z_bottom=z_bot, z_top=z_top)
+        z_coords = [v[2] for v in mesh.vertices]
+        self.assertAlmostEqual(min(z_coords), z_bot)
+        self.assertAlmostEqual(max(z_coords), z_top)
+
+    def test_bottom_and_top_shells_are_mirror_z(self):
+        """Bottom shell and top shell should be identical except reflected around z=0."""
+        region, pixel_data = self._make_region_and_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0,
+                                  color_height_mm=0.4)
+        z_bot = config.core_z_bottom - config.color_shell_half_height
+        z_core_bot = config.core_z_bottom
+        z_core_top = config.core_z_top
+        z_top = config.core_z_top + config.color_shell_half_height
+
+        bottom_shell = generate_region_mesh_shell(region, pixel_data, config,
+                                                  z_bottom=z_bot, z_top=z_core_bot)
+        top_shell = generate_region_mesh_shell(region, pixel_data, config,
+                                               z_bottom=z_core_top, z_top=z_top)
+
+        # Both shells should have the same number of vertices and triangles
+        self.assertEqual(len(bottom_shell.vertices), len(top_shell.vertices))
+        self.assertEqual(len(bottom_shell.triangles), len(top_shell.triangles))
+
+    def test_no_degenerate_triangles(self):
+        """No triangle should have repeated vertex indices."""
+        region, pixel_data = self._make_region_and_pixel_data()
+        config = ConversionConfig(solid_core=True, base_height_mm=0)
+        mesh = generate_region_mesh_shell(region, pixel_data, config, z_bottom=-0.2, z_top=0.0)
+        for tri in mesh.triangles:
+            self.assertEqual(len(set(tri)), 3, f"Degenerate triangle: {tri}")
 
 
 if __name__ == '__main__':

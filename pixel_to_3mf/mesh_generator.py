@@ -13,6 +13,7 @@ indices each). This is the universal format for 3D meshes - STL, OBJ,
 from typing import List, Tuple, Set, Dict, TYPE_CHECKING
 from .region_merger import Region
 from .image_processor import PixelData
+from .mesh import Mesh  # noqa: F401  (re-exported for backwards compatibility)
 
 # Import for type checking only (avoids circular imports)
 if TYPE_CHECKING:
@@ -38,35 +39,6 @@ except ImportError:
     OPTIMIZATION_AVAILABLE = False
 
 
-class Mesh:
-    """
-    A 3D mesh defined by vertices and triangles.
-    
-    This is the fundamental building block of 3D graphics! A mesh is just:
-    - A list of 3D points (vertices)
-    - A list of triangles (each triangle = 3 vertex indices)
-    
-    Example:
-        vertices = [(0,0,0), (1,0,0), (0,1,0)]  # 3 points
-        triangles = [(0, 1, 2)]  # 1 triangle using all 3 vertices
-        
-    The order matters for triangles! Counter-clockwise = outward-facing normal.
-    This is important for slicers to know which side is "outside" the model.
-    """
-    
-    def __init__(self, vertices: List[Tuple[float, float, float]], triangles: List[Tuple[int, int, int]]):
-        """
-        Initialize a mesh.
-        
-        Args:
-            vertices: List of (x, y, z) coordinates in millimeters
-            triangles: List of (v0, v1, v2) vertex indices (0-indexed)
-        """
-        self.vertices = vertices
-        self.triangles = triangles
-    
-    def __repr__(self) -> str:
-        return f"Mesh(vertices={len(self.vertices)}, triangles={len(self.triangles)})"
 
 
 def _generate_region_mesh_original(

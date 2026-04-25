@@ -441,5 +441,132 @@ class TestConvertWithPadding(unittest.TestCase):
             cleanup_test_file(output_path)
 
 
+class TestConvertImageTo3MFSolidCore(unittest.TestCase):
+    """Integration tests for the solid core conversion mode."""
+
+    def setUp(self):
+        self.test_files = []
+
+    def tearDown(self):
+        for filepath in self.test_files:
+            cleanup_test_file(filepath)
+
+    def _output_path(self) -> str:
+        fd, path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(path)
+        return path
+
+    def test_solid_core_produces_valid_3mf(self):
+        """A simple single-color image with solid_core produces a valid 3MF file."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        output_path = self._output_path()
+
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
+
+        self.assertTrue(os.path.exists(output_path))
+        self.assertGreater(os.path.getsize(output_path), 0)
+        validate_3mf_structure(output_path)
+
+    def test_solid_core_num_regions_unchanged(self):
+        """num_regions in stats reflects logical regions, not the expanded mesh count."""
+        input_path = create_two_region_image()
+        self.test_files.append(input_path)
+        output_path = self._output_path()
+
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
+
+        # two_region_image has 2 distinct colour regions
+        self.assertEqual(stats['num_regions'], 2)
+
+    def test_solid_core_object_count_in_3mf(self):
+        """For N regions, solid-core mode writes 2*N colour shells + 1 core = 2*N+1 objects.
+        
+        The 3MF format uses a single assembly container with one <component> per mesh,
+        so we count <component> elements rather than <build><item> elements.
+        """
+        import zipfile
+        import xml.etree.ElementTree as ET
+
+        input_path = create_two_region_image()
+        self.test_files.append(input_path)
+        output_path = self._output_path()
+
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
+
+        n_regions = stats['num_regions']  # 2
+        expected_objects = 2 * n_regions + 1  # 5
+
+        with zipfile.ZipFile(output_path, 'r') as zf:
+            model_xml = zf.read('3D/3dmodel.model')
+
+        root = ET.fromstring(model_xml)
+        ns = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02'
+        components = root.findall(f'.//{{{ns}}}component')
+        if not components:
+            components = root.findall('.//component')
+
+        self.assertEqual(len(components), expected_objects,
+                         f"Expected {expected_objects} components for {n_regions} regions in solid-core mode")
+
+    def test_solid_core_core_name_in_settings(self):
+        """The core object should be named 'Core' in model_settings.config."""
+        import zipfile
+
+        input_path = create_simple_square_image(size=4, color=(0, 128, 255))
+        self.test_files.append(input_path)
+        output_path = self._output_path()
+
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        convert_image_to_3mf(input_path, output_path, config=config)
+
+        with zipfile.ZipFile(output_path, 'r') as zf:
+            settings_xml = zf.read('Metadata/model_settings.config').decode('utf-8')
+
+        self.assertIn('Core', settings_xml,
+                      "model_settings.config should contain an object named 'Core'")
+
+    def test_solid_core_with_single_color(self):
+        """Single-color image with solid_core: 1 region → 2 shells + 1 core = 3 objects."""
+        import zipfile
+        import xml.etree.ElementTree as ET
+
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        output_path = self._output_path()
+
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
+
+        self.assertEqual(stats['num_regions'], 1)
+
+        with zipfile.ZipFile(output_path, 'r') as zf:
+            model_xml = zf.read('3D/3dmodel.model')
+
+        root = ET.fromstring(model_xml)
+        ns = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02'
+        components = root.findall(f'.//{{{ns}}}component')
+        if not components:
+            components = root.findall('.//component')
+
+        self.assertEqual(len(components), 3)  # 2 shells + 1 core
+
+    def test_solid_core_custom_core_height(self):
+        """Custom core_height_mm is accepted without error."""
+        input_path = create_simple_square_image(size=4, color=(255, 0, 0))
+        self.test_files.append(input_path)
+        output_path = self._output_path()
+
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=2.0)
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
+
+        self.assertTrue(os.path.exists(output_path))
+        validate_3mf_structure(output_path)
+
+
 if __name__ == '__main__':
     unittest.main()
