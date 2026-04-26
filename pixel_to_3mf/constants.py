@@ -39,6 +39,12 @@ COLOR_LAYER_HEIGHT_MM = 1.0
 # This is the solid base layer that spans the entire model
 BASE_LAYER_HEIGHT_MM = 1.0
 
+# Height of the solid core layer in millimeters (when --solid-core is enabled)
+# The solid core is a single object spanning the full model footprint sandwiched
+# between two thin color shells. It lets you print the bulk of the model in one
+# filament quickly and only swap filaments for the thin visible color surfaces.
+SOLID_CORE_HEIGHT_MM = 1.0
+
 # ============================================================================
 # Color Limits
 # ============================================================================
@@ -67,6 +73,15 @@ PADDING_SIZE_PX = 0
 # White is a good default to create a visible border
 PADDING_COLOR = (255, 255, 255)  # White
 
+# Default padding type - determines the shape of the padding outline
+# - "circular": Euclidean distance, smooth rounded corners
+# - "square": Chebyshev distance, sharp 90° corners (perfect for framing)
+# - "diamond": Manhattan distance, 45° diagonal cuts
+PADDING_TYPE_DEFAULT = "circular"
+
+# TODO: Add --padding-ignore-holes flag to only pad outer edges,
+#       not internal transparent areas (useful for cutout designs)
+
 # ============================================================================
 # Color Naming
 # ============================================================================
@@ -75,12 +90,29 @@ PADDING_COLOR = (255, 255, 255)  # White
 # - "color": Use nearest CSS color name (e.g., "red", "coral")
 # - "filament": Use nearest filament name based on filters (e.g., "Bambu Lab PLA Basic Red")
 # - "hex": Use hex color code (e.g., "#FF5733")
+# - "generated": Use descriptive generated names (e.g., "very dark blue", "medium bright blue")
 COLOR_NAMING_MODE = "filament"
+
+# Merge similar colors to same filament
+# When True (default): Multiple RGB colors can map to same filament name (they share AMS slot)
+# When False: Each unique RGB color gets unique filament assignment (greedy matching)
+# Use False to preserve subtle color variations in images with many similar shades
+MERGE_SIMILAR_COLORS = True
 
 # Default filament filters when using filament mode
 DEFAULT_FILAMENT_MAKER = "Bambu Lab"
 DEFAULT_FILAMENT_TYPE = "PLA"
 DEFAULT_FILAMENT_FINISH = ["Basic", "Matte"]  # Multiple finishes allowed
+
+# Hue-aware matching: prioritizes hue preservation over pure perceptual distance
+# When True, penalizes hue shifts to avoid mapping blue→purple, red→orange, etc.
+PREFER_HUE_MATCHING = True
+
+# RGB-based boundary detection for blue/purple distinction
+# This is a workaround for filament palettes with gaps between blue and purple
+# Uses red component analysis: R < 50 = blue, R > 80 = purple, 50-80 = boundary zone
+# Disable if your palette has good coverage and you want pure Delta E matching
+USE_RGB_BOUNDARY_DETECTION = True
 
 # ============================================================================
 # Color Quantization
@@ -127,6 +159,21 @@ AMS_SLOTS_PER_UNIT = 4
 # These pixels are unreliable for 3D printing as they only share a vertex
 # with neighboring pixels, not an edge
 TRIM_DISCONNECTED_PIXELS = False
+
+# Minimum region size for blob denoising (0 = disabled).
+# Any connected same-colour region with fewer than this many pixels is merged
+# into its dominant neighbour colour.  Removes compression artefacts and stray
+# pixels before region merging, reducing the final 3MF region count.
+# Empirical sweet spot for pixel art: 2 (Score 0.870, ~51% region reduction,
+# only 6.2% of pixels changed).
+DENOISE_MIN_SIZE = 0
+
+# ============================================================================
+# Output Generation
+# ============================================================================
+
+# Generate color swatches image showing each color with its name/hex code
+GENERATE_SWATCHES = False
 
 # ============================================================================
 # 3MF File Generation

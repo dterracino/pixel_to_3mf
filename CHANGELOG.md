@@ -8,11 +8,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
-- **Batch compatibility checker**: Fixed bug where filenames containing dots (e.g., `3.5-floppy-ornament_model`) would not be recognized when passed without the `.3mf` extension. Now correctly uses `endswith('.3mf')` check instead of relying on Path.suffix property.
+- **Preview format**: The `--preview` flag now generates a side-by-side comparison image showing original colors (left) and matched filament colors (right) with labeled panels. This makes it much easier to identify color shifts at a glance compared to the previous single-image format.
 
 ### Added
+
+- **`--no-backing-plate` flag**: Omit the backing plate entirely and extend color layers downward to fill the same total depth. Useful for suncatchers, stained-glass-style pieces, and reversible display items where both sides of the print are visible.
+  - Color layers shift downward by `--base-height` so total model thickness is unchanged
+  - Backing plate objects and its AMS slot are completely omitted from the 3MF
+  - Example: `py run_converter.py art.png --no-backing-plate`
+- **`--solid-core` / `--core-height` flags**: Print the bulk of the model with a single filament (the "core") sandwiched between two thin colour shells — one on the bottom and one on the top.
+  - The core spans the full model footprint (same shape as the backing plate) and is centred on Z=0
+  - `--core-height` controls the core thickness (default: 1mm); the remaining `--color-height` is split evenly above and below (0.5mm each at default settings)
+  - Dramatically reduces filament-swap time — only the two thin surface shells use multi-colour changes
+  - Mutually exclusive with `--no-backing-plate` and `--base-height > 0`
+  - Example: `py run_converter.py art.png --solid-core --base-height 0 --color-height 1`
+- **`ConversionConfig.has_backing_plate` property**: Single authoritative source of truth for whether a backing plate will be generated (`base_height_mm > 0 and not no_backing_plate`). Replaces previously duplicated inline conditions across `pixel_to_3mf.py`, `threemf_writer.py`, and `summary_writer.py`.
+- **`ConversionConfig.has_solid_core` / `core_z_bottom` / `core_z_top` / `color_shell_half_height` properties**: Computed geometry values for the solid-core feature; callers never need to derive Z coordinates manually.
+
+- **`--no-backing-color` flag**: Skip reserving an AMS slot for the backing plate, making all color slots available for image colors. The backing plate is assigned to slot 1 (whichever filament the first image color uses), so no slot is wasted on a dedicated backing color.
+  - Useful when you plan to use one of your image colors as the backing filament anyway
+  - Allows a full 16-color image to use all 16 AMS slots (previously 15 were available because 1 was reserved)
+  - Example: `py run_converter.py art.png --no-backing-color`
+
+- **`--iterate-quantize` flag**: Iterative quantization mode that starts at `--quantize-colors` and decrements until the merged color count fits within `--max-colors`. This preserves accent colors that standard quantization would discard.
+  - Standard quantization uses pixel-count weighting, so small but visually important colors (a red headband, a gold button) often get merged into nearby large clusters
+  - With `--iterate-quantize`, you set a higher starting color count (e.g. 25) so accent colors get their own cluster, then the filament merge step collapses *perceptually similar* colors — the accent colors survive because they are perceptually far from everything else
+  - Allows `--quantize-colors` to exceed `--max-colors` as the starting point
+  - Example: `py run_converter.py art.png --quantize --quantize-colors 25 --iterate-quantize`
+
+### Fixed
+
+- **`--iterate-quantize` backing color accounting**: Fixed iterative quantization producing `max_colors + 1` total slots when backing color is enabled. The iteration now compares against `max_colors - 1` (the actual slots available for image colors) instead of `max_colors`, correctly accounting for the slot reserved by the backing plate.
+- **Pyright type error in iterate-quantize loop**: Fixed union type ambiguity on `unique_names` set (`set[str] | set[Tuple]` inferred instead of `set[str | Tuple]`) by adding an explicit type annotation.
+- **Quantization trigger**: Fixed quantization only running when color count exceeds `max_colors`. Now runs whenever `--quantize` is True, allowing reduction from any color count to target (e.g., 7 colors → 4 colors even when max is 16)
+- **Preview generation with no-merge-colors**: Fixed preview mapping not including backing color and not handling greedy filament assignments correctly
+- **Batch compatibility checker**: Fixed bug where filenames containing dots (e.g., `3.5-floppy-ornament_model`) would not be recognized when passed without the `.3mf` extension. Now correctly uses `endswith('.3mf')` check instead of relying on Path.suffix property.
+- **Quantization bug**: Fixed quantization target using `config.max_colors` instead of `effective_max_colors`, causing 15 colors when 16 were expected (when backing color is in the image)
+- **Backing plate message**: Fixed "Skipping backing plate (base height is 0)" message appearing even when backing plate was generated (duplicate code block removed)
+- **Blue/purple color matching**: Implemented RGB-based boundary detection to prevent pure blues (#0000FF) from matching to purple filaments. This resolves an issue specific to the Bambu Lab filament palette which has a gap between Purple (#5E43B7) and Blue (#0A2989) with no intermediate colors
+
+### Added
+
+- **Generated color names mode**: New `--color-mode generated` option generates descriptive color names like "very dark blue", "medium bright red"
+  - Uses perceptual color analysis to create human-readable names
+  - Useful when you want manual filament control without database matching
+  - Works with both merge and no-merge modes
+  - Provided by color-tools library's naming module
+
+- **Greedy filament matching**: New `--no-merge-colors` flag prevents similar colors from collapsing into one slot
+  - Uses greedy algorithm: finds best RGB-filament pair, assigns it, removes filament from pool, repeats
+  - Each unique RGB gets a different actual filament from the database
+  - Essential for images with subtle color variations (gradients, shading)
+  - Enables manual control: assign filaments in slicer, then replace with your preferred colors
+  - Works with all color modes (filament, color, hex, generated)
+  - Especially useful with `--quantize` to preserve quantized color variations
+  - Example: 7 similar blues → quantize to 4 → assign 4 different filaments (Purple, Blue, Dark Blue, Cobalt Blue)
+
+- **Color preview generation**: New `--preview` flag generates a preview image showing what the model will look like with mapped filament colors
+  - Saved as `{output_name}_preview.png` alongside the 3MF file
+  - Shows exact RGB values of matched filaments applied to source image
+  - Useful for verifying color accuracy before printing
+  - Listed in conversion summary output
+  - Separate progress stage in CLI output
+
+- **RGB boundary detection for blue/purple matching**: Smart color matching to prevent categorical mismatches in filament palettes with gaps (specifically resolves Bambu Lab palette issue)
+  - Uses red component analysis on BOTH target and candidate colors: R < 50 = blue, R > 80 = purple, 50-80 = boundary zone
+  - No string matching on filament names - works for ANY naming scheme ("Ocean", "Sky", "Lavender", etc.)
+  - Safe for all filament brands - only penalizes clear categorical mismatches
+  - Configurable via `USE_RGB_BOUNDARY_DETECTION` constant (default: enabled)
+  - Prevents pure blues (#0000FF) from matching to purple when Bambu Lab palette has no perfect blue match
+  - Allows bluish-purples (#686CE8) to correctly match purple filaments
+  - More accurate color matching - may produce slightly different (better) results than previous name-based approach
+  - Documented in `docs/RGB_BOUNDARY_DETECTION.md`
+  - Marked with TODO comments for future migration to color-tools library
+
+- **Padding type selection**: New `--padding-type` flag allows choosing padding shape
+  - `circular` (default): Euclidean distance - smooth, rounded corners
+  - `square`: Chebyshev distance - sharp 90° corners, perfect for framing
+  - `diamond`: Manhattan distance - 45° diagonal cuts
+  - Configurable via `PADDING_TYPE_DEFAULT` constant
 
 - **Bambu Lab printer integration** for querying printer status and AMS information
   - New `bambu_ams_info.py` module to query printer via local HTTP API

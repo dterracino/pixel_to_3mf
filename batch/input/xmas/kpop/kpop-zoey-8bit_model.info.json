@@ -1,0 +1,86 @@
+{
+  "filename": "kpop-zoey-8bit_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\xmas\\kpop-zoey-8bit_model.3mf",
+  "file_hash": "d08de945a6c685cb3eab417214488cea884af9a7f0fb941fe4add5cddc7f3cde",
+  "timestamp": "2025-12-20T05:36:14.596226",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Brown",
+      "hex": "#9d432c",
+      "rgb": [157, 67, 44],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Indigo Purple",
+      "hex": "#482960",
+      "rgb": [72, 41, 96],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Magenta",
+      "hex": "#ec008c",
+      "rgb": [236, 0, 140],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Orange",
+      "hex": "#ff6a13",
+      "rgb": [255, 106, 19],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Blue",
+      "hex": "#042f56",
+      "rgb": [4, 47, 86],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Green",
+      "hex": "#68724d",
+      "rgb": [104, 114, 77],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Latte Brown",
+      "hex": "#d3b7a7",
+      "rgb": [211, 183, 167],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Mandarin Orange",
+      "hex": "#f99963",
+      "rgb": [249, 153, 99],
+      "ams_slot": "C-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 123.52941176470588,
+    "height_mm": 200.0,
+    "pixel_size_mm": 5.882352941176471
+  },
+  "mesh_stats": {
+    "num_vertices": 2988,
+    "num_triangles": 5724,
+    "num_regions": 41,
+    "num_colors": 11
+  }
+}

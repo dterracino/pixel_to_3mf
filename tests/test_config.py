@@ -284,5 +284,81 @@ class TestConversionConfigTitleGeneration(unittest.TestCase):
         self.assertNotIn("model_title", repr_str)
 
 
+class TestConversionConfigSolidCore(unittest.TestCase):
+    """Test ConversionConfig solid core properties and validation."""
+
+    def test_has_solid_core_false_by_default(self):
+        """has_solid_core is False unless solid_core=True is explicitly set."""
+        config = ConversionConfig()
+        self.assertFalse(config.has_solid_core)
+
+    def test_has_solid_core_true_when_enabled(self):
+        """has_solid_core returns True when solid_core=True."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0)
+        self.assertTrue(config.has_solid_core)
+
+    def test_core_z_bottom_default_core_height(self):
+        """core_z_bottom is -core_height/2 (centred on z=0)."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        self.assertAlmostEqual(config.core_z_bottom, -0.5)
+
+    def test_core_z_top_default_core_height(self):
+        """core_z_top is +core_height/2 (centred on z=0)."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=1.0)
+        self.assertAlmostEqual(config.core_z_top, 0.5)
+
+    def test_core_z_bounds_custom_height(self):
+        """core_z_bottom and core_z_top are symmetric for custom core_height_mm."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=2.0)
+        self.assertAlmostEqual(config.core_z_bottom, -1.0)
+        self.assertAlmostEqual(config.core_z_top, 1.0)
+
+    def test_core_z_span_equals_core_height(self):
+        """The span from core_z_bottom to core_z_top equals core_height_mm."""
+        for h in (0.5, 1.0, 2.0, 3.5):
+            with self.subTest(core_height_mm=h):
+                config = ConversionConfig(solid_core=True, base_height_mm=0, core_height_mm=h)
+                span = config.core_z_top - config.core_z_bottom
+                self.assertAlmostEqual(span, h)
+
+    def test_color_shell_half_height(self):
+        """color_shell_half_height is exactly color_height_mm / 2."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0, color_height_mm=0.4)
+        self.assertAlmostEqual(config.color_shell_half_height, 0.2)
+
+    def test_color_shell_half_height_various(self):
+        """color_shell_half_height is half color_height_mm for various values."""
+        for h in (0.2, 0.4, 1.0, 2.0):
+            with self.subTest(color_height_mm=h):
+                config = ConversionConfig(solid_core=True, base_height_mm=0, color_height_mm=h)
+                self.assertAlmostEqual(config.color_shell_half_height, h / 2.0)
+
+    def test_core_height_zero_raises(self):
+        """core_height_mm=0 raises ValueError."""
+        with self.assertRaises(ValueError):
+            ConversionConfig(core_height_mm=0)
+
+    def test_core_height_negative_raises(self):
+        """core_height_mm<0 raises ValueError."""
+        with self.assertRaises(ValueError):
+            ConversionConfig(core_height_mm=-1.0)
+
+    def test_has_backing_plate_false_when_solid_core_and_base_zero(self):
+        """has_backing_plate is False when base_height_mm=0 (as CLI sets for solid core)."""
+        config = ConversionConfig(solid_core=True, base_height_mm=0)
+        self.assertFalse(config.has_backing_plate)
+
+    def test_has_backing_plate_true_normally(self):
+        """has_backing_plate is True when base_height_mm>0 and no_backing_plate is False."""
+        config = ConversionConfig(base_height_mm=1.0, no_backing_plate=False)
+        self.assertTrue(config.has_backing_plate)
+
+    def test_solid_core_default_core_height(self):
+        """Default core_height_mm matches SOLID_CORE_HEIGHT_MM constant (1.0mm)."""
+        from pixel_to_3mf.constants import SOLID_CORE_HEIGHT_MM
+        config = ConversionConfig(solid_core=True, base_height_mm=0)
+        self.assertEqual(config.core_height_mm, SOLID_CORE_HEIGHT_MM)
+
+
 if __name__ == "__main__":
     unittest.main()

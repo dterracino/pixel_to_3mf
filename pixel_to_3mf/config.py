@@ -19,17 +19,24 @@ from .constants import (
     MAX_COLORS,
     BACKING_COLOR,
     COLOR_NAMING_MODE,
+    MERGE_SIMILAR_COLORS,
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
     DEFAULT_FILAMENT_FINISH,
+    PREFER_HUE_MATCHING,
+    USE_RGB_BOUNDARY_DETECTION,
     ENABLE_QUANTIZATION,
     QUANTIZATION_ALGORITHM,
     QUANTIZATION_COLORS,
     PADDING_SIZE_PX,
     PADDING_COLOR,
+    PADDING_TYPE_DEFAULT,
     TRIM_DISCONNECTED_PIXELS,
+    DENOISE_MIN_SIZE,
     AMS_COUNT,
-    AMS_SLOTS_PER_UNIT
+    AMS_SLOTS_PER_UNIT,
+    GENERATE_SWATCHES,
+    SOLID_CORE_HEIGHT_MM
 )
 
 
@@ -112,9 +119,21 @@ class ConversionConfig:
         base_height_mm: Height of backing plate in millimeters
         max_colors: Maximum unique colors allowed
         backing_color: RGB color for the backing plate (reserved if not in image)
+        no_backing_color: If True, don't reserve a slot for the backing color; all slots are available
+            for image colors, and the backing plate reuses slot 1 (the first image color)
+        no_backing_plate: If True, omit the backing plate entirely and extend color layers downward to
+            fill the same depth. Total model thickness stays the same (base_height_mm + color_height_mm),
+            but the colors are extruded all the way through — ideal for suncatchers or display pieces
+            that need to look correct from both sides.
+        solid_core: If True, sandwich a single solid-core object between two thin color shells. The
+            core spans the full model footprint and fills core_height_mm of depth; the remaining
+            color_height_mm is split equally (color_height_mm / 2 per side). Mutually exclusive with
+            no_backing_plate and has_backing_plate. Total model depth = core_height_mm + color_height_mm.
+        core_height_mm: Thickness of the solid core layer (only used when solid_core=True).
         skip_checks: If True, skip resolution warnings entirely
         batch_mode: If True, raise errors immediately instead of prompting user
-        color_naming_mode: How to name objects - "color", "filament", or "hex"
+        color_naming_mode: How to name objects - "color", "filament", "hex", or "generated"
+        merge_similar_colors: If True, merge similar RGBs to same filament. If False, force unique filament per RGB
         filament_maker: Filament maker filter(s) (for filament mode) - can be str or list
         filament_type: Filament type filter(s) (for filament mode) - can be str or list
         filament_finish: Filament finish filter(s) (for filament mode) - can be str or list
@@ -122,10 +141,17 @@ class ConversionConfig:
         connectivity: Pixel connectivity mode - 0 (no merge), 4 (edge-connected only), or 8 (includes diagonals)
         padding_size: Size of padding in pixels (0 = disabled, >0 = enabled)
         padding_color: RGB color for the padding outline
+        padding_type: Padding shape - "circular" (rounded), "square" (90° corners), or "diamond" (45° cuts)
+        denoise_min_size: Minimum region size for blob denoising (0 = disabled). Regions smaller
+            than this are absorbed into their dominant neighbour colour before region merging,
+            removing compression artefacts and stray pixels.
         trim_disconnected: If True, remove pixels that only connect via corners (diagonals)
         quantize: If True, automatically reduce colors when image exceeds max_colors
         quantize_algo: Quantization algorithm - "none" for simple nearest color, "floyd" for Floyd-Steinberg dithering
         quantize_colors: Number of colors to quantize to (defaults to max_colors if None)
+        iterate_quantize: If True, start at quantize_colors and decrement until merged color count fits
+            within max_colors. Allows quantize_colors > max_colors as a starting point so accent colors
+            survive longer before being merged away.
         generate_summary: If True, generate a summary file listing colors/filaments used
         optimize_mesh: If True, use optimized polygon-based mesh generation (enables validate_mesh automatically)
         validate_mesh: If True, run mesh post-processing validation and repair on all meshes
@@ -139,29 +165,45 @@ class ConversionConfig:
     base_height_mm: float = BASE_LAYER_HEIGHT_MM
     max_colors: int = MAX_COLORS
     backing_color: Tuple[int, int, int] = BACKING_COLOR
+    no_backing_color: bool = False
+    no_backing_plate: bool = False
+    solid_core: bool = False
+    core_height_mm: float = SOLID_CORE_HEIGHT_MM
     skip_checks: bool = False
     batch_mode: bool = False
     color_naming_mode: str = COLOR_NAMING_MODE
+    merge_similar_colors: bool = MERGE_SIMILAR_COLORS
     filament_maker: Union[str, List[str], None] = None  # Will be set in __post_init__
     filament_type: Union[str, List[str], None] = None  # Will be set in __post_init__
     filament_finish: Union[str, List[str], None] = None  # Will be set in __post_init__
+    hue_aware_matching: bool = PREFER_HUE_MATCHING  # Penalize hue shifts when matching colors
+    use_rgb_boundary_detection: bool = USE_RGB_BOUNDARY_DETECTION  # Use RGB analysis for blue/purple boundary
     
     # Processing options
     auto_crop: bool = False
     connectivity: int = 8  # 0 (no merge), 4 (edge only), or 8 (includes diagonals)
+    denoise_min_size: int = DENOISE_MIN_SIZE
     trim_disconnected: bool = TRIM_DISCONNECTED_PIXELS
     
     # Padding options
     padding_size: int = PADDING_SIZE_PX
     padding_color: Tuple[int, int, int] = PADDING_COLOR
+    padding_type: str = PADDING_TYPE_DEFAULT
     
     # Color quantization options
     quantize: bool = ENABLE_QUANTIZATION
     quantize_algo: str = QUANTIZATION_ALGORITHM
     quantize_colors: Union[int, None] = QUANTIZATION_COLORS
+    iterate_quantize: bool = False
     
     # Summary file options
     generate_summary: bool = False
+    
+    # Preview image options
+    generate_preview: bool = False
+    
+    # Color swatches image options
+    generate_swatches: bool = GENERATE_SWATCHES
     
     # Mesh optimization and validation
     optimize_mesh: bool = False
@@ -187,6 +229,8 @@ class ConversionConfig:
             raise ValueError(f"color_height_mm must be positive, got {self.color_height_mm}")
         if self.base_height_mm < 0:
             raise ValueError(f"base_height_mm must be non-negative, got {self.base_height_mm}")
+        if self.core_height_mm <= 0:
+            raise ValueError(f"core_height_mm must be positive, got {self.core_height_mm}")
         if self.line_width_mm <= 0:
             raise ValueError(f"line_width_mm must be positive, got {self.line_width_mm}")
         if self.max_colors <= 0:
@@ -197,7 +241,7 @@ class ConversionConfig:
             raise ValueError(f"backing_color RGB values must be 0-255, got {self.backing_color}")
         
         # Validate color naming mode
-        valid_modes = {"color", "filament", "hex"}
+        valid_modes = {"color", "filament", "hex", "generated"}
         if self.color_naming_mode not in valid_modes:
             raise ValueError(f"color_naming_mode must be one of {valid_modes}, got {self.color_naming_mode}")
         
@@ -223,6 +267,11 @@ class ConversionConfig:
         
         if not all(0 <= c <= 255 for c in self.padding_color):
             raise ValueError(f"padding_color RGB values must be 0-255, got {self.padding_color}")
+        
+        # Validate padding type
+        valid_padding_types = {"circular", "square", "diamond"}
+        if self.padding_type not in valid_padding_types:
+            raise ValueError(f"padding_type must be one of {valid_padding_types}, got {self.padding_type}")
         
         # Validate AMS count (number of AMS units, not slots)
         if self.ams_count <= 0:
@@ -251,3 +300,66 @@ class ConversionConfig:
             self.model_title = format_title_from_filename(self.source_image_name)
         elif self.model_title is None:
             self.model_title = "PixelArt3D"
+
+    @property
+    def has_solid_core(self) -> bool:
+        """
+        Whether a solid core will be generated for this configuration.
+
+        When True, each color region is split into two thin shells (top and bottom)
+        with a single full-footprint core object sandwiched between them.
+        Mutually exclusive with has_backing_plate and no_backing_plate.
+        """
+        return self.solid_core
+
+    @property
+    def has_backing_plate(self) -> bool:
+        """
+        Whether a backing plate will be generated for this configuration.
+
+        False when base_height_mm is 0 (disabled) or when no_backing_plate
+        is explicitly set.  This is the single source of truth — use this
+        everywhere instead of re-deriving the condition inline.
+        """
+        return self.base_height_mm > 0 and not self.no_backing_plate
+
+    @property
+    def color_layer_z_bottom(self) -> float:
+        """
+        The Z coordinate for the bottom face of color layer meshes.
+
+        Normally (no_backing_plate=False), color layers sit on top of the backing
+        plate: bottom at z=0, top at z=color_height_mm.
+
+        When no_backing_plate=True, there is no backing plate, so the color
+        layers are pushed down to fill the space: bottom at z=-base_height_mm,
+        top at z=color_height_mm.  Total model depth is unchanged.
+        """
+        return -self.base_height_mm if self.no_backing_plate else 0.0
+
+    @property
+    def core_z_bottom(self) -> float:
+        """
+        Z coordinate of the bottom face of the solid core (only valid when has_solid_core).
+
+        The core is centered on z=0, so it spans [-core_height_mm/2, +core_height_mm/2].
+        Color shells sit immediately outside this range.
+        """
+        return -(self.core_height_mm / 2.0)
+
+    @property
+    def core_z_top(self) -> float:
+        """
+        Z coordinate of the top face of the solid core (only valid when has_solid_core).
+        """
+        return self.core_height_mm / 2.0
+
+    @property
+    def color_shell_half_height(self) -> float:
+        """
+        Thickness of each color shell when solid_core is enabled.
+
+        The total color depth (color_height_mm) is split equally between the
+        bottom shell and the top shell.
+        """
+        return self.color_height_mm / 2.0

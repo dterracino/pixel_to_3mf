@@ -1,0 +1,56 @@
+{
+  "filename": "mermaid_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\large\\mermaid_model.3mf",
+  "file_hash": "f9e8652e15183742ef3b869d82ab79e709a1c33e720f79361808182b1c33537d",
+  "timestamp": "2026-01-21T04:25:08.740752",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Dark Gray",
+      "hex": "#545454",
+      "rgb": [84, 84, 84],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Mistletoe Green",
+      "hex": "#3f8e43",
+      "rgb": [63, 142, 67],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Desert Tan",
+      "hex": "#e8dbb7",
+      "rgb": [232, 219, 183],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Ice Blue",
+      "hex": "#a3d8e1",
+      "rgb": [163, 216, 225],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Scarlet Red",
+      "hex": "#de4343",
+      "rgb": [222, 67, 67],
+      "ams_slot": "B-2"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 143.57894736842104,
+    "height_mm": 200.0,
+    "pixel_size_mm": 0.42105263157894735
+  },
+  "mesh_stats": {
+    "num_vertices": 385812,
+    "num_triangles": 764292,
+    "num_regions": 1618,
+    "num_colors": 6
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "filename": "Altered Beast Layers - Middle_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\layers\\Altered Beast Layers - Middle_model.3mf",
+  "file_hash": "23951ad452f9ae0da0b21c68a1f5462e1f21a6165d864931b50f33f60d00b3c9",
+  "timestamp": "2026-01-14T12:21:29.354152",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "#000000",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "#321900",
+      "hex": "#321900",
+      "rgb": [50, 25, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "#522900",
+      "hex": "#522900",
+      "rgb": [82, 41, 0],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "#583715",
+      "hex": "#583715",
+      "rgb": [88, 55, 21],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "#684726",
+      "hex": "#684726",
+      "rgb": [104, 71, 38],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "#6B4210",
+      "hex": "#6b4210",
+      "rgb": [107, 66, 16],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "#795A3F",
+      "hex": "#795a3f",
+      "rgb": [121, 90, 63],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "#845221",
+      "hex": "#845221",
+      "rgb": [132, 82, 33],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "#886A56",
+      "hex": "#886a56",
+      "rgb": [136, 106, 86],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "#946331",
+      "hex": "#946331",
+      "rgb": [148, 99, 49],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "#9C7C68",
+      "hex": "#9c7c68",
+      "rgb": [156, 124, 104],
+      "ams_slot": "C-3"
+    },
+    {
+      "name": "#A47342",
+      "hex": "#a47342",
+      "rgb": [164, 115, 66],
+      "ams_slot": "C-4"
+    },
+    {
+      "name": "#B58452",
+      "hex": "#b58452",
+      "rgb": [181, 132, 82],
+      "ams_slot": "D-1"
+    },
+    {
+      "name": "#C59473",
+      "hex": "#c59473",
+      "rgb": [197, 148, 115],
+      "ams_slot": "D-2"
+    },
+    {
+      "name": "#DFAD8D",
+      "hex": "#dfad8d",
+      "rgb": [223, 173, 141],
+      "ams_slot": "D-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 100.0,
+    "pixel_size_mm": 0.625
+  },
+  "mesh_stats": {
+    "num_vertices": 87150,
+    "num_triangles": 170868,
+    "num_regions": 653,
+    "num_colors": 15
+  }
+}

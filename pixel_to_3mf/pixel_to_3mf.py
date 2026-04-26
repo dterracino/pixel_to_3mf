@@ -18,11 +18,12 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from .image_processor import load_image, PixelData
-from .region_merger import merge_regions, trim_disconnected_pixels, Region
-from .mesh_generator import generate_region_mesh, generate_backing_plate
+from .region_merger import merge_regions, trim_disconnected_pixels, Region, denoise_blob_pixels
+from .mesh_generator import generate_region_mesh, generate_backing_plate, generate_solid_core, generate_region_mesh_shell
 from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
+from .pipeline_context import PipelineContext, generate_previews
 
 def _create_filtered_pixel_data(regions: List[Region], original_pixel_data: PixelData) -> PixelData:
     """
@@ -176,11 +177,142 @@ def convert_image_to_3mf(
     config.source_image_name = input_file.name
 
     # Config validates itself in __post_init__, so we don't need to validate parameters here
-    
-    # Step 1: Load and process image
+
+    # Pipeline context — accumulates PixelData snapshots for preview generation
+    ctx = PipelineContext()
+
+    # Step 1: Load and process image (with optional iterative quantization)
     # Note: Auto-crop (if enabled) happens inside load_image() as part of the pipeline
     _progress("load", f"Loading image: {input_file.name}")
-    pixel_data = load_image(str(input_path), config)
+
+    regions = None  # May be set inside the iterate block; checked in Step 2 below
+
+    if config.iterate_quantize and config.quantize:
+        # ITERATIVE MODE: Start at quantize_colors and decrement until the merged color
+        # count fits within max_colors. This gives accent colors a better chance of
+        # surviving quantization — more initial colors means the quantizer has less
+        # reason to collapse small-but-important clusters into nearby larger ones.
+        from .threemf_writer import get_color_name
+
+        start_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
+        min_colors = config.max_colors  # don't go below max_colors; normal rules apply there
+        current_q = start_colors
+
+        pixel_data = None
+        regions = None
+        final_q = current_q
+
+        while current_q >= min_colors:
+            config.quantize_colors = current_q
+            _progress("load", f"Trying quantize-colors={current_q}...")
+            candidate_pixel_data = load_image(str(input_path), config)
+
+            if config.denoise_min_size > 0:
+                _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
+                candidate_pixel_data.pixels = denoise_blob_pixels(
+                    candidate_pixel_data.pixels, config.denoise_min_size, config.connectivity
+                )
+                _progress("denoise", "Complete!")
+
+            candidate_regions = merge_regions(candidate_pixel_data, config)
+            if config.trim_disconnected:
+                candidate_regions = trim_disconnected_pixels(candidate_regions, candidate_pixel_data.pixels)
+
+            # Count how many unique color names (slots) the merge step would produce
+            unique_region_colors = list({r.color for r in candidate_regions})
+            unique_names: set[str | Tuple[int, int, int]]
+            if config.merge_similar_colors:
+                unique_names = {get_color_name(rgb, config) for rgb in unique_region_colors}
+            else:
+                unique_names = set(unique_region_colors)  # no merging → count raw RGBs
+
+            # Account for backing color slot reservation.
+            # Slot 1 is always the backing color when no_backing_color=False.
+            # If the backing color appears in the image it shares slot 1 (discard it so
+            # it isn't double-counted). Either way, image colors can only use
+            # max_colors-1 slots (2..max_colors), so compare against that limit.
+            if not config.no_backing_color:
+                if config.merge_similar_colors:
+                    unique_names.discard(get_color_name(config.backing_color, config))
+                else:
+                    unique_names.discard(config.backing_color)
+
+            effective_limit = config.max_colors if config.no_backing_color else config.max_colors - 1
+
+            merged_count = len(unique_names)
+            _progress("load", f"  → {merged_count} merged colors (target: ≤{effective_limit})")
+
+            if merged_count <= effective_limit:
+                pixel_data = candidate_pixel_data
+                regions = candidate_regions
+                final_q = current_q
+                break
+            current_q -= 1
+
+        if pixel_data is None:
+            # Fell through — even at min_colors it didn't fit; use the last attempt
+            # (load_image at min_colors will raise the normal error if still too many)
+            config.quantize_colors = min_colors
+            pixel_data = load_image(str(input_path), config)
+            ctx.snapshot_original(pixel_data)
+            if config.quantize:
+                ctx.snapshot_quantized(pixel_data)
+            if config.denoise_min_size > 0:
+                _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
+                pixel_data.pixels = denoise_blob_pixels(
+                    pixel_data.pixels, config.denoise_min_size, config.connectivity
+                )
+                ctx.snapshot_denoised(pixel_data)
+                _progress("denoise", "Complete!")
+            regions = merge_regions(pixel_data, config)
+            if config.trim_disconnected:
+                regions = trim_disconnected_pixels(regions, pixel_data.pixels)
+            final_q = min_colors
+        else:
+            # Capture snapshots for the winning candidate
+            # Reconstruct: load without quantize to get original, then the
+            # quantized result is already in pixel_data.
+            original_config_q = config.quantize_colors
+            config.quantize = False
+            original_pixel_data = load_image(str(input_path), config)
+            config.quantize = True
+            config.quantize_colors = original_config_q
+            ctx.snapshot_original(original_pixel_data)
+            ctx.snapshot_quantized(pixel_data)
+            if config.denoise_min_size > 0:
+                ctx.snapshot_denoised(pixel_data)
+
+        if final_q < start_colors:
+            _progress("load", f"Settled on quantize-colors={final_q} (started at {start_colors})")
+        else:
+            _progress("load", f"quantize-colors={final_q} already fits within max-colors={config.max_colors}")
+
+    else:
+        # Normal (non-iterative) load
+        if config.quantize and config.generate_preview:
+            # Load without quantize first to capture a true "original" snapshot,
+            # then load again with quantize to get the actual working pixel_data.
+            # WHY: quantization happens inside load_image(), so to show a
+            # before/after comparison we need the pre-quantize state separately.
+            original_config_quantize = config.quantize
+            config.quantize = False
+            original_pixel_data = load_image(str(input_path), config)
+            config.quantize = original_config_quantize
+            ctx.snapshot_original(original_pixel_data)
+
+            pixel_data = load_image(str(input_path), config)
+            ctx.snapshot_quantized(pixel_data)
+        else:
+            pixel_data = load_image(str(input_path), config)
+            ctx.snapshot_original(pixel_data)
+
+        if config.denoise_min_size > 0:
+            _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
+            pixel_data.pixels = denoise_blob_pixels(
+                pixel_data.pixels, config.denoise_min_size, config.connectivity
+            )
+            ctx.snapshot_denoised(pixel_data)
+            _progress("denoise", "Complete!")
 
     _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
                      f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel")
@@ -231,41 +363,68 @@ def convert_image_to_3mf(
                     f"Pixel size would be {pixel_data.pixel_size_mm:.3f}mm (smaller than line width)."
                 )
     
-    # Step 2: Merge regions
-    _progress("merge", "Merging connected pixels into regions...")
-    regions = merge_regions(pixel_data, config)
-    _progress("merge", f"Found {len(regions)} connected regions")
-    
-    # Step 2.5: Trim disconnected pixels if enabled
-    if config.trim_disconnected:
-        _progress("merge", "Trimming disconnected pixels...")
-        original_count = len(regions)
-        regions = trim_disconnected_pixels(regions, pixel_data.pixels)
-        if len(regions) < original_count:
-            _progress("merge", f"Trimmed to {len(regions)} regions (removed {original_count - len(regions)} empty regions)")
+    # Step 2: Merge regions (skip if already done inside the iterate loop above)
+    if regions is None:
+        _progress("merge", "Merging connected pixels into regions...")
+        regions = merge_regions(pixel_data, config)
+        _progress("merge", f"Found {len(regions)} connected regions")
+        
+        # Step 2.5: Trim disconnected pixels if enabled
+        if config.trim_disconnected:
+            _progress("merge", "Trimming disconnected pixels...")
+            original_count = len(regions)
+            regions = trim_disconnected_pixels(regions, pixel_data.pixels)
+            if len(regions) < original_count:
+                _progress("merge", f"Trimmed to {len(regions)} regions (removed {original_count - len(regions)} empty regions)")
+    else:
+        _progress("merge", f"Found {len(regions)} connected regions")
     
     # Step 3: Generate meshes
     _progress("mesh", "Generating 3D geometry...")
     meshes = []
     region_colors = []
 
-    for i, region in enumerate(regions, start=1):
-        _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
-        mesh = generate_region_mesh(region, pixel_data, config)
-        meshes.append((mesh, f"region_{i}"))
-        region_colors.append(region.color)
+    if config.has_solid_core:
+        # Solid-core mode: each region becomes two thin shells (bottom + top).
+        # A single solid core object spans the full model footprint between them.
+        z_core_bot = config.core_z_bottom
+        z_core_top = config.core_z_top
+        z_shell_bot = z_core_bot - config.color_shell_half_height  # below the core
+        z_shell_top = z_core_top + config.color_shell_half_height  # above the core
 
-    # Generate backing plate (if base_height > 0)
-    if config.base_height_mm > 0:
-        _progress("mesh", "Generating backing plate...")
-        # CRITICAL FIX: Filter pixel_data to only include pixels from regions
-        # This ensures backing plate matches the colored regions exactly,
-        # even if some pixels were filtered out during region merging/optimization
+        for i, region in enumerate(regions, start=1):
+            _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels (dual shell)")
+            bottom_shell = generate_region_mesh_shell(region, pixel_data, config, z_shell_bot, z_core_bot)
+            top_shell = generate_region_mesh_shell(region, pixel_data, config, z_core_top, z_shell_top)
+            meshes.append((bottom_shell, f"region_{i}_bottom"))
+            meshes.append((top_shell, f"region_{i}_top"))
+            region_colors.append(region.color)  # one color entry per logical region
+
+        _progress("mesh", "Generating solid core...")
         filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
-        backing_mesh = generate_backing_plate(filtered_pixel_data, config)
-        meshes.append((backing_mesh, "backing_plate"))
+        core_mesh = generate_solid_core(filtered_pixel_data, config)
+        meshes.append((core_mesh, "solid_core"))
     else:
-        _progress("mesh", "Skipping backing plate (base height is 0)")
+        for i, region in enumerate(regions, start=1):
+            _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
+            mesh = generate_region_mesh(region, pixel_data, config)
+            meshes.append((mesh, f"region_{i}"))
+            region_colors.append(region.color)
+
+        # Generate backing plate (if enabled and not omitted by --no-backing-plate)
+        if config.has_backing_plate:
+            _progress("mesh", "Generating backing plate...")
+            # CRITICAL FIX: Filter pixel_data to only include pixels from regions
+            # This ensures backing plate matches the colored regions exactly,
+            # even if some pixels were filtered out during region merging/optimization
+            filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
+            backing_mesh = generate_backing_plate(filtered_pixel_data, config)
+            meshes.append((backing_mesh, "backing_plate"))
+        else:
+            if config.no_backing_plate:
+                _progress("mesh", "Skipping backing plate (--no-backing-plate)")
+            elif config.base_height_mm == 0:
+                _progress("mesh", "Skipping backing plate (base height is 0)")
     
     # Step 3.5: Post-process and validate meshes if requested
     validation_results = []  # Collect diagnostics for later display
@@ -300,13 +459,6 @@ def convert_image_to_3mf(
                 _progress("postprocess", f"✓ {name}: Manifold and valid")
             else:
                 _progress("postprocess", f"⚠ {name}: Still has issues after repair")
-    
-    # # Step 4: Validate meshes
-        filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
-        backing_mesh = generate_backing_plate(filtered_pixel_data, config)
-        meshes.append((backing_mesh, "backing_plate"))
-    else:
-        _progress("mesh", "Skipping backing plate (base height is 0)")
     
     # # Step 4: Validate meshes
     # validation_results = []
@@ -344,7 +496,7 @@ def convert_image_to_3mf(
     # Step 6: Write 3MF
     _progress("export", "Writing 3MF file...")
     
-    summary_path, color_mapping = write_3mf(
+    summary_path, preview_mapping, color_mapping = write_3mf(
         output_path, 
         meshes, 
         region_colors, 
@@ -353,6 +505,26 @@ def convert_image_to_3mf(
         progress_callback
     )
     _progress("export", "Complete!")
+    
+    # Step 6.5: Generate preview images if requested
+    preview_paths: list[str] = []
+    if config.generate_preview:
+        ctx.color_mapping = preview_mapping or {}
+        _progress("preview", "Generating preview images...")
+        preview_paths = generate_previews(ctx, output_path, progress_callback)
+        _progress("preview", "Complete!")
+    
+    # Step 6.6: Generate color swatches if requested
+    swatches_path = None
+    if config.generate_swatches and color_mapping:
+        from .swatch_generator import generate_swatches_image
+        
+        _progress("swatches", "Generating color swatches...")
+        # Extract colors and names from color_mapping (slot, name, rgb)
+        swatch_colors = [rgb for _, _, rgb in color_mapping]
+        swatch_names = [name for _, name, _ in color_mapping]
+        swatches_path = str(generate_swatches_image(Path(output_path), swatch_colors, swatch_names))
+        _progress("swatches", f"Swatches saved to: {swatches_path}")
     
     # Step 7: Render model if requested
     render_path = None
@@ -401,6 +573,18 @@ def convert_image_to_3mf(
     # Add summary path if generated
     if summary_path:
         stats['summary_path'] = summary_path
+    
+    # Add preview paths if generated
+    if preview_paths:
+        # Keep singular key for the primary _preview.png for backward compatibility
+        primary = next((p for p in preview_paths if p.endswith('_preview.png')), None)
+        if primary:
+            stats['preview_path'] = primary
+        stats['preview_paths'] = preview_paths
+    
+    # Add swatches path if generated
+    if swatches_path:
+        stats['swatches_path'] = swatches_path
     
     # Add render path if generated
     if render_path:

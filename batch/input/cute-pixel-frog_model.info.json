@@ -1,0 +1,104 @@
+{
+  "filename": "cute-pixel-frog_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\cute-pixel-frog_model.3mf",
+  "file_hash": "31ab8bd5fefb33d6bd49d6676a26f230b7b54765557ba8c5c70916c8bbb29cb7",
+  "timestamp": "2025-12-26T11:10:12.155597",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bambu Green",
+      "hex": "#00ae42",
+      "rgb": [0, 174, 66],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pink",
+      "hex": "#f55a74",
+      "rgb": [245, 90, 116],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Sunflower Yellow",
+      "hex": "#fec600",
+      "rgb": [254, 198, 0],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Turquoise",
+      "hex": "#00b1b7",
+      "rgb": [0, 177, 183],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Yellow",
+      "hex": "#f4ee2a",
+      "rgb": [244, 238, 42],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Blue",
+      "hex": "#042f56",
+      "rgb": [4, 47, 86],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Grass Green",
+      "hex": "#61c680",
+      "rgb": [97, 198, 128],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Ice Blue",
+      "hex": "#a3d8e1",
+      "rgb": [163, 216, 225],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lilac Purple",
+      "hex": "#ae96d4",
+      "rgb": [174, 150, 212],
+      "ams_slot": "C-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Mandarin Orange",
+      "hex": "#f99963",
+      "rgb": [249, 153, 99],
+      "ams_slot": "C-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Marine Blue",
+      "hex": "#0078bf",
+      "rgb": [0, 120, 191],
+      "ams_slot": "D-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Sky Blue",
+      "hex": "#56b7e6",
+      "rgb": [86, 183, 230],
+      "ams_slot": "D-2"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 178.26086956521738,
+    "height_mm": 200.0,
+    "pixel_size_mm": 4.3478260869565215
+  },
+  "mesh_stats": {
+    "num_vertices": 8268,
+    "num_triangles": 16236,
+    "num_regions": 77,
+    "num_colors": 14
+  }
+}

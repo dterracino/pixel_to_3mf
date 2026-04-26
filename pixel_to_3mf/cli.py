@@ -10,6 +10,7 @@ Separation of concerns FTW! 🎯
 """
 
 import argparse
+import io
 import sys
 import logging
 from pathlib import Path
@@ -27,6 +28,7 @@ from .constants import (
     LINE_WIDTH_MM,
     COLOR_LAYER_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
+    SOLID_CORE_HEIGHT_MM,
     DEFAULT_OUTPUT_SUFFIX,
     MAX_COLORS,
     BACKING_COLOR,
@@ -36,6 +38,7 @@ from .constants import (
     DEFAULT_FILAMENT_MAKER,
     DEFAULT_FILAMENT_TYPE,
     DEFAULT_FILAMENT_FINISH,
+    PREFER_HUE_MATCHING,
     PADDING_COLOR,
     AMS_COUNT,
     AMS_SLOTS_PER_UNIT,
@@ -43,6 +46,20 @@ from .constants import (
 )
 from .config import ConversionConfig
 from .pixel_to_3mf import convert_image_to_3mf
+
+# Reconfigure stdout to handle Unicode properly on Windows
+# This prevents UnicodeEncodeError when printing emojis in tests
+if isinstance(sys.stdout, io.TextIOWrapper):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass  # If reconfigure fails, continue with default encoding
+
+if isinstance(sys.stderr, io.TextIOWrapper):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass  # If reconfigure fails, continue with default encoding
 
 # Create Rich consoles for output and errors
 console = Console()
@@ -389,13 +406,52 @@ The program will:
         help=f"Backing plate color as R,G,B (e.g., '255,255,255' for white). "
              f"If not in image, reserves 1 color slot. Default: {BACKING_COLOR}"
     )
-    
+
+    parser.add_argument(
+        "--no-backing-color",
+        action="store_true",
+        default=False,
+        help="Don't reserve a color slot for the backing plate. All color slots are available "
+             "for image colors, and the backing plate reuses slot 1 (the first image color)."
+    )
+
+    parser.add_argument(
+        "--no-backing-plate",
+        action="store_true",
+        default=False,
+        help="Omit the backing plate and extend color layers to fill the same depth. "
+             "Total model thickness is unchanged (base height + color height), but colors "
+             "are extruded all the way through — ideal for suncatchers and display pieces "
+             "that should look correct from both sides."
+    )
+
+    parser.add_argument(
+        "--solid-core",
+        action="store_true",
+        default=False,
+        help="Add a solid single-color core between two thin colour shells. "
+             "The core spans the full model footprint (same shape as the backing plate) "
+             "and fills core-height mm of depth. The remaining color-height is split "
+             "evenly — half below the core, half above. Automatically disables the backing plate. "
+             "Example: color-height 1mm + core-height 1mm → 0.5mm shell / 1mm core / 0.5mm shell."
+    )
+
+    parser.add_argument(
+        "--core-height",
+        type=float,
+        default=None,
+        metavar="MM",
+        help=f"Thickness of the solid core layer in mm. Only valid with --solid-core. "
+             f"Defaults to {SOLID_CORE_HEIGHT_MM}mm if --solid-core is enabled."
+    )
+
     parser.add_argument(
         "--color-mode",
         type=str,
-        choices=["color", "filament", "hex"],
+        choices=["color", "filament", "hex", "generated"],
         default=COLOR_NAMING_MODE,
-        help=f"Color naming mode: 'color' for CSS names, 'filament' for filament colors, 'hex' for hex codes (default: {COLOR_NAMING_MODE})"
+        help=f"Color naming mode: 'color' for CSS names, 'filament' for filament colors, "
+             f"'hex' for hex codes, 'generated' for descriptive names (default: {COLOR_NAMING_MODE})"
     )
     
     parser.add_argument(
@@ -417,6 +473,26 @@ The program will:
         type=str,
         default=None,
         help=f"Filament finish filter(s) for 'filament' mode. Comma-separated for multiple (default: {', '.join(DEFAULT_FILAMENT_FINISH)})"
+    )
+    
+    parser.add_argument(
+        "--no-merge-colors",
+        action="store_true",
+        help="Force unique filament assignment per RGB color (greedy matching). "
+             "Prevents merging similar colors to same filament. Useful for preserving subtle variations."
+    )
+    
+    parser.add_argument(
+        "--prefer-hue",
+        action="store_true",
+        default=None,
+        help="Prioritize hue preservation when matching colors (avoids blue→purple). Enabled by default. Use --no-prefer-hue to disable"
+    )
+    
+    parser.add_argument(
+        "--no-prefer-hue",
+        action="store_true",
+        help="Disable hue-aware matching, use pure perceptual distance (Delta E 2000)"
     )
     
     parser.add_argument(
@@ -444,6 +520,18 @@ The program will:
     )
     
     parser.add_argument(
+        "--padding-type",
+        type=str,
+        choices=["circular", "square", "diamond"],
+        default="circular",
+        help="Padding shape: "
+             "circular = Euclidean distance, smooth rounded corners (default), "
+             "square = Chebyshev distance, sharp 90° corners (perfect for framing), "
+             "diamond = Manhattan distance, 45° diagonal cuts. "
+             "Only used when --padding-size > 0."
+    )
+    
+    parser.add_argument(
         "--connectivity",
         type=int,
         choices=[0, 4, 8],
@@ -460,6 +548,38 @@ The program will:
         action="store_true",
         help="Remove disconnected pixels (pixels that only connect via corners/diagonals). "
              "These pixels are unreliable for 3D printing as they share only a vertex, not an edge."
+    )
+    
+    parser.add_argument(
+        "--denoise",
+        action="store_true",
+        help="Enable pixel-art denoising before region merging. "
+             "Removes compression artefacts and stray pixels. "
+             "Use --denoise-type to select the algorithm (default: blob) and "
+             "the corresponding parameter flag to tune it. "
+             "When used with --preview, also saves a {output_name}_denoised.png "
+             "showing the pixel art after denoising."
+    )
+
+    parser.add_argument(
+        "--denoise-type",
+        choices=["blob"],
+        default="blob",
+        metavar="TYPE",
+        help="Denoising algorithm to use (requires --denoise). "
+             "blob: merge regions smaller than --blob-min-size into their dominant neighbour. "
+             "Default: blob."
+    )
+
+    parser.add_argument(
+        "--blob-min-size",
+        type=int,
+        default=2,
+        metavar="N",
+        help="Minimum region size for blob denoising (requires --denoise --denoise-type blob). "
+             "Any connected same-colour region with fewer than N pixels is absorbed into its "
+             "dominant neighbour colour. "
+             "Default: 2 (removes single stray pixels; ~51%% region reduction with minimal visual change)."
     )
     
     parser.add_argument(
@@ -499,12 +619,37 @@ The program will:
         help="Number of colors to quantize to. Defaults to max-colors if not specified. "
              "Only used when --quantize is enabled."
     )
+
+    parser.add_argument(
+        "--iterate-quantize",
+        action="store_true",
+        default=False,
+        help="When used with --quantize, start at --quantize-colors and automatically decrement "
+             "until the merged color count fits within --max-colors. Allows --quantize-colors to "
+             "exceed --max-colors so accent colors survive longer before being merged away."
+    )
     
     parser.add_argument(
         "--summary",
         action="store_true",
         help="Generate a summary file listing all colors/filaments used in the conversion. "
              "Summary is saved as {output_name}.summary.txt in the same location as the output file."
+    )
+    
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Generate a side-by-side comparison preview showing original vs matched colors. "
+             "Preview is saved as {output_name}_preview.png in the same location as the output file. "
+             "Makes it easy to identify color shifts before printing."
+    )
+    
+    parser.add_argument(
+        "--swatches",
+        action="store_true",
+        help="Generate a color swatches image showing each color with its name/hex code. "
+             "Swatches are saved as {output_name}_swatches.png in the same location as the output file. "
+             "Useful for documenting what colors are needed for printing."
     )
     
     parser.add_argument(
@@ -647,6 +792,24 @@ The program will:
     filament_finish = DEFAULT_FILAMENT_FINISH
     if args.filament_finish:
         filament_finish = [f.strip() for f in args.filament_finish.split(',')]
+    
+    # Determine hue-aware matching preference
+    if args.no_prefer_hue:
+        hue_aware = False
+    elif args.prefer_hue:
+        hue_aware = True
+    else:
+        hue_aware = None  # Use default from constants
+
+    # --core-height is only meaningful with --solid-core
+    if args.core_height is not None and not args.solid_core:
+        console.print("❌ Error: --core-height is only valid when --solid-core is also specified.")
+        sys.exit(1)
+
+    # --solid-core automatically disables the backing plate; resolve effective values here
+    # so ConversionConfig always receives a consistent state regardless of argparse defaults.
+    base_height: float = 0.0 if args.solid_core else args.base_height
+    core_height: float = args.core_height if args.core_height is not None else SOLID_CORE_HEIGHT_MM
 
     # Build config object from CLI arguments
     try:
@@ -654,28 +817,39 @@ The program will:
             max_size_mm=args.max_size,
             line_width_mm=args.line_width,
             color_height_mm=args.color_height,
-            base_height_mm=args.base_height,
+            base_height_mm=base_height,
             max_colors=args.max_colors,
             backing_color=backing_color,
+            no_backing_color=args.no_backing_color,
+            no_backing_plate=args.no_backing_plate,
+            solid_core=args.solid_core,
+            core_height_mm=core_height,
             skip_checks=args.skip_checks,
             batch_mode=args.batch,
             color_naming_mode=args.color_mode,
+            merge_similar_colors=not args.no_merge_colors,
             filament_maker=filament_maker,
             filament_type=filament_type,
             filament_finish=filament_finish,
+            hue_aware_matching=hue_aware if hue_aware is not None else PREFER_HUE_MATCHING,
             auto_crop=args.auto_crop,
             connectivity=args.connectivity,
             trim_disconnected=args.trim,
             padding_size=args.padding_size,
             padding_color=padding_color,
+            padding_type=args.padding_type,
             quantize=args.quantize,
             quantize_algo=args.quantize_algo,
             quantize_colors=args.quantize_colors,
+            iterate_quantize=args.iterate_quantize,
             generate_summary=args.summary,
+            generate_preview=args.preview,
+            generate_swatches=args.swatches,
             ams_count=args.ams_count,
             render_model=args.render,
             optimize_mesh=args.optimize_mesh,
-            validate_mesh=args.validate_mesh
+            validate_mesh=args.validate_mesh,
+            denoise_min_size=args.blob_min_size if args.denoise else 0
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
@@ -789,10 +963,14 @@ The program will:
     # Heights
     config_table.add_row("Color Layer Height", f"{config.color_height_mm}mm")
     config_table.add_row("Base Layer Height", f"{config.base_height_mm}mm" if config.base_height_mm > 0 else "0mm (disabled)")
+    if config.no_backing_plate:
+        config_table.add_row("Backing Plate", "Disabled (colors fill full depth)")
+    if config.has_solid_core:
+        config_table.add_row("Solid Core", f"{config.core_height_mm}mm core / {config.color_shell_half_height}mm shells")
     
     # Colors
     config_table.add_row("Max Colors", str(config.max_colors))
-    config_table.add_row("Backing Color", f"RGB{config.backing_color}")
+    config_table.add_row("Backing Color", f"RGB{config.backing_color}" + (" (slot shared with color 1)" if config.no_backing_color else ""))
     config_table.add_row("Color Naming Mode", config.color_naming_mode)
     
     # AMS Configuration
@@ -813,6 +991,12 @@ The program will:
     connectivity_map = {0: "None (separate pixels)", 4: "4-connected (edges only)", 8: "8-connected (includes diagonals)"}
     config_table.add_row("Connectivity", connectivity_map.get(config.connectivity, str(config.connectivity)))
     config_table.add_row("Trim Disconnected", "Enabled" if config.trim_disconnected else "Disabled")
+
+    # Denoising
+    if config.denoise_min_size > 0:
+        config_table.add_row("Denoising", f"blob, min-size={config.denoise_min_size}")
+    else:
+        config_table.add_row("Denoising", "Disabled")
     
     # Padding options
     if config.padding_size > 0:
@@ -832,7 +1016,8 @@ The program will:
     # Color quantization
     if config.quantize:
         quant_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
-        config_table.add_row("Color Quantization", f"Enabled ({config.quantize_algo}, {quant_colors} colors)")
+        iterate_suffix = f", iterate from {quant_colors}→{config.max_colors}" if config.iterate_quantize else f", {quant_colors} colors"
+        config_table.add_row("Color Quantization", f"Enabled ({config.quantize_algo}{iterate_suffix})")
     else:
         config_table.add_row("Color Quantization", "Disabled")
     
@@ -938,25 +1123,29 @@ The program will:
         
         # Create tasks for each stage
         load_task = progress.add_task("[cyan]📁 Loading image...", total=None)
+        denoise_task = None
         merge_task = None
         mesh_task = None
         validate_task = None
         export_task = None
+        preview_task = None
         render_task = None
         
         # Track current stage and last message for each stage (for checkmark updates)
         current_stage = None
         last_messages = {
             'load': '',
+            'denoise': '',
             'merge': '',
             'mesh': '',
             'validate': '',
             'export': '',
+            'preview': '',
             'render': ''
         }
         
         def progress_callback(stage: str, message: str):
-            nonlocal current_stage, merge_task, mesh_task, validate_task, export_task, render_task
+            nonlocal current_stage, denoise_task, merge_task, mesh_task, validate_task, export_task, preview_task, render_task
             
             # Track the message for this stage
             last_messages[stage] = message
@@ -967,9 +1156,16 @@ The program will:
                 
                 if stage == 'load':
                     progress.update(load_task, description=f"[cyan]📁 Loading image... {message}")
-                elif stage == 'merge':
+                elif stage == 'denoise':
                     # Complete load with checkmark
                     progress.update(load_task, description=f"[cyan]✓ Loading image... {last_messages['load']}", completed=True)
+                    denoise_task = progress.add_task("[yellow]🧹 Denoising blobs...", total=None)
+                elif stage == 'merge':
+                    # Complete load or denoise with checkmark
+                    if denoise_task is not None:
+                        progress.update(denoise_task, description=f"[yellow]✓ Denoising blobs... {last_messages['denoise']}", completed=True)
+                    else:
+                        progress.update(load_task, description=f"[cyan]✓ Loading image... {last_messages['load']}", completed=True)
                     merge_task = progress.add_task("[magenta]🧩 Merging regions...", total=None)
                 elif stage == 'mesh':
                     if merge_task is not None:
@@ -986,15 +1182,25 @@ The program will:
                         # Complete validate with checkmark
                         progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {last_messages['validate']}", completed=True)
                     export_task = progress.add_task("[green]📦 Writing 3MF file...", total=None)
-                elif stage == 'render':
+                elif stage == 'preview':
                     if export_task is not None:
                         # Complete export with checkmark
+                        progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
+                    preview_task = progress.add_task("[cyan]🖼️  Generating color preview...", total=None)
+                elif stage == 'render':
+                    if preview_task is not None:
+                        # Complete preview with checkmark
+                        progress.update(preview_task, description=f"[cyan]✓ Generating color preview... {last_messages['preview']}", completed=True)
+                    elif export_task is not None:
+                        # Complete export with checkmark (if no preview)
                         progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
                     render_task = progress.add_task("[magenta]🎨 Rendering preview...", total=None)
             else:
                 # Update existing task
                 if stage == 'load' and load_task is not None:
                     progress.update(load_task, description=f"[cyan]📁 Loading image... {message}")
+                elif stage == 'denoise' and denoise_task is not None:
+                    progress.update(denoise_task, description=f"[yellow]🧹 Denoising blobs... {message}")
                 elif stage == 'merge' and merge_task is not None:
                     progress.update(merge_task, description=f"[magenta]🧩 Merging regions... {message}")
                 elif stage == 'mesh' and mesh_task is not None:
@@ -1003,6 +1209,8 @@ The program will:
                     progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {message}")
                 elif stage == 'export' and export_task is not None:
                     progress.update(export_task, description=f"[green]📦 Writing 3MF file... {message}")
+                elif stage == 'preview' and preview_task is not None:
+                    progress.update(preview_task, description=f"[cyan]🖼️  Generating color preview... {message}")
                 elif stage == 'render' and render_task is not None:
                     progress.update(render_task, description=f"[magenta]🎨 Rendering preview... {message}")
         
@@ -1016,8 +1224,10 @@ The program will:
                 warning_callback=warning_callback
             )
             # Mark final task as complete with checkmark
-            if export_task is not None:
+            if export_task is not None and preview_task is None and render_task is None:
                 progress.update(export_task, description=f"[green]✓ Writing 3MF file... {last_messages['export']}", completed=True)
+            if preview_task is not None and render_task is None:
+                progress.update(preview_task, description=f"[cyan]✓ Generating color preview... {last_messages['preview']}", completed=True)
             if render_task is not None:
                 progress.update(render_task, description=f"[magenta]✓ Rendering preview... {last_messages['render']}", completed=True)
         except FileNotFoundError as e:
@@ -1109,9 +1319,21 @@ The program will:
     stats_table.add_row("Image:", f"{stats['image_width']} x {stats['image_height']} pixels")
     stats_table.add_row("Model:", f"{stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
     stats_table.add_row("Pixel size:", f"{round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
-    stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
+    if config.has_solid_core:
+        shell_regions = stats['num_regions'] * 2
+        stats_table.add_row("Regions:", f"{stats['num_regions']} x 2 = {shell_regions:,} ({stats['num_colors']} colors, 2x shells via solid core)")
+    else:
+        stats_table.add_row("Regions:", f"{stats['num_regions']} ({stats['num_colors']} unique colors)")
     stats_table.add_row("Mesh:", f"{stats['num_triangles']:,} triangles, {stats['num_vertices']:,} vertices")
     stats_table.add_row("Output:", f"{stats['output_path']} ({stats['file_size']})")
+    
+    # Add preview path if generated
+    if 'preview_path' in stats:
+        stats_table.add_row("Preview:", stats['preview_path'])
+    
+    # Add swatches path if generated
+    if 'swatches_path' in stats:
+        stats_table.add_row("Swatches:", stats['swatches_path'])
     
     # Add summary path if generated
     if 'summary_path' in stats:

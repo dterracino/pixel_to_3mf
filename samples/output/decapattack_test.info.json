@@ -1,0 +1,110 @@
+{
+  "filename": "decapattack_test.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\output\\decapattack_test.3mf",
+  "file_hash": "2994e87887cbce0076990f6d8cc2d603bb4ad9c24b93b6fd24f12c28d5f1e5d6",
+  "timestamp": "2026-01-04T09:15:47.630055",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bambu Green",
+      "hex": "#00ae42",
+      "rgb": [0, 174, 66],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Blue",
+      "hex": "#0a2989",
+      "rgb": [10, 41, 137],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bronze",
+      "hex": "#847d48",
+      "rgb": [132, 125, 72],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Indigo Purple",
+      "hex": "#482960",
+      "rgb": [72, 41, 96],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Maroon Red",
+      "hex": "#9d2235",
+      "rgb": [157, 34, 53],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Mistletoe Green",
+      "hex": "#3f8e43",
+      "rgb": [63, 142, 67],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pink",
+      "hex": "#f55a74",
+      "rgb": [245, 90, 116],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pumpkin Orange",
+      "hex": "#ff9016",
+      "rgb": [255, 144, 22],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Purple",
+      "hex": "#5e43b7",
+      "rgb": [94, 67, 183],
+      "ams_slot": "C-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "C-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Yellow",
+      "hex": "#f4ee2a",
+      "rgb": [244, 238, 42],
+      "ams_slot": "D-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lilac Purple",
+      "hex": "#ae96d4",
+      "rgb": [174, 150, 212],
+      "ams_slot": "D-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Scarlet Red",
+      "hex": "#de4343",
+      "rgb": [222, 67, 67],
+      "ams_slot": "D-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 140.0,
+    "pixel_size_mm": 0.625
+  },
+  "mesh_stats": {
+    "num_vertices": 194320,
+    "num_triangles": 378900,
+    "num_regions": 1224,
+    "num_colors": 15
+  }
+}

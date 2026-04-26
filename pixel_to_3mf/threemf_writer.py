@@ -21,6 +21,8 @@ from typing import List, Tuple, Dict, TYPE_CHECKING, Optional, Callable, Any
 from pathlib import Path
 from PIL import Image
 from functools import lru_cache
+import colorsys
+import math
 
 from .mesh_generator import Mesh
 from .threemf_core import ThreeMFWriter, ThreeMFMesh
@@ -35,33 +37,246 @@ if TYPE_CHECKING:
 # Color Naming Functions (Pixel Art Specific)
 # ============================================================================
 
+# TODO: This hue-aware matching should be moved to color-tools library
+# The color-tools library currently only provides Delta E 2000 matching,
+# which prioritizes perceptual distance over hue preservation. This can
+# cause undesirable matches like blue→purple when no perfect match exists.
+# A hue-weighted matching metric should be added to color-tools.
+
+def _get_color_category(hue: float, saturation: float) -> str:
+    """
+    Determine the color category based on HSL hue value.
+    
+    This helps prevent categorical mismatches like blue→purple.
+    Categories are based on standard hue ranges in the HSL color wheel.
+    
+    Args:
+        hue: Hue value in [0, 1] range (0=red, 0.333=green, 0.667=blue)
+        saturation: Saturation in [0, 1] range (used to detect grays)
+        
+    Returns:
+        Color category: 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 
+        'purple', 'magenta', or 'gray'
+    """
+    # Desaturated colors are gray regardless of hue
+    if saturation < 0.15:
+        return 'gray'
+    
+    # Convert hue to degrees for easier reasoning
+    hue_deg = hue * 360
+    
+    # Define category boundaries (degrees)
+    if hue_deg < 15 or hue_deg >= 345:
+        return 'red'
+    elif hue_deg < 45:
+        return 'orange'
+    elif hue_deg < 75:
+        return 'yellow'
+    elif hue_deg < 150:
+        return 'green'
+    elif hue_deg < 195:
+        return 'cyan'
+    elif hue_deg < 270:
+        return 'blue'
+    elif hue_deg < 315:
+        return 'purple'
+    else:
+        return 'magenta'
+
+
+def _rgb_to_blue_purple_category(rgb: Tuple[int, int, int]) -> str | None:
+    """
+    Determine if an RGB color is blue, purple, or boundary zone based on RGB components.
+    
+    TODO: This function should be moved to color-tools library.
+    
+    Uses RGB component analysis to categorize colors in the blue/purple range:
+    - **Blue**: Low red component (R < 50), high blue (B > 150)
+    - **Purple**: Significant red component (R > 80), high blue (B > 150)
+      - Purple in RGB = Red + Blue, so purple has more red than pure blue
+    - **Boundary zone**: 50 ≤ R ≤ 80, can match either
+    - **None**: Not in blue/purple range (B < 150)
+    
+    This is more robust than string matching on filament names, which breaks
+    for names like "Ocean", "Sky", "Lavender", "Violet", etc.
+    
+    Args:
+        rgb: RGB tuple (0-255 for each component)
+        
+    Returns:
+        'blue', 'purple', 'boundary', or None
+    """
+    r, g, b = rgb
+    
+    # Must have significant blue component to be in this range
+    if b < 150:
+        return None
+    
+    # Distinguish based on red component
+    # Purple = Red + Blue in RGB, so purple has more red
+    BLUE_MAX_RED = 50  # Blue should have R < 50
+    PURPLE_MIN_RED = 80  # Purple should have R > 80
+    
+    if r < BLUE_MAX_RED:
+        return 'blue'
+    elif r > PURPLE_MIN_RED:
+        return 'purple'
+    else:
+        return 'boundary'  # 50 <= R <= 80, could be either
+
+
+def _calculate_hue_weighted_distance(
+    target_rgb: Tuple[int, int, int],
+    candidate_rgb: Tuple[int, int, int],
+    candidate_name: str,
+    base_delta_e: float,
+    use_rgb_boundary_detection: bool = True,
+    category_mismatch_penalty: float = 50.0
+) -> float:
+    """
+    Calculate distance with smart category mismatch penalty based on RGB composition.
+    
+    TODO: This entire function should be moved to color-tools library.
+          It's a workaround for filament palette gaps and should be part of
+          the palette matching logic, not the 3MF writer.
+    
+    IMPORTANT: This is a workaround for filament palettes with gaps!
+    ---------------------------------------------------------------------------
+    When a palette lacks intermediate colors (e.g., Bambu Lab has Purple #5E43B7
+    and Blue #0A2989, but no colors between), pure Delta E 2000 can match colors
+    across categorical boundaries. For example:
+    
+    - Pure blue #0000FF might match to purple (ΔE=14.37) instead of darker blue (ΔE=15.04)
+    - Bluish-purple #686CE8 might match to blue when it should match purple
+    
+    This function uses RGB component analysis to detect these boundary cases:
+    - **Blue**: Low red component (R < 50), high blue (B > 150)
+    - **Purple**: Significant red component (R > 80), high blue (B > 150)
+    - **Boundary zone**: 50 ≤ R ≤ 80 can match either (decided by Delta E)
+    
+    The penalty is applied when:
+    1. use_rgb_boundary_detection is enabled
+    2. BOTH target and candidate are in blue/purple range (B > 150)
+    3. Target clearly leans toward one category (R < 50 or R > 80)
+    4. Candidate clearly leans toward the opposite category
+    
+    This means:
+    - Works for ANY filament naming scheme (no string matching!)
+    - Other palettes with better coverage are unaffected
+    - Non-blue/purple colors work normally
+    - Boundary zone colors still use pure Delta E
+    
+    Args:
+        target_rgb: Target color to match
+        candidate_rgb: Candidate color from palette
+        candidate_name: Name of the candidate filament (unused after refactor, kept for compatibility)
+        base_delta_e: Already-calculated Delta E 2000 distance
+        use_rgb_boundary_detection: Enable RGB component analysis (default True)
+        category_mismatch_penalty: Penalty for matching across categories (default 50.0)
+        
+    Returns:
+        Weighted distance combining Delta E and category mismatch penalty
+    """
+    # TODO: Move to color-tools library as part of palette.find_nearest() logic
+    # Skip if RGB boundary detection is disabled
+    if not use_rgb_boundary_detection:
+        return base_delta_e
+    
+    # Analyze both target and candidate colors using RGB components
+    # TODO: These functions should move to color-tools
+    target_category = _rgb_to_blue_purple_category(target_rgb)
+    candidate_category = _rgb_to_blue_purple_category(candidate_rgb)
+    
+    # Only apply penalty if both colors are in blue/purple range
+    if target_category and candidate_category:
+        # Check for clear category mismatch
+        # 'boundary' can match either blue or purple, so only penalize clear mismatches
+        if target_category in ('blue', 'purple') and candidate_category in ('blue', 'purple'):
+            if target_category != candidate_category:
+                # Clear mismatch: blue target → purple candidate (or vice versa)
+                return base_delta_e + category_mismatch_penalty
+    
+    return base_delta_e
+
+
 @lru_cache(maxsize=256)
 def _get_filament_name_cached(
     rgb: Tuple[int, int, int],
     maker_tuple: Optional[Tuple[str, ...]],
     type_tuple: Optional[Tuple[str, ...]],
-    finish_tuple: Optional[Tuple[str, ...]]
+    finish_tuple: Optional[Tuple[str, ...]],
+    hue_aware: bool = True
 ) -> str:
     """
     Cached filament name lookup. Uses tuples for hashability.
     
     This is the expensive operation - loading palette and calculating Delta E 2000.
     By caching it, we only do the lookup once per unique (color, filters) combination.
+    
+    Args:
+        rgb: Target RGB color to match
+        maker_tuple: Tuple of maker names (for caching)
+        type_tuple: Tuple of filament types (for caching)
+        finish_tuple: Tuple of finish types (for caching)
+        hue_aware: If True, penalize hue shifts to avoid blue→purple mismatches
     """
     # Load palette once per cache entry
     palette = FilamentPalette.load_default()
     
     try:
-        nearest_filament, distance = palette.nearest_filament(
-            target_rgb=rgb,
-            metric="de2000",
+        # Get filtered palette (returns list of FilamentRecord objects)
+        filtered = palette.filter(
             maker=list(maker_tuple) if maker_tuple else None,
             type_name=list(type_tuple) if type_tuple else None,
             finish=list(finish_tuple) if finish_tuple else None
         )
-        return f"{nearest_filament.maker} {nearest_filament.type} {nearest_filament.finish} {nearest_filament.color}"
-    except ValueError:
-        # If no filaments match the filters, fall back to hex
+        
+        if not filtered:
+            # No filaments match filters, fall back to hex
+            return rgb_to_hex(rgb)
+        
+        if not hue_aware:
+            # Use standard Delta E 2000 matching
+            nearest_filament, distance = palette.nearest_filament(
+                target_rgb=rgb,
+                metric="de2000",
+                maker=list(maker_tuple) if maker_tuple else None,
+                type_name=list(type_tuple) if type_tuple else None,
+                finish=list(finish_tuple) if finish_tuple else None
+            )
+            return f"{nearest_filament.maker} {nearest_filament.type} {nearest_filament.finish} {nearest_filament.color}"
+        
+        # TODO: This hue-aware search should be in color-tools library
+        # Manually search with hue weighting
+        from color_tools import delta_e_2000, rgb_to_lab
+        target_lab = rgb_to_lab(rgb)
+        
+        best_filament = None
+        best_distance = float('inf')
+        
+        for filament in filtered:
+            # Calculate base Delta E
+            de = delta_e_2000(target_lab, filament.lab)
+            
+            # Add category mismatch penalty
+            # TODO: Move this logic to color-tools library
+            filament_name = f"{filament.maker} {filament.type} {filament.finish} {filament.color}"
+            weighted_distance = _calculate_hue_weighted_distance(
+                rgb, filament.rgb, filament_name, de, 
+                use_rgb_boundary_detection=hue_aware
+            )
+            
+            if weighted_distance < best_distance:
+                best_distance = weighted_distance
+                best_filament = filament
+        
+        if best_filament:
+            return f"{best_filament.maker} {best_filament.type} {best_filament.finish} {best_filament.color}"
+        else:
+            return rgb_to_hex(rgb)
+            
+    except (ValueError, AttributeError):
+        # If anything fails, fall back to hex
         return rgb_to_hex(rgb)
 
 
@@ -70,7 +285,8 @@ def _get_filament_with_rgb_cached(
     rgb: Tuple[int, int, int],
     maker_tuple: Optional[Tuple[str, ...]],
     type_tuple: Optional[Tuple[str, ...]],
-    finish_tuple: Optional[Tuple[str, ...]]
+    finish_tuple: Optional[Tuple[str, ...]],
+    hue_aware: bool = True
 ) -> Tuple[str, Tuple[int, int, int]]:
     """
     Cached filament lookup returning both name and matched filament's RGB.
@@ -81,18 +297,56 @@ def _get_filament_with_rgb_cached(
     palette = FilamentPalette.load_default()
     
     try:
-        nearest_filament, distance = palette.nearest_filament(
-            target_rgb=rgb,
-            metric="de2000",
+        # Get filtered palette (returns list of FilamentRecord objects)
+        filtered = palette.filter(
             maker=list(maker_tuple) if maker_tuple else None,
             type_name=list(type_tuple) if type_tuple else None,
             finish=list(finish_tuple) if finish_tuple else None
         )
-        filament_name = f"{nearest_filament.maker} {nearest_filament.type} {nearest_filament.finish} {nearest_filament.color}"
-        matched_rgb = nearest_filament.rgb
-        return (filament_name, matched_rgb)
-    except ValueError:
-        # If no filaments match the filters, fall back to hex and use detected RGB
+        
+        if not filtered:
+            return (rgb_to_hex(rgb), rgb)
+        
+        if not hue_aware:
+            # Use standard Delta E 2000 matching
+            nearest_filament, distance = palette.nearest_filament(
+                target_rgb=rgb,
+                metric="de2000",
+                maker=list(maker_tuple) if maker_tuple else None,
+                type_name=list(type_tuple) if type_tuple else None,
+                finish=list(finish_tuple) if finish_tuple else None
+            )
+            filament_name = f"{nearest_filament.maker} {nearest_filament.type} {nearest_filament.finish} {nearest_filament.color}"
+            return (filament_name, nearest_filament.rgb)
+        
+        # TODO: This hue-aware search should be in color-tools library
+        # Manually search with hue weighting
+        from color_tools import delta_e_2000, rgb_to_lab
+        target_lab = rgb_to_lab(rgb)
+        
+        best_filament = None
+        best_distance = float('inf')
+        
+        for filament in filtered:
+            de = delta_e_2000(target_lab, filament.lab)
+            # TODO: Move RGB boundary detection logic to color-tools library
+            filament_name = f"{filament.maker} {filament.type} {filament.finish} {filament.color}"
+            weighted_distance = _calculate_hue_weighted_distance(
+                rgb, filament.rgb, filament_name, de,
+                use_rgb_boundary_detection=hue_aware
+            )
+            
+            if weighted_distance < best_distance:
+                best_distance = weighted_distance
+                best_filament = filament
+        
+        if best_filament:
+            filament_name = f"{best_filament.maker} {best_filament.type} {best_filament.finish} {best_filament.color}"
+            return (filament_name, best_filament.rgb)
+        else:
+            return (rgb_to_hex(rgb), rgb)
+            
+    except (ValueError, AttributeError):
         return (rgb_to_hex(rgb), rgb)
 
 
@@ -127,10 +381,11 @@ def get_color_name(rgb: Tuple[int, int, int], config: 'ConversionConfig') -> str
     """
     Get the name for an RGB color based on the configured naming mode.
     
-    Supports three modes:
+    Supports four modes:
     - "color": Find nearest CSS color name using Delta E 2000
     - "filament": Find nearest filament based on maker/type/finish filters
     - "hex": Use hex color code as the name
+    - "generated": Use descriptive generated name (e.g., "very dark blue", "medium bright red")
     
     This function uses caching internally to avoid redundant lookups for
     the same color/filter combination, which significantly speeds up
@@ -141,11 +396,17 @@ def get_color_name(rgb: Tuple[int, int, int], config: 'ConversionConfig') -> str
         config: ConversionConfig with color_naming_mode and filament filters
     
     Returns:
-        Color name string (e.g., "red", "Bambu PLA Basic Red", "#FF5733")
+        Color name string (e.g., "red", "Bambu PLA Basic Red", "#FF5733", "dark blue")
     """
     if config.color_naming_mode == "hex":
         # Hex mode: just return the hex code (no lookup needed)
         return rgb_to_hex(rgb)
+    
+    elif config.color_naming_mode == "generated":
+        # Generated mode: use color_tools.naming.generate_color_name()
+        from color_tools.naming import generate_color_name
+        name, _ = generate_color_name(rgb)
+        return name
     
     elif config.color_naming_mode == "filament":
         # Convert lists/strings to tuples for hashability (lru_cache requires hashable args)
@@ -162,10 +423,110 @@ def get_color_name(rgb: Tuple[int, int, int], config: 'ConversionConfig') -> str
         type_tuple = to_tuple(config.filament_type)
         finish_tuple = to_tuple(config.filament_finish)
         
-        return _get_filament_name_cached(rgb, maker_tuple, type_tuple, finish_tuple)
+        return _get_filament_name_cached(rgb, maker_tuple, type_tuple, finish_tuple, config.hue_aware_matching)
     
     else:  # "color" mode (default)
         return _get_css_color_name_cached(rgb)
+
+
+def greedy_filament_matching(
+    unique_rgbs: List[Tuple[int, int, int]],
+    config: 'ConversionConfig'
+) -> Dict[Tuple[int, int, int], Tuple[str, Tuple[int, int, int]]]:
+    """
+    Greedily assign unique filaments to each RGB color.
+    
+    Algorithm:
+    1. Calculate Delta E distances from each RGB to all available filaments
+    2. Find the closest RGB-filament pair (minimum distance)
+    3. Assign that filament to that RGB
+    4. Remove that filament from the available pool
+    5. Repeat until all RGBs are assigned
+    
+    This ensures each RGB gets a DIFFERENT actual filament, even if it's not
+    the best match. Used when --no-merge-colors is specified.
+    
+    Args:
+        unique_rgbs: List of unique RGB colors to assign filaments to
+        config: Conversion configuration with filament settings
+    
+    Returns:
+        Dict mapping RGB → (filament_name, filament_rgb)
+    """
+    from color_tools import FilamentPalette, rgb_to_lab, delta_e_2000
+    
+    # Load filament palette
+    palette = FilamentPalette.load_default()
+    
+    # Convert filter values
+    def to_list(value):
+        if value is None:
+            return None
+        elif isinstance(value, str):
+            return [value]
+        else:
+            return list(value)
+    
+    maker_list = to_list(config.filament_maker)
+    type_list = to_list(config.filament_type)
+    finish_list = to_list(config.filament_finish)
+    
+    # Get all available filaments (filtered by user preferences)
+    filtered = palette.filter(
+        maker=maker_list,
+        type_name=type_list,
+        finish=finish_list
+    )
+    
+    if not filtered:
+        # No filaments match the filters - fall back to hex mode
+        assignments = {}
+        for rgb in unique_rgbs:
+            assignments[rgb] = (rgb_to_hex(rgb), rgb)
+        return assignments
+    
+    # Track assignments
+    assignments: Dict[Tuple[int, int, int], Tuple[str, Tuple[int, int, int]]] = {}
+    remaining_rgbs = unique_rgbs.copy()
+    remaining_filaments = list(filtered)  # List of FilamentRecord objects
+    
+    # Greedy matching loop
+    while remaining_rgbs and remaining_filaments:
+        # Calculate all distances
+        best_distance = float('inf')
+        best_rgb = None
+        best_filament = None
+        
+        # Find the closest RGB-filament pair
+        for rgb in remaining_rgbs:
+            rgb_lab = rgb_to_lab(rgb)
+            for filament in remaining_filaments:
+                fil_lab = rgb_to_lab(filament.rgb)
+                distance = delta_e_2000(rgb_lab, fil_lab)
+                
+                if distance < best_distance:
+                    best_distance = distance
+                    best_rgb = rgb
+                    best_filament = filament
+        
+        # Assign the best match
+        if best_rgb and best_filament:
+            filament_name = f"{best_filament.maker} {best_filament.type} {best_filament.finish} {best_filament.color}"
+            assignments[best_rgb] = (filament_name, best_filament.rgb)
+            
+            # Remove from remaining pools
+            remaining_rgbs.remove(best_rgb)
+            remaining_filaments.remove(best_filament)
+    
+    # Handle case where we run out of filaments (unlikely but possible)
+    if remaining_rgbs:
+        # Fall back to generated color names for remaining RGBs
+        from color_tools.naming import generate_color_name
+        for rgb in remaining_rgbs:
+            color_name, _ = generate_color_name(rgb)  # Returns (name, match_type)
+            assignments[rgb] = (color_name, rgb)
+    
+    return assignments
 
 
 def get_color_name_and_rgb(rgb: Tuple[int, int, int], config: 'ConversionConfig') -> Tuple[str, Tuple[int, int, int]]:
@@ -207,10 +568,108 @@ def get_color_name_and_rgb(rgb: Tuple[int, int, int], config: 'ConversionConfig'
         type_tuple = to_tuple(config.filament_type)
         finish_tuple = to_tuple(config.filament_finish)
         
-        return _get_filament_with_rgb_cached(rgb, maker_tuple, type_tuple, finish_tuple)
+        return _get_filament_with_rgb_cached(rgb, maker_tuple, type_tuple, finish_tuple, config.hue_aware_matching)
     
     else:  # "color" mode (default)
         return _get_css_color_with_rgb_cached(rgb)
+
+
+# ============================================================================
+# Color Preview Generation
+# ============================================================================
+
+def generate_color_preview(
+    pixel_data: 'PixelData',
+    color_mapping: Dict[Tuple[int, int, int], Tuple[int, int, int]],
+    output_path: str
+) -> None:
+    """
+    Generate a side-by-side comparison preview showing original and mapped colors.
+    
+    Creates an image with two panels:
+    - Left: Original image colors
+    - Right: Colors after filament matching
+    
+    This side-by-side comparison makes it easy to identify color shifts and
+    assess accuracy before committing to a 3D print.
+    
+    Args:
+        pixel_data: Original pixel data from image processing
+        color_mapping: Dict mapping detected RGB → filament RGB
+        output_path: Path where preview image should be saved
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    import numpy as np
+    
+    # Create original image (left panel)
+    original = Image.new('RGBA', (pixel_data.width, pixel_data.height), (0, 0, 0, 0))
+    original_array = np.array(original)
+    
+    # Create matched colors image (right panel)
+    matched = Image.new('RGBA', (pixel_data.width, pixel_data.height), (0, 0, 0, 0))
+    matched_array = np.array(matched)
+    
+    # Fill both images with pixel data
+    for (x, y), (r, g, b, a) in pixel_data.pixels.items():
+        # Flip Y coordinate back (pixel_data has Y=0 at bottom, image has Y=0 at top)
+        image_y = pixel_data.height - 1 - y
+        
+        # Original colors (left)
+        original_array[image_y, x] = (r, g, b, a)
+        
+        # Matched colors (right)
+        detected_rgb = (r, g, b)
+        if detected_rgb in color_mapping:
+            filament_rgb = color_mapping[detected_rgb]
+            matched_array[image_y, x] = (*filament_rgb, a)
+        else:
+            # Shouldn't happen, but fallback to original color
+            matched_array[image_y, x] = (r, g, b, a)
+    
+    # Convert arrays back to images
+    original_img = Image.fromarray(original_array, 'RGBA')
+    matched_img = Image.fromarray(matched_array, 'RGBA')
+    
+    # Create side-by-side comparison with labels
+    gap = 20  # pixels between images
+    label_height = 30  # pixels for labels
+    total_width = pixel_data.width * 2 + gap
+    total_height = pixel_data.height + label_height
+    
+    # Create white background for the comparison
+    comparison = Image.new('RGB', (total_width, total_height), (255, 255, 255))
+    
+    # Paste original image (left) and matched image (right)
+    comparison.paste(original_img, (0, label_height), original_img)
+    comparison.paste(matched_img, (pixel_data.width + gap, label_height), matched_img)
+    
+    # Add labels
+    draw = ImageDraw.Draw(comparison)
+    try:
+        # Try to use a nice font if available
+        font = ImageFont.truetype("arial.ttf", 18)
+    except:
+        # Fallback to default font
+        font = ImageFont.load_default()
+    
+    # Draw labels centered above each panel
+    left_label = "Original Colors"
+    right_label = "Matched Filament Colors"
+    
+    # Calculate text positions to center them
+    left_bbox = draw.textbbox((0, 0), left_label, font=font)
+    right_bbox = draw.textbbox((0, 0), right_label, font=font)
+    left_text_width = left_bbox[2] - left_bbox[0]
+    right_text_width = right_bbox[2] - right_bbox[0]
+    
+    left_x = (pixel_data.width - left_text_width) // 2
+    right_x = pixel_data.width + gap + (pixel_data.width - right_text_width) // 2
+    
+    draw.text((left_x, 5), left_label, fill=(0, 0, 0), font=font)
+    draw.text((right_x, 5), right_label, fill=(0, 0, 0), font=font)
+    
+    # Save the comparison image
+    comparison.save(output_path)
 
 
 # ============================================================================
@@ -274,7 +733,7 @@ def write_3mf(
     pixel_data: 'PixelData',
     config: 'ConversionConfig',
     progress_callback: Optional[Callable[[str, str], None]] = None
-) -> Tuple[Optional[str], List[Tuple[int, str, Tuple[int, int, int]]]]:
+) -> Tuple[Optional[str], Optional[Dict[Tuple[int, int, int], Tuple[int, int, int]]], List[Tuple[int, str, Tuple[int, int, int]]]]:
     """
     Write all meshes to a 3MF file (pixel art specific wrapper).
 
@@ -298,8 +757,9 @@ def write_3mf(
         progress_callback: Optional function to call with progress updates
     
     Returns:
-        Tuple of (summary_path, color_mapping):
+        Tuple of (summary_path, preview_mapping, color_mapping):
         - summary_path: Path to summary file if generated, None otherwise
+        - preview_mapping: Dict mapping detected RGB to filament RGB if preview requested, None otherwise
         - color_mapping: List of (slot, color_name, rgb) tuples sorted by slot number
     """
     # Helper to send progress updates
@@ -307,8 +767,9 @@ def write_3mf(
         if progress_callback:
             progress_callback("export", message)
 
-    # Determine if we have a backing plate
-    has_backing_plate = config.base_height_mm > 0
+    # Determine if we have a backing plate / solid core
+    has_backing_plate = config.has_backing_plate
+    has_solid_core = config.has_solid_core
     num_regions = len(region_colors)
 
     _progress(f"Assigning names to {num_regions} color regions...")
@@ -326,38 +787,139 @@ def write_3mf(
     # Sort alphabetically by color name for easier slicer workflow
     region_data.sort(key=lambda x: x[2])
     
-    # Build AMS slot mapping based on UNIQUE COLOR NAMES (not RGB values)
-    # WHY: Multiple RGB values can map to the same color name.
-    # We want them to share the same AMS slot.
+    # Build AMS slot mapping
+    # Two modes:
+    # 1. merge_similar_colors=True: Multiple RGB values can map to same color name (share slot)
+    # 2. merge_similar_colors=False: Each unique RGB gets unique slot (greedy matching)
     backing_color_name = get_color_name(config.backing_color, config)
     
-    # Create mapping from color_name -> slot
-    name_to_slot: Dict[str, int] = {backing_color_name: 1}
+    if config.merge_similar_colors:
+        # MERGE MODE: Group by color name (current behavior)
+        # Multiple RGB values with same color name share one AMS slot
+        if config.no_backing_color:
+            # All slots available for image colors; backing plate reuses slot 1
+            name_to_slot: Dict[str, int] = {}
+            next_slot = 1
+        else:
+            name_to_slot: Dict[str, int] = {backing_color_name: 1}
+            next_slot = 2
+        
+        # Assign slots to other unique color names
+        for _, rgb, color_name in region_data:
+            if color_name not in name_to_slot:
+                name_to_slot[color_name] = next_slot
+                next_slot += 1
+        
+        # Maintain color_to_slot for backward compatibility
+        if config.no_backing_color:
+            color_to_slot: Dict[Tuple[int, int, int], int] = {}
+        else:
+            color_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
+        for _, rgb, color_name in region_data:
+            color_to_slot[rgb] = name_to_slot[color_name]
+        # Ensure backing_color maps to slot 1 (for summary and other lookups)
+        if config.no_backing_color:
+            color_to_slot[config.backing_color] = 1
     
-    # Assign slots 2-N to other unique color names
-    next_slot = 2
-    for _, rgb, color_name in region_data:
-        if color_name not in name_to_slot:
-            name_to_slot[color_name] = next_slot
+    else:
+        # NO-MERGE MODE: Each unique RGB gets its own slot
+        # Behavior depends on color_naming_mode:
+        # - 'filament': Use greedy algorithm to assign unique filaments
+        # - Other modes ('hex', 'color', 'generated'): Just assign each RGB its own slot with appropriate name
+        
+        # Collect all unique RGB values (excluding backing color)
+        unique_rgbs = []
+        for _, rgb, _ in region_data:
+            if rgb not in unique_rgbs and rgb != config.backing_color:
+                unique_rgbs.append(rgb)
+        
+        # Determine if we should use greedy filament matching
+        use_greedy_matching = config.color_naming_mode == 'filament'
+        
+        if use_greedy_matching:
+            # Use greedy matching to assign unique filaments
+            rgb_to_name_and_matched_rgb = greedy_filament_matching(unique_rgbs, config)
+        
+        # Build slot mappings
+        if config.no_backing_color:
+            # All slots available for image colors; backing plate reuses slot 1
+            rgb_to_slot: Dict[Tuple[int, int, int], int] = {}
+            name_to_slot: Dict[str, int] = {}
+            next_slot = 1
+        else:
+            rgb_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
+            name_to_slot: Dict[str, int] = {backing_color_name: 1}
+            next_slot = 2
+        
+        for rgb in unique_rgbs:
+            if use_greedy_matching:
+                filament_name, _ = rgb_to_name_and_matched_rgb[rgb]
+            else:
+                # For hex/color/generated modes, just use the color name from get_color_name()
+                filament_name = get_color_name(rgb, config)
+            
+            rgb_to_slot[rgb] = next_slot
+            name_to_slot[filament_name] = next_slot
             next_slot += 1
-    
-    # Maintain color_to_slot for backward compatibility
-    color_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
-    for _, rgb, color_name in region_data:
-        color_to_slot[rgb] = name_to_slot[color_name]
+        
+        # Ensure backing_color maps to slot 1 (for summary and other lookups)
+        if config.no_backing_color:
+            rgb_to_slot[config.backing_color] = 1
+        
+        # For backward compatibility, create color_to_slot
+        color_to_slot = rgb_to_slot
     
     # Reorder meshes to match the sorted color order
-    sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
-    if has_backing_plate:
-        sorted_meshes.append(meshes[-1])
+    if has_solid_core:
+        # Solid core mode: each logical region produced two meshes — bottom shell
+        # (at index 2*i) and top shell (at index 2*i+1).  The core is the last mesh.
+        sorted_meshes = []
+        for mesh_idx, _, _ in region_data:
+            sorted_meshes.append(meshes[2 * mesh_idx])      # bottom shell
+            sorted_meshes.append(meshes[2 * mesh_idx + 1])  # top shell
+        sorted_meshes.append(meshes[-1])  # solid core
+    else:
+        sorted_meshes = [meshes[mesh_idx] for mesh_idx, _, _ in region_data]
+        if has_backing_plate:
+            sorted_meshes.append(meshes[-1])
     
     # Convert to ThreeMFMesh objects with metadata
     threemf_meshes = []
     for idx, (mesh, _) in enumerate(sorted_meshes):
         # Determine color name and slot based on position
-        if idx < len(region_data):
+        if has_solid_core:
+            num_color_meshes = num_regions * 2
+            if idx < num_color_meshes:
+                region_idx = idx // 2
+                _, rgb, color_name = region_data[region_idx]
+                if not config.merge_similar_colors:
+                    target_slot = rgb_to_slot[rgb]
+                    for name, slot in name_to_slot.items():
+                        if slot == target_slot:
+                            color_name = name
+                            break
+                    ams_slot = target_slot
+                else:
+                    ams_slot = name_to_slot[color_name]
+            else:
+                # Solid core object
+                color_name = "Core"
+                ams_slot = 1
+        elif idx < len(region_data):
             _, rgb, color_name = region_data[idx]
-            ams_slot = name_to_slot[color_name]
+            
+            # In no-merge mode, find the actual unique name we assigned
+            if not config.merge_similar_colors:
+                # Search name_to_slot for the key that corresponds to this rgb's slot
+                target_slot = rgb_to_slot[rgb]
+                # Find the name that maps to this slot
+                for name, slot in name_to_slot.items():
+                    if slot == target_slot:
+                        color_name = name
+                        break
+                ams_slot = target_slot
+            else:
+                ams_slot = name_to_slot[color_name]
         else:
             # Backing plate
             color_name = "Backing"
@@ -402,7 +964,9 @@ def write_3mf(
     
     # Report completion
     _progress(f"✨ 3MF file written to: {output_path}")
-    if has_backing_plate:
+    if has_solid_core:
+        _progress(f"{len(region_colors)} colored regions (×2 shells) + 1 solid core = {len(meshes)} objects")
+    elif has_backing_plate:
         _progress(f"{len(region_colors)} colored regions + 1 backing plate")
     else:
         _progress(f"{len(region_colors)} colored regions (no backing plate)")
@@ -434,23 +998,74 @@ def write_3mf(
     # Build color mapping for CLI display
     # Use MATCHED RGB values (from filament/color lookup), not detected pixel RGB
     slot_to_color: Dict[int, Tuple[str, Tuple[int, int, int]]] = {}
-    name_to_rgb: Dict[str, Tuple[int, int, int]] = {}
     
-    # Build name_to_rgb mapping using matched RGB values
-    _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
-    name_to_rgb[backing_color_name] = backing_matched_rgb
+    # Build slot_to_color using matched RGB values
+    if config.no_backing_color:
+        # Slot 1 belongs to the first image color; it will be filled by the loop below
+        pass
+    else:
+        _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
+        slot_to_color[1] = (backing_color_name, backing_matched_rgb)
     
-    for _, detected_rgb, color_name in region_data:
-        if color_name not in name_to_rgb:
-            _, matched_rgb = get_color_name_and_rgb(detected_rgb, config)
-            name_to_rgb[color_name] = matched_rgb
-    
-    # Build slot_to_color using unique names and matched RGB values
-    for color_name, slot in name_to_slot.items():
-        matched_rgb = name_to_rgb[color_name]
-        slot_to_color[slot] = (color_name, matched_rgb)
+    # Process each unique color/filament assignment
+    for unique_name, slot in name_to_slot.items():
+        if slot == 1 and not config.no_backing_color:  # Skip backing plate (already added)
+            continue
+        
+        # Find the RGB and matched values for this slot
+        if not config.merge_similar_colors:
+            # In no-merge mode, behavior depends on whether we used greedy matching
+            for rgb, rgb_slot in rgb_to_slot.items():
+                if rgb_slot == slot:
+                    if use_greedy_matching:
+                        # Get the matched filament RGB from greedy matching
+                        filament_name, matched_rgb = rgb_to_name_and_matched_rgb[rgb]
+                    else:
+                        # For hex/color/generated modes, use the RGB directly
+                        filament_name = get_color_name(rgb, config)
+                        matched_rgb = rgb  # Use the actual RGB, not a matched one
+                    slot_to_color[slot] = (filament_name, matched_rgb)
+                    break
+        else:
+            # In merge mode, find any RGB with this color name
+            for _, detected_rgb, color_name in region_data:
+                if color_name == unique_name:
+                    _, matched_rgb = get_color_name_and_rgb(detected_rgb, config)
+                    slot_to_color[slot] = (unique_name, matched_rgb)
+                    break
     
     # Convert to sorted list
     color_mapping = [(slot, name, rgb) for slot, (name, rgb) in sorted(slot_to_color.items())]
     
-    return summary_path, color_mapping
+    # Build preview color mapping if requested (generation happens in caller)
+    preview_mapping = None
+    if config.generate_preview:
+        # Build color mapping: detected RGB → matched filament RGB
+        preview_mapping = {}
+        
+        # Include backing color mapping (unless no_backing_color, where it reuses slot 1)
+        if not config.no_backing_color:
+            _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
+            preview_mapping[config.backing_color] = backing_matched_rgb
+        
+        if not config.merge_similar_colors:
+            # In no-merge mode, behavior depends on whether we used greedy matching
+            if use_greedy_matching:
+                # Use the greedy assignment results
+                for rgb, (filament_name, matched_rgb) in rgb_to_name_and_matched_rgb.items():
+                    preview_mapping[rgb] = matched_rgb
+            else:
+                # For hex/color/generated modes, use RGB directly (no matching)
+                for rgb in unique_rgbs:
+                    preview_mapping[rgb] = rgb
+        else:
+            # In merge mode, look up matched RGB for each detected RGB
+            for _, detected_rgb, color_name in region_data:
+                if detected_rgb not in preview_mapping:
+                    # Find the matched RGB from slot_to_color
+                    for slot, (name, matched_rgb) in slot_to_color.items():
+                        if name == color_name:
+                            preview_mapping[detected_rgb] = matched_rgb
+                            break
+    
+    return summary_path, preview_mapping, color_mapping

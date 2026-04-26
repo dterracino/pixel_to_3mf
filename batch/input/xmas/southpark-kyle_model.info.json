@@ -1,0 +1,62 @@
+{
+  "filename": "southpark-kyle_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\xmas\\southpark-kyle_model.3mf",
+  "file_hash": "65d853af5396df8192718bc0cfe8b028aa8d5132c7ea467bed6956b989830f27",
+  "timestamp": "2025-12-20T16:04:24.652566",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Dark Gray",
+      "hex": "#545454",
+      "rgb": [84, 84, 84],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Mistletoe Green",
+      "hex": "#3f8e43",
+      "rgb": [63, 142, 67],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Orange",
+      "hex": "#ff6a13",
+      "rgb": [255, 106, 19],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Apple Green",
+      "hex": "#c2e189",
+      "rgb": [194, 225, 137],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Latte Brown",
+      "hex": "#d3b7a7",
+      "rgb": [211, 183, 167],
+      "ams_slot": "B-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 152.0,
+    "height_mm": 200.0,
+    "pixel_size_mm": 8.0
+  },
+  "mesh_stats": {
+    "num_vertices": 2032,
+    "num_triangles": 4020,
+    "num_regions": 19,
+    "num_colors": 7
+  }
+}

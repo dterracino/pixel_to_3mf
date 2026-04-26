@@ -29,11 +29,12 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
 - **AMS Integration**: Automatic AMS slot assignments with validation, CLI display table, and summary file recommendations
 - **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used with AMS slot locations (use `--summary`)
+- **Color Preview**: Optional side-by-side comparison showing original vs matched filament colors for easy visual verification (use `--preview`)
 - **Mesh Statistics**: Displays triangle and vertex counts in conversion summary for understanding model complexity
 - **Winding Order Validation**: Automatically validates CCW (counter-clockwise) winding for proper surface normals
-- **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations
+- **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations with smart RGB-based boundary detection to prevent blue→purple mismatches in palettes with gaps (e.g., Bambu Lab)
 - **Transparent Pixel Support**: Transparent areas become holes in the model
-- **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable)
+- **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable, or use `--no-backing-plate` to omit it entirely while extending color layers to fill the same depth — ideal for suncatchers and reversible pieces). Use `--solid-core` to sandwich a single-filament core between two thin colour shells for faster multi-colour prints.
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
@@ -161,7 +162,7 @@ python run_converter.py --batch \
 #### Single File Mode
 
 | Option | Description | Default |
-|--------|-------------|---------|
+| -------- | ------------- | --------- |
 | `image_file` | Input pixel art image (PNG, JPG, etc.) | Required |
 | `-o, --output` | Output 3MF file path | `{input}_model.3mf` |
 | `--max-size` | Maximum model dimension in mm | 200 |
@@ -170,26 +171,34 @@ python run_converter.py --batch \
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
+| `--no-backing-color` | Don't reserve a slot for the backing plate; backing reuses slot 1 | Off |
+| `--no-backing-plate` | Omit the backing plate entirely; color layers extend downward to fill the same total depth | Off |
+| `--solid-core` | Add a single-filament solid core between two thin colour shells; reduces filament-swap time | Off |
+| `--core-height` | Thickness of the solid core in mm (only used with `--solid-core`) | 1.0 |
 | `--quantize` | Automatically reduce colors when exceeding max-colors | Off |
 | `--quantize-algo` | Quantization algorithm: `none` (fast/sharp), `floyd` (smooth) | `none` |
 | `--quantize-colors` | Target color count for quantization (defaults to max-colors) | `max-colors` |
+| `--iterate-quantize` | Start at `--quantize-colors` and decrement until merged count fits `--max-colors` | Off |
 | `--auto-crop` | Automatically crop away fully transparent edges | Off |
 | `--padding-size` | Add outline padding around sprites (in pixels) | 0 (disabled) |
 | `--padding-color` | Padding color as R,G,B | `255,255,255` (white) |
+| `--padding-type` | Padding shape: `circular`, `square` (90°), `diamond` (45°) | `circular` |
 | `--connectivity` | Pixel connectivity mode: 0 (per-pixel), 4 (edges), 8 (diagonals) | 8 |
 | `--trim` | Remove disconnected pixels (only corner-connected, no edge connections) | Off |
-| `--color-mode` | Color naming: `color` (CSS), `filament`, `hex` | `color` |
+| `--color-mode` | Color naming: `color` (CSS), `filament`, `hex`, `generated` | `color` |
+| `--no-merge-colors` | Prevent merging similar colors - each unique RGB gets unique slot | Off |
 | `--filament-maker` | Filament maker filter(s), comma-separated (for `filament` mode) | `Bambu Lab` |
 | `--filament-type` | Filament type filter(s), comma-separated (for `filament` mode) | `PLA` |
 | `--filament-finish` | Filament finish filter(s), comma-separated (for `filament` mode) | `Basic, Matte` |
 | `--optimize-mesh` | Use polygon-based mesh optimization | Off |
 | `--summary` | Generate summary file listing colors/filaments used | Off |
+| `--preview` | Generate side-by-side comparison preview (original vs matched colors) | Off |
 | `--ams-count` | Number of AMS units (1-4). Total slots = ams-count × ams-slots-per-unit | 4 |
 
 #### Batch Mode
 
 | Option | Description | Default |
-|--------|-------------|---------|
+| -------- | ------------- | --------- |
 | `--batch` | Enable batch processing | Off |
 | `--batch-input` | Input folder with images | `batch/input` |
 | `--batch-output` | Output folder for 3MF files | `batch/output` |
@@ -457,7 +466,7 @@ python run_converter.py --check-batch \
 The `samples/` directory contains example conversions:
 
 | Input Image | Dimensions | Description |
-|-------------|------------|-------------|
+| ------------- | ------------ | ------------- |
 | `nes-samus.png` | Small sprite | Classic NES character |
 | `ms-pac-man.png` | 224x288px | Arcade game sprite |
 | `c64ready.png` | Retro sprite | Commodore 64 style |
@@ -546,6 +555,9 @@ python run_converter.py artwork.png --quantize --quantize-algo floyd
 
 # Reduce to specific color count
 python run_converter.py complex_art.png --quantize --quantize-colors 8
+
+# Preserve accent colors with iterative quantization
+python run_converter.py sprite.png --quantize --quantize-colors 25 --iterate-quantize
 ```
 
 - **Benefit:** No need to preprocess images in external applications
@@ -553,6 +565,24 @@ python run_converter.py complex_art.png --quantize --quantize-colors 8
   - `none`: Simple nearest color (faster, sharper edges)
   - `floyd`: Floyd-Steinberg dithering (slower, smoother gradients)
 - **Use case:** Images with slightly more colors than your max-colors setting
+
+##### Why accent colors disappear (and how to fix it)
+
+Standard quantization weights clusters by pixel count. A red headband covering 50 pixels competes against a 5,000-pixel skin tone — the quantizer merges the headband into the nearest large cluster because the pixel-count error is small.
+
+`--iterate-quantize` works around this by starting with more color buckets than your target. At 25 buckets the red headband gets its own cluster. The *filament merge* step then collapses perceptually similar colors (e.g. two slightly different skin tones → same filament), but the red survives because it is perceptually far from everything else.
+
+```bash
+# Start at 25 quantized colors, decrement until merged count ≤ max-colors (16)
+python run_converter.py sprite.png --quantize --quantize-colors 25 --iterate-quantize
+
+# Combine with --no-backing-color to reclaim the backing slot for image colors
+python run_converter.py sprite.png --quantize --quantize-colors 25 --iterate-quantize --no-backing-color
+```
+
+- **Rule of thumb:** Set `--quantize-colors` to ~150% of `--max-colors` as a starting point (e.g. 25 for a 16-color limit)
+- The converter prints which iteration it settled on, so you can see exactly what happened
+- If an accent color still disappears, try a higher `--quantize-colors` value (30, 35...)
 
 #### No Backing Plate (Decals, Stickers)
 
@@ -563,6 +593,16 @@ python run_converter.py decal.png --base-height 0
 - **Output:** Only colored regions, no backing plate
 - **Total height:** Just the color layer (default 1mm)
 - **Use case:** Decals, stickers, or if you want to add your own backing
+
+#### Reclaim the Backing Color Slot
+
+```bash
+python run_converter.py art.png --no-backing-color
+```
+
+- **Default behavior:** One AMS slot is always reserved for the backing plate color, leaving only 15 slots for image colors when `--max-colors 16`
+- **With `--no-backing-color`:** All 16 slots are available for image colors; the backing plate is printed using whichever filament occupies slot 1
+- **Use case:** When you intend to use one of your image's own colors as the backing anyway, so the reserved slot would just be wasted
 
 #### Batch Convert Sprite Collection
 
@@ -635,11 +675,14 @@ python run_converter.py sprite.png --auto-crop
 #### Add Padding Around Sprites
 
 ```bash
-# Add 5px white padding (default color)
+# Add 5px white padding with smooth corners (circular, default)
 python run_converter.py sprite.png --padding-size 5
 
-# Add 3px blue padding
-python run_converter.py sprite.png --padding-size 3 --padding-color "0,0,255"
+# Add 3px blue padding with sharp 90° corners (square)
+python run_converter.py sprite.png --padding-size 3 --padding-color "0,0,255" --padding-type square
+
+# Diamond-shaped padding for maximum coverage
+python run_converter.py sprite.png --padding-size 5 --padding-type diamond
 
 # Combine with auto-crop for best results
 python run_converter.py sprite.png --auto-crop --padding-size 5
@@ -647,13 +690,16 @@ python run_converter.py sprite.png --auto-crop --padding-size 5
 
 - **Effect:** Adds an outline around non-transparent pixels, tracing both outer edges and internal holes
 - **Result:** Canvas expands to accommodate padding (e.g., 50x50 → 60x60 with 5px padding)
+- **Padding shapes:**
+  - `circular` (default): Euclidean distance - smooth, rounded corners
+  - `square`: Chebyshev distance - sharp 90° corners, perfect for framing
+  - `diamond`: Manhattan distance - 45° diagonal cuts
 - **Use case:**
   - Filling gaps between diagonally-connected pixels for better 3D printability
   - Adding structural support around thin features
-  - Creating visible borders around sprites
+  - Creating visible borders around sprites or framing borders for mounting
   - Improving adhesion with a surrounding rim
 - **Notes:**
-  - Padding uses circular distance (Euclidean) for smooth outlines
   - Padding is disabled by default (`--padding-size 0`)
   - Original pixels are always preserved (padding never overwrites existing colors)
 
@@ -771,6 +817,27 @@ python run_converter.py image.png \
 - **Contents:** Lists all colors/filaments used with hex codes, RGB values, region counts, and AMS slot assignments
 - **AMS Integration:** Shows which AMS unit (A-D) and slot (1-4) each color should be loaded into
 - **Use case:** Planning filament changes, tracking color usage, documentation, AMS setup reference
+
+#### Generate Color Preview
+
+```bash
+# Generate side-by-side comparison preview (original vs matched colors)
+python run_converter.py image.png --preview
+
+# Combine with filament mode to see actual filament colors
+python run_converter.py image.png \
+  --color-mode filament \
+  --filament-maker "Bambu Lab" \
+  --preview
+```
+
+- **Effect:** Creates a `_preview.png` file alongside the 3MF output
+- **Format:** Side-by-side comparison with labels:
+  - Left panel: Original image colors
+  - Right panel: Matched filament/color RGB values
+- **Visual verification:** Easily identify color shifts and assess accuracy before printing
+- **Use case:** Verify color accuracy, check for categorical mismatches (e.g., blue→purple with Bambu Lab palette), preview final appearance
+- **Note:** Preview shows the actual RGB values from the matched filaments, not the original pixel colors
 
 #### Enable Debug Logging
 
@@ -1105,7 +1172,7 @@ model.3mf (ZIP archive)
 The converter warns if pixel size < 0.42mm (typical nozzle width):
 
 | Image Size | Max Size | Pixel Size | Printability |
-|------------|----------|------------|--------------|
+| ------------ | ---------- | ------------ | -------------- |
 | 64×64 | 200mm | 3.125mm | ✅ Excellent |
 | 100×100 | 200mm | 2.0mm | ✅ Good |
 | 200×200 | 200mm | 1.0mm | ⚠️ Challenging |
@@ -1164,11 +1231,56 @@ The `--auto-crop` feature is helpful when:
 - You want slicer to show real product names
 - Working with specific maker's color palette
 
+**Use Generated mode (`--color-mode generated`)** when:
+
+- You want descriptive human-readable names ("very dark blue", "medium bright red")
+- Planning manual filament selection without database constraints
+- Working with images that have subtle color variations
+- You prefer perceptual color descriptions over product names
+
 **Use Hex mode (`--color-mode hex`)** when:
 
 - You need precise color identification
 - Doing color-accurate reproduction
 - Programmatic processing of output files
+
+### Preserving Color Variations with --no-merge-colors
+
+By default, similar colors that map to the same filament are merged into one slot. Use `--no-merge-colors` when you want to preserve every unique RGB value as a separate slot:
+
+**Use --no-merge-colors when:**
+
+- Image has subtle color variations you want to preserve (gradients, shading)
+- You want manual control to assign different filaments in the slicer
+- Combined with `--quantize` to reduce colors but keep them separate
+- Each color variation should be a different filament/layer
+
+**Examples:**
+
+```bash
+# Greedy filament matching - assigns different filaments to each color
+python run_converter.py image.png --color-mode filament --no-merge-colors
+
+# Quantize 7 blues to 4, then assign each a unique filament
+python run_converter.py image.png \
+  --quantize --quantize-colors 4 \
+  --no-merge-colors \
+  --preview
+
+# Generated names with color preservation
+python run_converter.py image.png \
+  --color-mode generated \
+  --no-merge-colors
+```
+
+**Without --no-merge-colors (default):**
+
+- 7 similar blues → all match "Bambu Lab PLA Basic Blue" → 1 slot
+
+**With --no-merge-colors:**
+
+- 7 similar blues → greedy matching → 7 different filaments → 7 slots
+- Or with `--quantize-colors 4` → 4 different filaments → 4 slots
 
 ### Consistent Pixel Sizes Across Multiple Images
 

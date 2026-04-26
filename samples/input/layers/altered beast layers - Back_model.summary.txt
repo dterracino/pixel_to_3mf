@@ -1,0 +1,52 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: altered beast layers - Back_model.3mf
+Total Colors/Regions: 601
+Color Naming Mode: hex
+
+Colors Used (Hex):
+----------------------------------------------------------------------
+
+1. #00009C
+   RGB: (0, 0, 156)
+   Regions: 70
+   Location: 2 (AMS A, Slot 2)
+
+2. #0000AD
+   RGB: (0, 0, 173)
+   Regions: 95
+   Location: 3 (AMS A, Slot 3)
+
+3. #0000BD
+   RGB: (0, 0, 189)
+   Regions: 85
+   Location: 4 (AMS A, Slot 4)
+
+4. #0000CE
+   RGB: (0, 0, 206)
+   Regions: 165
+   Location: 5 (AMS B, Slot 1)
+
+5. #0000DE
+   RGB: (0, 0, 222)
+   Regions: 50
+   Location: 6 (AMS B, Slot 2)
+
+6. #0000EF
+   RGB: (0, 0, 239)
+   Regions: 85
+   Location: 7 (AMS B, Slot 3)
+
+7. #0000FF
+   RGB: (0, 0, 255)
+   Regions: 50
+   Location: 8 (AMS B, Slot 4)
+
+8. #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+======================================================================
