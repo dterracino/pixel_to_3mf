@@ -32,11 +32,19 @@ exactly once and then reused by both neighboring regions. This means:
 
 ```text
 Image Load
-  → Region Merge  (existing: region_merger.py)
-  → [NEW] Boundary Smooth  (new: boundary_smoother.py)   ← only when --smooth-boundaries
-  → Mesh Generation  (existing: polygon_optimizer.py triangulation path)
-  → 3MF Export  (existing: threemf_writer.py)
+  → Region Merge            (existing: region_merger.py)
+  → [NEW] Boundary Smooth   (new: boundary_smoother.py)      ← only when --smooth-boundaries
+  → [NEW] Color Collapse    (new: boundary_smoother.py)      ← only when --smooth-boundaries
+  → Mesh Generation         (existing: polygon_optimizer.py triangulation path)
+  → 3MF Export              (existing: threemf_writer.py)
 ```
+
+The **Color Collapse** step runs immediately after boundary smoothing. It applies the
+existing filament/color matching logic to each polygon's color, groups polygons that resolve
+to the same canonical filament, and unions them with `shapely.unary_union()`. This is the
+polygon-space equivalent of the `merge_similar_colors` behavior in the current pipeline —
+but running it here means that interior boundaries between regions that will ultimately share
+a slot are dissolved before triangulation, producing cleaner geometry with fewer objects.
 
 The boundary smoother consumes `List[Region]` and emits `List[SmoothedRegion]`, where each
 `SmoothedRegion` carries a `shapely.Polygon` instead of a pixel set. The mesh generation
@@ -258,7 +266,9 @@ Assign the color from `regions[label].color`.
 
 ### Stage 9: Merge Same-Color Polygons
 
-Group polygons by label, then union each group:
+After polygonization, the same original region label may appear as multiple disconnected
+polygons (e.g., a region that wrapped around a hole). Group polygons by their original label
+and union each group so each source region is a single geometry again:
 
 ```python
 from shapely.ops import unary_union
@@ -282,7 +292,76 @@ smooth_min_area_px: float = 1.0  # pixel-space square pixels
 
 ---
 
-### Stage 10: Output SmoothedRegion List
+### Stage 10: Color Collapse
+
+This is the polygon-space equivalent of `merge_similar_colors`. Apply the existing
+filament/color matching logic to each region's original RGB, then group regions that resolve
+to the same canonical color and union their polygons.
+
+This is a **separate function** in `boundary_smoother.py`:
+
+```python
+def collapse_by_filament_color(
+    regions: list[SmoothedRegion],
+    config: ConversionConfig,
+) -> list[SmoothedRegion]:
+    ...
+```
+
+**Algorithm:**
+
+1. For each `SmoothedRegion`, call the existing `get_color_name(region.color, config)` to
+   get a canonical color key. This reuses `find_filament_by_color.py` logic unchanged.
+
+2. Group regions by canonical key:
+
+   ```python
+   from collections import defaultdict
+   groups: dict[str, list[SmoothedRegion]] = defaultdict(list)
+   for region in regions:
+       key = get_color_name(region.color, config)
+       groups[key].append(region)
+   ```
+
+3. For each group, union all polygons:
+
+   ```python
+   merged_poly = unary_union([r.polygon for r in group])
+   merged_poly = merged_poly.buffer(0)   # heal point-only touches
+   ```
+
+   `unary_union` on touching polygons automatically dissolves the shared boundary. If two
+   regions only touched at a point (not a shared edge), `buffer(0)` cleans the result.
+
+4. Handle `MultiPolygon` results. When same-filament regions are non-adjacent (two islands
+   of the same color with other colors between them), `unary_union` returns a `MultiPolygon`.
+   Split it back into individual `Polygon` objects — each becomes its own `SmoothedRegion`
+   with the same canonical color:
+
+   ```python
+   from shapely.geometry import MultiPolygon
+
+   output_polys: list[Polygon] = []
+   if isinstance(merged_poly, MultiPolygon):
+       output_polys.extend(merged_poly.geoms)
+   else:
+       output_polys.append(merged_poly)
+   ```
+
+5. Pick a representative color for the merged region. Use the color of the largest
+   constituent polygon (by area) so the filament match remains meaningful:
+
+   ```python
+   representative_color = max(group, key=lambda r: r.polygon.area).color
+   ```
+
+**This step is controlled by `config.merge_similar_colors`.** When `False`, skip Stage 10
+entirely and pass the Stage 9 output directly to Stage 11. This mirrors the existing
+behavior of the `merge_similar_colors` flag in the non-smoothed pipeline.
+
+---
+
+### Stage 11: Output SmoothedRegion List
 
 ```python
 output = []
@@ -306,6 +385,8 @@ In the main conversion function, after `merge_regions()` and before mesh generat
 ```python
 if config.smooth_boundaries:
     smoothed_regions = smooth_region_boundaries(regions, pixel_data, config)
+    if config.merge_similar_colors:
+        smoothed_regions = collapse_by_filament_color(smoothed_regions, config)
     meshes = [
         generate_mesh_from_smoothed_region(r, pixel_data, config)
         for r in smoothed_regions
@@ -411,15 +492,68 @@ Map parsed args to config in the `build_config()` function.
 
 | File | Change |
 | --- | --- |
-| `pixel_to_3mf/boundary_smoother.py` | **New** — entire smoothing pipeline |
+| `pixel_to_3mf/boundary_smoother.py` | **New** — smoothing pipeline (Stages 1–11) + color collapse |
 | `pixel_to_3mf/constants.py` | Add 3 new smoothing constants |
 | `pixel_to_3mf/config.py` | Add 4 new `ConversionConfig` fields |
-| `pixel_to_3mf/pixel_to_3mf.py` | Add smoothing branch in main pipeline |
+| `pixel_to_3mf/pixel_to_3mf.py` | Add smoothing + color collapse branch in main pipeline |
 | `pixel_to_3mf/cli.py` | Add 3 new CLI arguments |
+| `smooth_preview.py` | **New** — standalone CLI for visual testing (see below) |
 | `tests/test_boundary_smoother.py` | **New** — unit tests |
 
 No changes needed to: `region_merger.py`, `mesh_generator.py`, `polygon_optimizer.py`,
 `threemf_writer.py`.
+
+Reused without modification: `find_filament_by_color.py`, `threemf_writer.get_color_name()`.
+
+---
+
+## Standalone CLI: `smooth_preview.py`
+
+Before wiring the smoothing code into the main application, build a standalone CLI that
+visualizes the boundary smoother output as a PNG image. This lets you tune parameters
+visually without dealing with mesh generation or 3MF export.
+
+**Usage:**
+
+```text
+python smooth_preview.py <input_image> [options]
+
+Options:
+  --max-colors N          Quantize to N colors before smoothing (default: no quantization)
+  --tolerance FLOAT       RDP simplification tolerance in pixels (default: 0.5)
+  --iterations N          Chaikin smoothing iterations (default: 2)
+  --no-collapse           Skip filament color collapse step
+  --output PATH           Output PNG path (default: <input>_smoothed.png)
+  --side-by-side          Render original + smoothed as a side-by-side comparison image
+```
+
+**What it does:**
+
+1. Loads the image and optionally quantizes it (reusing `image_processor.load_image()`)
+2. Runs `region_merger.merge_regions()` with defaults
+3. Runs `boundary_smoother.smooth_region_boundaries()`
+4. Optionally runs `boundary_smoother.collapse_by_filament_color()`
+5. Renders each polygon filled with its RGB color using `matplotlib.patches.Polygon` or
+   by rasterizing with PIL via shapely's `rasterize` helper
+6. Saves a PNG (optionally side-by-side with the original)
+
+**Rendering approach** (PIL-based, no matplotlib required):
+
+```python
+from PIL import Image, ImageDraw
+
+out = Image.new("RGB", (width, height), (255, 255, 255))
+draw = ImageDraw.Draw(out)
+for region in smoothed_regions:
+    coords = list(region.polygon.exterior.coords)
+    draw.polygon(coords, fill=region.color)
+    for interior in region.polygon.interiors:
+        draw.polygon(list(interior.coords), fill=(255, 255, 255))
+out.save(output_path)
+```
+
+This is the **first milestone** of the implementation — it proves the algorithm works
+correctly before any mesh or 3MF code is touched.
 
 ---
 
@@ -437,6 +571,9 @@ Suggested test cases:
 | `test_no_overlaps` | Two adjacent smoothed polygons — verify intersection area ≈ 0 |
 | `test_transparent_pixels_excluded` | RGBA image with alpha=0 pixels — verify label -1 polygons are discarded |
 | `test_small_region_removed` | Polygon below `smooth_min_area_px` — verify it is removed |
+| `test_color_collapse_merges_adjacent` | Two adjacent regions with same filament match — verify merged into one polygon |
+| `test_color_collapse_multipolygon` | Same filament, two non-adjacent islands — verify both kept as separate polygons |
+| `test_color_collapse_skipped_when_disabled` | `merge_similar_colors=False` — verify no collapse occurs |
 | `test_full_pipeline_integration` | End-to-end: small PNG → 3MF with `smooth_boundaries=True` |
 
 ---
@@ -458,6 +595,16 @@ and unavoidable without a more complex junction-rounding pass.
 the edge network has gaps. Fallback: detect missing labels after color assignment and
 re-insert their original pixel-union polygons (from `polygon_optimizer.pixels_to_polygon()`).
 
+**Color collapse ordering:** Color collapse (Stage 10) runs *after* boundary smoothing, not
+before. This means boundaries between regions that will be merged by filament matching are
+smoothed first and then dissolved by `unary_union`. This is intentional — it avoids the need
+to remap pixel values before region merging, and `unary_union` handles the dissolution
+correctly regardless.
+
+**Point-touch artifacts after color collapse:** When `unary_union` merges two polygons that
+only touch at a single point (not a shared edge), the result may be a degenerate
+figure-eight shape. The `buffer(0)` call in Stage 10 cleans this.
+
 **Performance:** For large images (>200×200 pixels), the boundary segment count can reach
 tens of thousands. The algorithm is O(W×H) in the extraction and path-building stages, which
 should be acceptable. Profile before optimizing.
@@ -466,11 +613,23 @@ should be acceptable. Profile before optimizing.
 
 ## Implementation Order
 
-1. Add constants to `constants.py`
-2. Add fields to `ConversionConfig` in `config.py`
-3. Implement `boundary_smoother.py` (Stages 1–9 above)
-4. Add `generate_mesh_from_smoothed_region()` in `pixel_to_3mf.py`
-5. Wire in the pipeline branch in `pixel_to_3mf.py`
-6. Add CLI arguments in `cli.py`
-7. Write `tests/test_boundary_smoother.py`
-8. Test end-to-end with `samples/input/nes-samus.png`
+### Milestone 1 — Standalone visual validation (no 3MF changes)
+
+1. Implement `boundary_smoother.py` (Stages 1–9: smoothing pipeline only, no color collapse yet)
+2. Implement `smooth_preview.py` standalone CLI with `--side-by-side` output
+3. Test visually with `samples/input/nes-samus.png` — tune tolerance and iterations
+4. Add `collapse_by_filament_color()` to `boundary_smoother.py` (Stage 10)
+5. Add `--no-collapse` flag to `smooth_preview.py` and verify collapse works visually
+
+### Milestone 2 — Wire into main pipeline
+
+6. Add constants to `constants.py`
+7. Add fields to `ConversionConfig` in `config.py`
+8. Add `generate_mesh_from_smoothed_region()` in `pixel_to_3mf.py`
+9. Wire in the smoothing + collapse branch in `pixel_to_3mf.py`
+10. Add CLI arguments in `cli.py`
+
+### Milestone 3 — Tests
+
+11. Write `tests/test_boundary_smoother.py`
+12. Run full test suite to confirm no regressions
