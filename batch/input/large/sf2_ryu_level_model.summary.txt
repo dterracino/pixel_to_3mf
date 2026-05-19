@@ -1,0 +1,90 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: sf2_ryu_level_model.3mf
+Total Colors/Regions: 2438
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #1E1816
+   RGB: (30, 24, 22)
+   Regions: 50
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Brown
+   Hex: #892202
+   RGB: (137, 34, 2)
+   Regions: 253
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+4. Bambu Lab PLA Basic Maroon Red
+   Hex: #6E0701
+   RGB: (110, 7, 1)
+   Regions: 39
+   Location: 3 (AMS A, Slot 3)
+
+5. Bambu Lab PLA Basic Orange
+   Hex: #C8640A
+   RGB: (200, 100, 10)
+   Regions: 103
+   Location: 4 (AMS A, Slot 4)
+
+6. Bambu Lab PLA Basic Pumpkin Orange
+   Hex: #DD7817
+   RGB: (221, 120, 23)
+   Regions: 127
+   Location: 5 (AMS B, Slot 1)
+
+7. Bambu Lab PLA Matte Caramel
+   Hex: #9C765B
+   RGB: (156, 118, 91)
+   Regions: 386
+   Location: 6 (AMS B, Slot 2)
+
+8. Bambu Lab PLA Matte Dark Brown
+   Hex: #6C5E54
+   RGB: (108, 94, 84)
+   Regions: 216
+   Location: 7 (AMS B, Slot 3)
+
+9. Bambu Lab PLA Matte Dark Chocolate
+   Hex: #57463A
+   RGB: (87, 70, 58)
+   Regions: 682
+   Location: 8 (AMS B, Slot 4)
+
+10. Bambu Lab PLA Matte Desert Tan
+   Hex: #EECAA1
+   RGB: (238, 202, 161)
+   Regions: 127
+   Location: 9 (AMS C, Slot 1)
+
+11. Bambu Lab PLA Matte Latte Brown
+   Hex: #CDAE90
+   RGB: (205, 174, 144)
+   Regions: 124
+   Location: 10 (AMS C, Slot 2)
+
+12. Bambu Lab PLA Matte Mandarin Orange
+   Hex: #ECB582
+   RGB: (236, 181, 130)
+   Regions: 119
+   Location: 11 (AMS C, Slot 3)
+
+13. Bambu Lab PLA Matte Terracotta
+   Hex: #AE4804
+   RGB: (174, 72, 4)
+   Regions: 211
+   Location: 12 (AMS C, Slot 4)
+
+======================================================================
