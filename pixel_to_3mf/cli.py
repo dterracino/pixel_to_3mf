@@ -583,6 +583,32 @@ The program will:
              "dominant neighbour colour. "
              "Default: 2 (removes single stray pixels; ~51%% region reduction with minimal visual change)."
     )
+
+    parser.add_argument(
+        "--preprocess-filter",
+        choices=["mode", "median", "smooth", "smooth_more", "gaussian"],
+        default=None,
+        metavar="FILTER",
+        dest="preprocess_filter",
+        help="Apply a PIL filter to the image before region merging. "
+             "mode: replaces each pixel with the most common colour in a window — "
+             "zero new colours, safest for pixel art. "
+             "median: replaces with the median colour — also colour-safe. "
+             "smooth / smooth_more: gentle average blur (introduces blended colours; "
+             "combine with --quantize). "
+             "gaussian: Gaussian blur (introduces many new colours; use with --quantize). "
+             "Default: disabled."
+    )
+
+    parser.add_argument(
+        "--preprocess-filter-size",
+        type=int,
+        default=3,
+        metavar="N",
+        dest="preprocess_filter_size",
+        help="Kernel size (odd integer ≥ 3) for --preprocess-filter mode/median, "
+             "or blur radius for gaussian. Default: 3."
+    )
     
     parser.add_argument(
         "--optimize-mesh",
@@ -880,6 +906,8 @@ The program will:
             optimize_mesh=args.optimize_mesh,
             validate_mesh=args.validate_mesh,
             denoise_min_size=args.blob_min_size if args.denoise else 0,
+            preprocess_filter=args.preprocess_filter,
+            preprocess_filter_size=args.preprocess_filter_size,
             smooth_boundaries=args.smooth_boundaries,
             smooth_simplify_tolerance=(
                 args.smooth_simplify_tolerance

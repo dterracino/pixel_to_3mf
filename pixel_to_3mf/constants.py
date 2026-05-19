@@ -169,6 +169,24 @@ TRIM_DISCONNECTED_PIXELS = False
 DENOISE_MIN_SIZE = 0
 
 # ============================================================================
+# Image Preprocessing (PIL filters applied before pixel extraction)
+# ============================================================================
+
+# Filter to apply to the image before region merging.
+# Options: None (disabled), "median", "mode", "smooth", "smooth_more", "gaussian"
+# - "mode"   : replaces each pixel with the most-common value in a window.
+#              Ideal for pixel art — zero new colors introduced.
+# - "median" : replaces with the median value — also keeps existing colors.
+# - "smooth" / "smooth_more" : PIL built-in gentle blur (blends colors).
+# - "gaussian" : Gaussian blur (blends colors — use with quantization).
+PREPROCESS_FILTER: str | None = None
+
+# Kernel / radius size for filters that accept one (mode, median, gaussian).
+# For mode/median this is the window size (must be odd, e.g. 3 or 5).
+# For gaussian this is the blur radius in pixels.
+PREPROCESS_FILTER_SIZE: int = 3
+
+# ============================================================================
 # Boundary Smoothing
 # ============================================================================
 

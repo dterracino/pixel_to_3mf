@@ -8,7 +8,7 @@ This module handles:
 - Extracting pixel data in a convenient format for further processing
 """
 
-from PIL import Image
+from PIL import Image, ImageFilter
 from typing import Tuple, Dict, Set, TYPE_CHECKING
 import numpy as np
 from .constants import MAX_MODEL_SIZE_MM
@@ -228,6 +228,71 @@ def quantize_image(
     return quantized_rgba
 
 
+def _apply_pil_filter(img: Image.Image, filter_name: str, size: int) -> Image.Image:
+    """Apply a PIL preprocessing filter to reduce noise before pixel extraction.
+
+    Runs on the RGBA image after padding but before pixel extraction.
+    The goal is to clean up compression artefacts or stray pixels so that
+    region merging produces fewer, larger, cleaner regions.
+
+    Filter options and when to use them:
+    - "mode"       : Replaces each pixel with the most common colour in the
+                     window.  Zero new colours introduced — safest for pixel
+                     art.  Good first choice.
+    - "median"     : Replaces with the median — also keeps existing colours.
+                     Less aggressive than mode for uniform areas.
+    - "smooth"     : PIL SMOOTH kernel — gentle average blur.  Introduces
+                     blended colours; best combined with --quantize.
+    - "smooth_more": Stronger version of smooth.
+    - "gaussian"   : Gaussian blur with configurable radius.  Introduces many
+                     new colours; always pair with --quantize.
+
+    Args:
+        img: RGBA PIL Image to filter.
+        filter_name: One of "mode", "median", "smooth", "smooth_more", "gaussian".
+        size: Kernel size for mode/median (must be odd ≥ 3), or blur radius
+              for gaussian.
+
+    Returns:
+        Filtered RGBA PIL Image (same size as input).
+    """
+    # Work on a copy so the original is never mutated
+    filtered = img.copy()
+
+    name = filter_name.lower().strip()
+    if name == "mode":
+        # ModeFilter requires the image to be in a single-channel or RGB mode —
+        # apply per channel to preserve transparency correctly.
+        r, g, b, a = filtered.split()
+        kernel = ImageFilter.ModeFilter(size=size)
+        r = r.filter(kernel)
+        g = g.filter(kernel)
+        b = b.filter(kernel)
+        # Do NOT filter the alpha channel — we don't want transparency to bleed
+        filtered = Image.merge("RGBA", (r, g, b, a))
+    elif name == "median":
+        r, g, b, a = filtered.split()
+        kernel = ImageFilter.MedianFilter(size=size)
+        r = r.filter(kernel)
+        g = g.filter(kernel)
+        b = b.filter(kernel)
+        filtered = Image.merge("RGBA", (r, g, b, a))
+    elif name == "smooth":
+        filtered = filtered.filter(ImageFilter.SMOOTH)
+    elif name == "smooth_more":
+        filtered = filtered.filter(ImageFilter.SMOOTH_MORE)
+    elif name == "gaussian":
+        filtered = filtered.filter(ImageFilter.GaussianBlur(radius=size))
+    else:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Unknown preprocess filter '{filter_name}' — skipping. "
+            "Valid options: mode, median, smooth, smooth_more, gaussian"
+        )
+
+    return filtered
+
+
 def load_image(
     image_path: str,
     config: 'ConversionConfig'
@@ -281,6 +346,12 @@ def load_image(
     # Must happen AFTER auto-crop but BEFORE pixel extraction
     if should_apply_padding(config.padding_size):
         img = add_padding(img, config.padding_size, config.padding_color, config.padding_type)
+
+    # STEP 2.5: Apply PIL preprocessing filter (if enabled)
+    # Happens after padding so the outline edges are also filtered,
+    # and before pixel extraction so the filtered RGBA data is used.
+    if config.preprocess_filter:
+        img = _apply_pil_filter(img, config.preprocess_filter, config.preprocess_filter_size)
 
     # Get image dimensions (after auto-crop and padding)
     width, height = img.size

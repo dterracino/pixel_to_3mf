@@ -40,6 +40,8 @@ from .constants import (
     SMOOTH_BOUNDARIES,
     SMOOTH_SIMPLIFY_TOLERANCE,
     SMOOTH_CHAIKIN_ITERATIONS,
+    PREPROCESS_FILTER,
+    PREPROCESS_FILTER_SIZE,
 )
 
 
@@ -211,6 +213,11 @@ class ConversionConfig:
     # Mesh optimization and validation
     optimize_mesh: bool = False
     validate_mesh: bool = False
+
+    # PIL image preprocessing filter applied before pixel extraction.
+    # None = disabled.  Options: "mode", "median", "smooth", "smooth_more", "gaussian".
+    preprocess_filter: str | None = PREPROCESS_FILTER
+    preprocess_filter_size: int = PREPROCESS_FILTER_SIZE
 
     # Boundary smoothing — converts pixel-art stairstepped edges to smooth
     # Shapely-polygon meshes.  Disabled by default; enable with --smooth.
