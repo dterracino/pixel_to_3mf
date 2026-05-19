@@ -24,6 +24,7 @@ from .image_processor import PixelData
 if TYPE_CHECKING:
     from .config import ConversionConfig
     from .mesh_generator import Mesh
+    from .boundary_smoother import SmoothedRegion
 
 # Set up logging for this module
 # Note: Level will be configured by the application (see cli.py)
@@ -930,3 +931,111 @@ def generate_backing_plate_optimized(
         
         from .mesh_generator import _generate_slab_mesh
         return _generate_slab_mesh(pixel_data, -config.base_height_mm, 0.0)
+
+
+def generate_region_mesh_from_smoothed(
+    smoothed_region: 'SmoothedRegion',
+    pixel_size_mm: float,
+    config: 'ConversionConfig',
+) -> 'Mesh':
+    """Generate a 3D mesh directly from a SmoothedRegion's Shapely polygon.
+
+    SmoothedRegion polygons are in pixel-space coordinates (1 unit = 1 pixel).
+    This function scales them to millimetre-space before triangulating and
+    extruding, producing a manifold mesh with smooth organic boundaries instead
+    of the pixel-staircase geometry from the standard per-pixel path.
+
+    Falls back to a pixel-square mesh on any geometry error so the output 3MF
+    is always complete.
+
+    Args:
+        smoothed_region: SmoothedRegion with a Shapely polygon in pixel-space.
+        pixel_size_mm: Millimetres per pixel (from PixelData.pixel_size_mm).
+        config: ConversionConfig with z-height parameters.
+
+    Returns:
+        Mesh with smooth polygon boundaries extruded to the colour layer height.
+    """
+    from shapely.affinity import scale as shapely_scale
+    from shapely.geometry import MultiPolygon
+
+    poly_px = smoothed_region.polygon
+
+    # Scale from pixel-space to mm-space.  Shapely's affinity.scale() uses the
+    # polygon centroid as the origin by default; we want (0,0) as origin so that
+    # coordinates map directly to model mm coordinates.
+    poly_mm = shapely_scale(poly_px, xfact=pixel_size_mm, yfact=pixel_size_mm, origin=(0, 0, 0))
+
+    # If smoothing produced a MultiPolygon (rare — thin connections smoothed away),
+    # process each component independently and combine.
+    if isinstance(poly_mm, MultiPolygon):
+        meshes: list = []
+        for sub_poly in poly_mm.geoms:
+            sub_mesh = _mesh_from_polygon(sub_poly, config)
+            if sub_mesh is not None:
+                meshes.append(sub_mesh)
+        if not meshes:
+            # Shouldn't happen, but be safe
+            from .mesh_generator import generate_region_mesh
+            from .region_merger import Region
+            dummy = Region(pixels=set(), color=smoothed_region.color, bounds=(0, 0, 1, 1))
+            return generate_region_mesh(dummy, _DummyPixelData(pixel_size_mm), config)
+        return _combine_meshes(meshes)
+
+    mesh = _mesh_from_polygon(poly_mm, config)
+    if mesh is not None:
+        return mesh
+
+    # Last-resort fallback: build a single 1×1 pixel placeholder mesh so the
+    # region still has a colour entry in the 3MF (rather than crashing).
+    logger.warning(
+        f"generate_region_mesh_from_smoothed: triangulation failed for colour "
+        f"RGB{smoothed_region.color}, returning empty placeholder mesh."
+    )
+    from .mesh_generator import generate_region_mesh
+    from .region_merger import Region
+    dummy = Region(pixels=set(), color=smoothed_region.color, bounds=(0, 0, 1, 1))
+    return generate_region_mesh(dummy, _DummyPixelData(pixel_size_mm), config)
+
+
+def _mesh_from_polygon(poly: Polygon, config: 'ConversionConfig') -> 'Mesh | None':
+    """Triangulate and extrude a single mm-space Polygon. Returns None on failure."""
+    is_valid, err = _validate_polygon_for_triangulation(poly)
+    if not is_valid:
+        logger.warning(f"_mesh_from_polygon: invalid polygon — {err}")
+        return None
+    try:
+        verts_2d, tris_2d, segs_2d = triangulate_polygon_2d(poly)
+        return extrude_polygon_to_mesh(
+            poly,
+            tris_2d,
+            verts_2d,
+            segs_2d,
+            z_bottom=config.color_layer_z_bottom,
+            z_top=config.color_height_mm,
+        )
+    except Exception as exc:
+        logger.warning(f"_mesh_from_polygon: triangulation/extrusion failed — {exc}")
+        return None
+
+
+def _combine_meshes(meshes: list) -> 'Mesh':
+    """Naively combine multiple Mesh objects by concatenating vertices and re-indexing triangles."""
+    from .mesh_generator import Mesh
+    all_verts: list = []
+    all_tris: list = []
+    offset = 0
+    for m in meshes:
+        all_verts.extend(m.vertices)
+        all_tris.extend((a + offset, b + offset, c + offset) for a, b, c in m.triangles)
+        offset += len(m.vertices)
+    return Mesh(vertices=all_verts, triangles=all_tris)
+
+
+class _DummyPixelData:
+    """Minimal stand-in for PixelData used only in the emergency fallback path."""
+    def __init__(self, pixel_size_mm: float) -> None:
+        self.pixel_size_mm = pixel_size_mm
+        self.width = 1
+        self.height = 1
+        self.pixels: dict = {}

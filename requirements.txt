@@ -7,6 +7,9 @@ Pillow>=10.0.0
 # Fast numerical operations for pixel array processing
 numpy>=1.24.0
 
+# Distance transforms and morphological operations (used by morph_smoother)
+scipy>=1.10.0
+
 # Colorized terminal output and progress bars
 rich
 

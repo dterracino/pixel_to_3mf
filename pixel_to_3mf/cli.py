@@ -42,6 +42,8 @@ from .constants import (
     PADDING_COLOR,
     AMS_COUNT,
     AMS_SLOTS_PER_UNIT,
+    SMOOTH_SIMPLIFY_TOLERANCE,
+    SMOOTH_CHAIKIN_ITERATIONS,
     __version__
 )
 from .config import ConversionConfig
@@ -595,6 +597,34 @@ The program will:
         help="Run mesh post-processing validation and repair on all generated meshes. "
              "Automatically enabled when --optimize-mesh is used. Can be used standalone for extra safety."
     )
+
+    parser.add_argument(
+        "--smooth",
+        action="store_true",
+        dest="smooth_boundaries",
+        help="Smooth region boundaries using Chaikin + RDP polygon simplification, "
+             "replacing the pixel-staircase mesh with organic smooth curves in the 3MF."
+    )
+
+    parser.add_argument(
+        "--smooth-tolerance",
+        type=float,
+        default=None,
+        metavar="FLOAT",
+        dest="smooth_simplify_tolerance",
+        help="RDP simplification tolerance in pixels (default: 0.5). "
+             "Lower = more detail; higher = smoother, fewer vertices. Only used with --smooth."
+    )
+
+    parser.add_argument(
+        "--smooth-iterations",
+        type=int,
+        default=None,
+        metavar="N",
+        dest="smooth_chaikin_iterations",
+        help="Number of Chaikin corner-cutting iterations (default: 2). "
+             "0 = no rounding; 1–4 practical range. Only used with --smooth."
+    )
     
     parser.add_argument(
         "--quantize",
@@ -849,7 +879,18 @@ The program will:
             render_model=args.render,
             optimize_mesh=args.optimize_mesh,
             validate_mesh=args.validate_mesh,
-            denoise_min_size=args.blob_min_size if args.denoise else 0
+            denoise_min_size=args.blob_min_size if args.denoise else 0,
+            smooth_boundaries=args.smooth_boundaries,
+            smooth_simplify_tolerance=(
+                args.smooth_simplify_tolerance
+                if args.smooth_simplify_tolerance is not None
+                else SMOOTH_SIMPLIFY_TOLERANCE
+            ),
+            smooth_chaikin_iterations=(
+                args.smooth_chaikin_iterations
+                if args.smooth_chaikin_iterations is not None
+                else SMOOTH_CHAIKIN_ITERATIONS
+            ),
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")

@@ -368,7 +368,7 @@ def convert_image_to_3mf(
         _progress("merge", "Merging connected pixels into regions...")
         regions = merge_regions(pixel_data, config)
         _progress("merge", f"Found {len(regions)} connected regions")
-        
+
         # Step 2.5: Trim disconnected pixels if enabled
         if config.trim_disconnected:
             _progress("merge", "Trimming disconnected pixels...")
@@ -378,7 +378,16 @@ def convert_image_to_3mf(
                 _progress("merge", f"Trimmed to {len(regions)} regions (removed {original_count - len(regions)} empty regions)")
     else:
         _progress("merge", f"Found {len(regions)} connected regions")
-    
+
+    # Step 2.7: Smooth region boundaries (optional — disabled by default)
+    smoothed_regions = None
+    if config.smooth_boundaries:
+        _progress("smooth", f"Smoothing boundaries (tolerance={config.smooth_simplify_tolerance}, "
+                             f"iterations={config.smooth_chaikin_iterations})...")
+        from .boundary_smoother import smooth_region_boundaries
+        smoothed_regions = smooth_region_boundaries(regions, pixel_data, config)
+        _progress("smooth", f"  {len(smoothed_regions)} smoothed regions")
+
     # Step 3: Generate meshes
     _progress("mesh", "Generating 3D geometry...")
     meshes = []
@@ -405,11 +414,20 @@ def convert_image_to_3mf(
         core_mesh = generate_solid_core(filtered_pixel_data, config)
         meshes.append((core_mesh, "solid_core"))
     else:
-        for i, region in enumerate(regions, start=1):
-            _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
-            mesh = generate_region_mesh(region, pixel_data, config)
-            meshes.append((mesh, f"region_{i}"))
-            region_colors.append(region.color)
+        if smoothed_regions is not None:
+            # Smooth path: each SmoothedRegion already has a Shapely polygon.
+            from .polygon_optimizer import generate_region_mesh_from_smoothed
+            for i, sregion in enumerate(smoothed_regions, start=1):
+                _progress("mesh", f"Region {i}/{len(smoothed_regions)}: smooth polygon (color={sregion.color})")
+                mesh = generate_region_mesh_from_smoothed(sregion, pixel_data.pixel_size_mm, config)
+                meshes.append((mesh, f"region_{i}"))
+                region_colors.append(sregion.color)
+        else:
+            for i, region in enumerate(regions, start=1):
+                _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels")
+                mesh = generate_region_mesh(region, pixel_data, config)
+                meshes.append((mesh, f"region_{i}"))
+                region_colors.append(region.color)
 
         # Generate backing plate (if enabled and not omitted by --no-backing-plate)
         if config.has_backing_plate:

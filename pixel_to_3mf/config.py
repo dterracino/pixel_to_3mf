@@ -36,7 +36,10 @@ from .constants import (
     AMS_COUNT,
     AMS_SLOTS_PER_UNIT,
     GENERATE_SWATCHES,
-    SOLID_CORE_HEIGHT_MM
+    SOLID_CORE_HEIGHT_MM,
+    SMOOTH_BOUNDARIES,
+    SMOOTH_SIMPLIFY_TOLERANCE,
+    SMOOTH_CHAIKIN_ITERATIONS,
 )
 
 
@@ -208,6 +211,12 @@ class ConversionConfig:
     # Mesh optimization and validation
     optimize_mesh: bool = False
     validate_mesh: bool = False
+
+    # Boundary smoothing — converts pixel-art stairstepped edges to smooth
+    # Shapely-polygon meshes.  Disabled by default; enable with --smooth.
+    smooth_boundaries: bool = SMOOTH_BOUNDARIES
+    smooth_simplify_tolerance: float = SMOOTH_SIMPLIFY_TOLERANCE
+    smooth_chaikin_iterations: int = SMOOTH_CHAIKIN_ITERATIONS
     
     # AMS configuration
     ams_count: int = AMS_COUNT

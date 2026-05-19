@@ -169,6 +169,23 @@ TRIM_DISCONNECTED_PIXELS = False
 DENOISE_MIN_SIZE = 0
 
 # ============================================================================
+# Boundary Smoothing
+# ============================================================================
+
+# Enable smooth boundary mode (disabled by default — existing pixel-art mesh
+# path is used unless --smooth is passed on the CLI).
+SMOOTH_BOUNDARIES = False
+
+# RDP (Ramer-Douglas-Peucker) simplification tolerance in pixels.
+# Lower = more detail preserved; higher = smoother / fewer vertices.
+SMOOTH_SIMPLIFY_TOLERANCE = 0.5
+
+# Number of Chaikin corner-cutting iterations applied after RDP simplification.
+# Each iteration halves the polygon vertex count and rounds corners.
+# 0 = no smoothing; 1–4 practical range; 2 is a good default.
+SMOOTH_CHAIKIN_ITERATIONS = 2
+
+# ============================================================================
 # Output Generation
 # ============================================================================
 

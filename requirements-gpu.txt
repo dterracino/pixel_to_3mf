@@ -1,0 +1,25 @@
+# GPU-accelerated AI preprocessing (optional — requires NVIDIA GPU with CUDA 12.4+)
+#
+# Install with:
+#   pip install -r requirements-gpu.txt
+#
+# The --index-url below tells pip to fetch PyTorch from the official PyTorch CUDA wheel
+# index rather than PyPI.  Without it, pip would install the CPU-only torch build.
+# CUDA 12.4 wheels are compatible with drivers >= 550.54 (covers RTX 30/40 series).
+# If you have an older driver, replace cu124 with cu121 (CUDA 12.1, driver >= 525).
+#
+# Tested on RTX 3080 Ti Laptop (16 GB VRAM), driver 591.74
+
+# Hugging Face diffusion pipeline (installed from PyPI as normal)
+diffusers>=0.32.0
+transformers>=4.47.0
+accelerate>=1.2.0
+safetensors>=0.4.5
+
+# PyTorch CUDA build — the +cu124 local-version suffix forces pip to fetch from the
+# PyTorch wheel index below instead of installing the CPU-only build from PyPI.
+# Note: cu124 index only publishes up to 2.6.0 for Python 3.13.
+# For newer torch versions use --extra-index-url .../cu126 and torch==2.7.x+cu126.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
