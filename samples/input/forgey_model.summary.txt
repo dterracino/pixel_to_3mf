@@ -1,0 +1,78 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: forgey_model.3mf
+Total Colors/Regions: 26177
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Beige
+   Hex: #FEE3CD
+   RGB: (254, 227, 205)
+   Regions: 61
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Black
+   Hex: #1B1C20
+   RGB: (27, 28, 32)
+   Regions: 7755
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Blue Grey
+   Hex: #6D616F
+   RGB: (109, 97, 111)
+   Regions: 799
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Dark Gray
+   Hex: #3F3A44
+   RGB: (63, 58, 68)
+   Regions: 1935
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Indigo Purple
+   Hex: #441672
+   RGB: (68, 22, 114)
+   Regions: 1082
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Basic Jade White
+   Hex: #FDFDFD
+   RGB: (253, 253, 253)
+   Regions: 12817
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Basic Purple
+   Hex: #681FA4
+   RGB: (104, 31, 164)
+   Regions: 161
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Caramel
+   Hex: #CD7B63
+   RGB: (205, 123, 99)
+   Regions: 184
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Dark Blue
+   Hex: #0B022C
+   RGB: (11, 2, 44)
+   Regions: 476
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Latte Brown
+   Hex: #DCC1B0
+   RGB: (220, 193, 176)
+   Regions: 778
+   Location: 10 (AMS C, Slot 2)
+
+11. Bambu Lab PLA Matte Plum
+   Hex: #9E2E84
+   RGB: (158, 46, 132)
+   Regions: 129
+   Location: 11 (AMS C, Slot 3)
+
+======================================================================

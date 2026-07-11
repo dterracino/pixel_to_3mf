@@ -1195,6 +1195,7 @@ The program will:
         denoise_task = None
         merge_task = None
         mesh_task = None
+        sanity_task = None
         validate_task = None
         export_task = None
         preview_task = None
@@ -1207,6 +1208,7 @@ The program will:
             'denoise': '',
             'merge': '',
             'mesh': '',
+            'sanity': '',
             'validate': '',
             'export': '',
             'preview': '',
@@ -1214,7 +1216,7 @@ The program will:
         }
         
         def progress_callback(stage: str, message: str):
-            nonlocal current_stage, denoise_task, merge_task, mesh_task, validate_task, export_task, preview_task, render_task
+            nonlocal current_stage, denoise_task, merge_task, mesh_task, sanity_task, validate_task, export_task, preview_task, render_task
             
             # Track the message for this stage
             last_messages[stage] = message
@@ -1241,15 +1243,23 @@ The program will:
                         # Complete merge with checkmark
                         progress.update(merge_task, description=f"[magenta]✓ Merging regions... {last_messages['merge']}", completed=True)
                     mesh_task = progress.add_task("[blue]🎲 Generating 3D geometry...", total=None)
-                elif stage == 'validate':
+                elif stage == 'sanity':
                     if mesh_task is not None:
-                        # Complete mesh with checkmark
+                        progress.update(mesh_task, description=f"[blue]✓ Generating 3D geometry... {last_messages['mesh']}", completed=True)
+                    sanity_task = progress.add_task("[green]✓ Validating mesh geometry...", total=None)
+                elif stage == 'validate':
+                    if sanity_task is not None:
+                        # Complete sanity with checkmark
+                        progress.update(sanity_task, description=f"[green]✓ Validating mesh geometry... {last_messages['sanity']}", completed=True)
+                    elif mesh_task is not None:
                         progress.update(mesh_task, description=f"[blue]✓ Generating 3D geometry... {last_messages['mesh']}", completed=True)
                     validate_task = progress.add_task("[yellow]🔍 Validating meshes...", total=None)
                 elif stage == 'export':
                     if validate_task is not None:
                         # Complete validate with checkmark
                         progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {last_messages['validate']}", completed=True)
+                    elif sanity_task is not None:
+                        progress.update(sanity_task, description=f"[green]✓ Validating mesh geometry... {last_messages['sanity']}", completed=True)
                     export_task = progress.add_task("[green]📦 Writing 3MF file...", total=None)
                 elif stage == 'preview':
                     if export_task is not None:
@@ -1274,6 +1284,8 @@ The program will:
                     progress.update(merge_task, description=f"[magenta]🧩 Merging regions... {message}")
                 elif stage == 'mesh' and mesh_task is not None:
                     progress.update(mesh_task, description=f"[blue]🎲 Generating 3D geometry... {message}")
+                elif stage == 'sanity' and sanity_task is not None:
+                    progress.update(sanity_task, description=f"[green]✓ Validating mesh geometry... {message}")
                 elif stage == 'validate' and validate_task is not None:
                     progress.update(validate_task, description=f"[yellow]✓ Validating meshes... {message}")
                 elif stage == 'export' and export_task is not None:

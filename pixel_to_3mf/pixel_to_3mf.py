@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 from .image_processor import load_image, PixelData
 from .region_merger import merge_regions, trim_disconnected_pixels, Region, denoise_blob_pixels
-from .mesh_generator import generate_region_mesh, generate_backing_plate, generate_solid_core, generate_region_mesh_shell
+from .mesh_generator import generate_region_mesh, generate_backing_plate, generate_solid_core, generate_region_mesh_shell, check_mesh_manifold
 from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
@@ -444,6 +444,44 @@ def convert_image_to_3mf(
             elif config.base_height_mm == 0:
                 _progress("mesh", "Skipping backing plate (base height is 0)")
     
+    # Step 3.3: Sanity-check all generated meshes for manifold properties
+    _progress("sanity", f"Checking {len(meshes)} mesh(es)...")
+    _bad = 0
+    _boundary_total = 0
+    _nonmanifold_total = 0
+    _badwinding = 0
+    for _mesh_obj, _mesh_name in meshes:
+        _r = check_mesh_manifold(_mesh_obj)
+        if not _r['is_valid']:
+            _bad += 1
+            _boundary_total     += int(_r['boundary_edges'])
+            _nonmanifold_total  += int(_r['non_manifold_edges'])
+            if not _r['is_ccw']:
+                _badwinding += 1
+            logger.warning(
+                "Mesh '%s': %d boundary edge(s), %d non-manifold edge(s), winding=%s",
+                _mesh_name, _r['boundary_edges'], _r['non_manifold_edges'], _r['winding']
+            )
+    if _bad == 0:
+        _progress("sanity", f"✓ All {len(meshes)} meshes manifold, CCW winding")
+    else:
+        _issues: list[str] = []
+        if _nonmanifold_total:
+            _issues.append(f"{_nonmanifold_total} non-manifold edge(s)")
+        if _boundary_total:
+            _issues.append(f"{_boundary_total} boundary edge(s)")
+        if _badwinding:
+            _issues.append(f"{_badwinding} bad-winding mesh(es)")
+        _progress("sanity", f"⚠ {_bad}/{len(meshes)} meshes have issues: {', '.join(_issues)}")
+    sanity_stats = {
+        'total_meshes':            len(meshes),
+        'invalid_meshes':          _bad,
+        'total_boundary_edges':    _boundary_total,
+        'total_non_manifold_edges': _nonmanifold_total,
+        'bad_winding_meshes':      _badwinding,
+        'all_valid':               _bad == 0,
+    }
+
     # Step 3.5: Post-process and validate meshes if requested
     validation_results = []  # Collect diagnostics for later display
     if config.validate_mesh:
@@ -584,6 +622,9 @@ def convert_image_to_3mf(
         'config': config  # Store config for batch checking
     }
     
+    # Add sanity check results
+    stats['sanity_stats'] = sanity_stats
+
     # Add validation results if available
     if validation_results:
         stats['validation_results'] = validation_results

@@ -41,6 +41,46 @@ except ImportError:
 
 
 
+def _corner_key(
+    x: int, y: int, cx: int, cy: int,
+    region_pixels: Set[Tuple[int, int]]
+) -> tuple:
+    """
+    Return the vertex map key for corner (cx, cy) of pixel (x, y).
+
+    Normally adjacent pixels share corner vertices (key = (cx, cy)).  But at a
+    "saddle" corner — where two region pixels are connected only diagonally and
+    neither edge-adjacent pixel at that corner is in the region — sharing the
+    vertex produces 4 wall triangles on the same vertical edge, which is
+    non-manifold.  In that case we return a unique per-pixel key so each pixel
+    owns its own copy of the corner vertex.
+
+    Saddle condition (for a given corner of pixel (x, y)):
+        diagonal_pixel  IN region_pixels
+        AND edge_adj_1  NOT IN region_pixels
+        AND edge_adj_2  NOT IN region_pixels
+
+    This supersedes the old coarse "diagonal_only_pixels" check, which only
+    caught pixels with *no* edge-connected neighbours at all and missed the
+    common case where both pixels are edge-connected to the region via other
+    paths but still meet only diagonally at a specific corner.
+    """
+    if cx == x and cy == y:            # bottom-left corner
+        diagonal, adj1, adj2 = (x - 1, y - 1), (x - 1, y), (x, y - 1)
+    elif cx == x + 1 and cy == y:      # bottom-right corner
+        diagonal, adj1, adj2 = (x + 1, y - 1), (x + 1, y), (x, y - 1)
+    elif cx == x and cy == y + 1:      # top-left corner
+        diagonal, adj1, adj2 = (x - 1, y + 1), (x - 1, y), (x, y + 1)
+    else:                              # top-right corner: (x+1, y+1)
+        diagonal, adj1, adj2 = (x + 1, y + 1), (x + 1, y), (x, y + 1)
+
+    if (diagonal in region_pixels
+            and adj1 not in region_pixels
+            and adj2 not in region_pixels):
+        return (x, y, cx, cy)   # unique per-pixel key — saddle corner
+    return (cx, cy)             # shared key — normal corner
+
+
 def _generate_region_mesh_original(
     region: Region,
     pixel_data: PixelData,
@@ -48,226 +88,115 @@ def _generate_region_mesh_original(
 ) -> Mesh:
     """
     Original per-pixel mesh generation implementation.
-    
-    This is the fallback implementation that always works reliably.
-    It generates meshes by creating geometry for each pixel individually.
-    
-    CRITICAL: For pixels that only touch diagonally (not edge-connected),
-    we must NOT share vertices at the corners to avoid non-manifold geometry.
-    Each pixel gets its own set of vertices to ensure manifold properties.
-    
+
+    Generates a manifold mesh by extruding each pixel upward and stitching
+    the top face, bottom face, and perimeter walls together.
+
+    Corner vertices are shared between adjacent pixels by default.  The one
+    exception is "saddle" corners — where two region pixels meet only
+    diagonally (no edge-adjacent pixel in the region bridges them) — where
+    sharing a vertex would cause four wall triangles to share a single
+    vertical edge, which is non-manifold.  _corner_key() detects this and
+    returns a unique per-pixel key for those corners.
+
     Args:
         region: The region to extrude
         pixel_data: Pixel scaling info
         config: ConversionConfig object with layer height and other parameters
-    
+
     Returns:
         A Mesh object ready for export to 3MF
     """
-    # Check which pixels in this region are edge-connected vs diagonal-only
-    edge_connected_pixels = set()
-    for x, y in region.pixels:
-        # Check 4 edge neighbors
-        edge_neighbors = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
-        for nx, ny in edge_neighbors:
-            if (nx, ny) in region.pixels:
-                # This pixel has at least one edge-connected neighbor in the region
-                edge_connected_pixels.add((x, y))
-                break
-    
-    # Diagonal-only pixels: pixels in region but not edge-connected to any other pixel in region
-    diagonal_only_pixels = region.pixels - edge_connected_pixels
-    
-    # Original per-pixel mesh generation
+    region_pixels = region.pixels
+    ps = pixel_data.pixel_size_mm
+
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
-    
-    ps = pixel_data.pixel_size_mm
-    
-    # We'll build this in multiple passes:
-    # Pass 1: Find perimeter pixels (for walls)
-    # Pass 2: Generate top face triangles
-    # Pass 3: Generate bottom face triangles
-    # Pass 4: Generate wall triangles
-    
+
     # ========================================================================
-    # Pass 1: Find perimeter pixels
+    # Pass 1: Find perimeter pixels (needed for wall generation)
     # ========================================================================
-    # A pixel is on the perimeter if it has at least one neighbor (up/down/left/right)
-    # that is NOT in this region
-    
     perimeter_pixels: Set[Tuple[int, int]] = set()
-    
-    for x, y in region.pixels:
-        # Check all 4 neighbors
-        neighbors = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
-        
-        # If any neighbor is NOT in the region, this pixel is on the perimeter
-        for nx, ny in neighbors:
-            if (nx, ny) not in region.pixels:
+    for x, y in region_pixels:
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if (nx, ny) not in region_pixels:
                 perimeter_pixels.add((x, y))
                 break
-    
-    # ========================================================================
-    # Pass 2: Generate top face (z = config.color_height_mm)
-    # ========================================================================
-    # For each pixel, create 2 triangles to form a square
 
-    # Map from (x, y) pixel coords to vertex index for top face
-    # For diagonal-only pixels, uses 4-tuple keys: ((x,y), cx, cy, "top")
-    # Dict[tuple, int] because keys are either (cx, cy) or ((x,y), cx, cy, label)
+    # ========================================================================
+    # Pass 2: Generate top face  (z = config.color_height_mm)
+    # ========================================================================
     top_vertex_map: Dict[tuple, int] = {}
 
-    for x, y in region.pixels:
-        # Each pixel square has 4 corners
-        # We label them: "bl" (bottom-left), "br", "tl", "tr"
-        # In pixel coordinates:
-        #   - bottom-left  = (x, y)
-        #   - bottom-right = (x+1, y)
-        #   - top-left     = (x, y+1)
-        #   - top-right    = (x+1, y+1)
-
-        corners = [
-            (x, y, "bl"),       # bottom-left
-            (x+1, y, "br"),     # bottom-right
-            (x, y+1, "tl"),     # top-left
-            (x+1, y+1, "tr"),   # top-right
-        ]
-
-        # Create vertices for each corner
+    for x, y in region_pixels:
         corner_indices = []
-        for cx, cy, label in corners:
-            key = (cx, cy)
-            
-            # CRITICAL FIX: For diagonal-only pixels, create unique vertices
-            # to prevent non-manifold geometry. Edge-connected pixels share vertices.
-            if (x, y) in diagonal_only_pixels:
-                # This pixel only touches others diagonally - create unique vertices
-                # Use tuple with pixel coords to ensure uniqueness
-                unique_key = ((x, y), cx, cy, "top")
-                if unique_key not in top_vertex_map:
-                    top_vertex_map[unique_key] = len(vertices)
-                    vertices.append((cx * ps, cy * ps, config.color_height_mm))
-                corner_indices.append(top_vertex_map[unique_key])
-            else:
-                # Edge-connected pixel - share vertices with neighbors
-                if key not in top_vertex_map:
-                    top_vertex_map[key] = len(vertices)
-                    vertices.append((cx * ps, cy * ps, config.color_height_mm))
-                corner_indices.append(top_vertex_map[key])
-        
-        # Create 2 triangles for the top face
-        # Counter-clockwise winding when viewed from above (looking down at +Z)
+        for cx, cy in ((x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)):
+            key = _corner_key(x, y, cx, cy, region_pixels)
+            if key not in top_vertex_map:
+                top_vertex_map[key] = len(vertices)
+                vertices.append((cx * ps, cy * ps, config.color_height_mm))
+            corner_indices.append(top_vertex_map[key])
+
         bl, br, tl, tr = corner_indices
         triangles.append((bl, br, tl))
         triangles.append((br, tr, tl))
-    
+
     # ========================================================================
-    # Pass 3: Generate bottom face (z = 0)
+    # Pass 3: Generate bottom face  (z = config.color_layer_z_bottom)
     # ========================================================================
-    # Same as top face, but at z=0 and with reversed winding (for correct normals)
-    # For diagonal-only pixels, uses 4-tuple keys: ((x,y), cx, cy, "bottom")
-    # Dict[tuple, int] because keys are either (cx, cy) or ((x,y), cx, cy, label)
     bottom_vertex_map: Dict[tuple, int] = {}
-    
-    for x, y in region.pixels:
-        corners = [
-            (x, y, "bl"),
-            (x+1, y, "br"),
-            (x, y+1, "tl"),
-            (x+1, y+1, "tr"),
-        ]
-        
+
+    for x, y in region_pixels:
         corner_indices = []
-        for cx, cy, label in corners:
-            key = (cx, cy)
-            
-            # CRITICAL FIX: For diagonal-only pixels, create unique vertices
-            if (x, y) in diagonal_only_pixels:
-                # This pixel only touches others diagonally - create unique vertices
-                unique_key = ((x, y), cx, cy, "bottom")
-                if unique_key not in bottom_vertex_map:
-                    bottom_vertex_map[unique_key] = len(vertices)
-                    vertices.append((cx * ps, cy * ps, config.color_layer_z_bottom))
-                corner_indices.append(bottom_vertex_map[unique_key])
-            else:
-                # Edge-connected pixel - share vertices with neighbors
-                if key not in bottom_vertex_map:
-                    bottom_vertex_map[key] = len(vertices)
-                    vertices.append((cx * ps, cy * ps, config.color_layer_z_bottom))
-                corner_indices.append(bottom_vertex_map[key])
-        
-        # Bottom face triangles (CCW when viewed from below, looking up at -Z)
+        for cx, cy in ((x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)):
+            key = _corner_key(x, y, cx, cy, region_pixels)
+            if key not in bottom_vertex_map:
+                bottom_vertex_map[key] = len(vertices)
+                vertices.append((cx * ps, cy * ps, config.color_layer_z_bottom))
+            corner_indices.append(bottom_vertex_map[key])
+
         bl, br, tl, tr = corner_indices
         triangles.append((bl, tl, br))
         triangles.append((br, tl, tr))
-    
+
     # ========================================================================
     # Pass 4: Generate walls for perimeter pixels
     # ========================================================================
-    # For each perimeter pixel, check which edges are exposed and create wall quads
-    
     for x, y in perimeter_pixels:
-        # Check each of the 4 edges
         edges = [
-            ((x, y), (x+1, y), "bottom"),   # Bottom edge (y stays same)
-            ((x+1, y), (x+1, y+1), "right"), # Right edge (x stays same)
-            ((x+1, y+1), (x, y+1), "top"),   # Top edge (y stays same)
-            ((x, y+1), (x, y), "left"),      # Left edge (x stays same)
+            ((x,     y),     (x + 1, y),     "bottom"),
+            ((x + 1, y),     (x + 1, y + 1), "right"),
+            ((x + 1, y + 1), (x,     y + 1), "top"),
+            ((x,     y + 1), (x,     y),     "left"),
         ]
-        
+
         for (x1, y1), (x2, y2), edge_name in edges:
-            # Check if the neighbor beyond this edge is in the region
-            # If not, we need a wall here!
-            
-            # Calculate which neighbor pixel this edge faces
             if edge_name == "bottom":
-                neighbor = (x, y - 1)
+                neighbor = (x,     y - 1)
             elif edge_name == "right":
                 neighbor = (x + 1, y)
             elif edge_name == "top":
-                neighbor = (x, y + 1)
-            else:  # left
-                neighbor = (x - 1, y)
-            
-            # If neighbor is in the region, skip this edge (it's internal)
-            if neighbor in region.pixels:
-                continue
-            
-            # Create a wall quad (2 triangles) between bottom and top
-            # CRITICAL FIX: Reuse existing vertices instead of creating duplicates!
-            
-            # For diagonal-only pixels, vertices are stored with unique keys
-            # For edge-connected pixels, vertices use simple (cx, cy) keys
-            if (x, y) in diagonal_only_pixels:
-                # Diagonal-only pixel - use unique keys
-                bl_key = ((x, y), x1, y1, "bottom")
-                br_key = ((x, y), x2, y2, "bottom")
-                tl_key = ((x, y), x1, y1, "top")
-                tr_key = ((x, y), x2, y2, "top")
+                neighbor = (x,     y + 1)
             else:
-                # Edge-connected pixel - use simple keys
-                bl_key = (x1, y1)
-                br_key = (x2, y2)
-                tl_key = (x1, y1)
-                tr_key = (x2, y2)
-            
-            # Get vertex indices (should always be found since we created faces for this pixel)
-            assert bl_key in bottom_vertex_map, f"Could not find bottom vertex for wall at {bl_key}"
-            assert br_key in bottom_vertex_map, f"Could not find bottom vertex for wall at {br_key}"
-            assert tl_key in top_vertex_map, f"Could not find top vertex for wall at {tl_key}"
-            assert tr_key in top_vertex_map, f"Could not find top vertex for wall at {tr_key}"
-            
-            idx_bl = bottom_vertex_map[bl_key]
-            idx_br = bottom_vertex_map[br_key]
-            idx_tl = top_vertex_map[tl_key]
-            idx_tr = top_vertex_map[tr_key]
-            
-            # Create 2 triangles for the wall (REVERSED winding for outward-facing normals)
-            # The issue was that our walls were inside-out!
+                neighbor = (x - 1, y)
+
+            if neighbor in region_pixels:
+                continue
+
+            # Look up the two corner vertices that bound this wall edge.
+            # _corner_key() returns the same key that was used during the
+            # face-generation passes above, so these lookups always succeed.
+            c1_key = _corner_key(x, y, x1, y1, region_pixels)
+            c2_key = _corner_key(x, y, x2, y2, region_pixels)
+
+            idx_bl = bottom_vertex_map[c1_key]
+            idx_br = bottom_vertex_map[c2_key]
+            idx_tl = top_vertex_map[c1_key]
+            idx_tr = top_vertex_map[c2_key]
+
             triangles.append((idx_bl, idx_br, idx_tl))
             triangles.append((idx_br, idx_tr, idx_tl))
-    
+
     return Mesh(vertices=vertices, triangles=triangles)
 
 
@@ -578,3 +507,74 @@ def generate_region_mesh_shell(
             triangles.append((idx_br, idx_tr, idx_tl))
 
     return Mesh(vertices=vertices, triangles=triangles)
+
+
+def check_mesh_manifold(mesh: Mesh) -> Dict[str, object]:
+    """
+    Check a mesh for manifold properties and CCW top-face winding.
+
+    A manifold mesh has every edge shared by exactly 2 triangles — no open
+    holes (boundary edges, count 1) and no impossible junctions
+    (non-manifold edges, count 3+).  Slicers require manifold geometry to
+    produce valid toolpaths.
+
+    Also verifies that top-face triangles use CCW winding, which produces
+    outward-facing (positive-Z) normals as required by the 3MF spec.
+
+    Args:
+        mesh: The Mesh to check.
+
+    Returns:
+        Dict with keys:
+            boundary_edges:     int  — edges shared by exactly 1 triangle
+            non_manifold_edges: int  — edges shared by 3+ triangles
+            winding:            str  — "CCW", "CW", "MIXED", or "UNKNOWN"
+            is_manifold:        bool — True iff both edge counts are 0
+            is_ccw:             bool — True iff winding == "CCW"
+            is_valid:           bool — True iff is_manifold and is_ccw
+    """
+    from collections import defaultdict
+
+    edge_count: Dict[Tuple[int, int], int] = defaultdict(int)
+    for v1, v2, v3 in mesh.triangles:
+        edge_count[(min(v1, v2), max(v1, v2))] += 1
+        edge_count[(min(v2, v3), max(v2, v3))] += 1
+        edge_count[(min(v3, v1), max(v3, v1))] += 1
+
+    boundary     = sum(1 for c in edge_count.values() if c == 1)
+    non_manifold = sum(1 for c in edge_count.values() if c > 2)
+
+    # Check top-face winding: all triangles at max-Z should have positive-Z
+    # normals (CCW when viewed from above).
+    winding = "UNKNOWN"
+    if mesh.vertices and mesh.triangles:
+        max_z = max(v[2] for v in mesh.vertices)
+        normals_z: List[float] = []
+        for v1i, v2i, v3i in mesh.triangles:
+            p1, p2, p3 = mesh.vertices[v1i], mesh.vertices[v2i], mesh.vertices[v3i]
+            if (abs(p1[2] - max_z) < 1e-6
+                    and abs(p2[2] - max_z) < 1e-6
+                    and abs(p3[2] - max_z) < 1e-6):
+                # Z component of (p2-p1) × (p3-p1)
+                nz = ((p2[0] - p1[0]) * (p3[1] - p1[1])
+                      - (p2[1] - p1[1]) * (p3[0] - p1[0]))
+                if abs(nz) > 1e-10:
+                    normals_z.append(nz)
+        if normals_z:
+            ccw_n = sum(1 for n in normals_z if n > 0)
+            cw_n  = len(normals_z) - ccw_n
+            if ccw_n > 0 and cw_n == 0:
+                winding = "CCW"
+            elif cw_n > 0 and ccw_n == 0:
+                winding = "CW"
+            else:
+                winding = "MIXED"
+
+    return {
+        'boundary_edges':      boundary,
+        'non_manifold_edges':  non_manifold,
+        'winding':             winding,
+        'is_manifold':         boundary == 0 and non_manifold == 0,
+        'is_ccw':              winding == "CCW",
+        'is_valid':            boundary == 0 and non_manifold == 0 and winding == "CCW",
+    }
