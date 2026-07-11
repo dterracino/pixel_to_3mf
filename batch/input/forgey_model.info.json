@@ -1,0 +1,86 @@
+{
+  "filename": "forgey_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\forgey_model.3mf",
+  "file_hash": "83f4488e3edebcff265c0a9f321475c338d10d978d00f0e35b7a0e212a7fab4f",
+  "timestamp": "2026-06-13T08:02:01.897440",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Beige",
+      "hex": "#f7e6de",
+      "rgb": [247, 230, 222],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Blue Grey",
+      "hex": "#5b6579",
+      "rgb": [91, 101, 121],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Dark Gray",
+      "hex": "#545454",
+      "rgb": [84, 84, 84],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Indigo Purple",
+      "hex": "#482960",
+      "rgb": [72, 41, 96],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Purple",
+      "hex": "#5e43b7",
+      "rgb": [94, 67, 183],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Caramel",
+      "hex": "#ae835b",
+      "rgb": [174, 131, 91],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Blue",
+      "hex": "#042f56",
+      "rgb": [4, 47, 86],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Latte Brown",
+      "hex": "#d3b7a7",
+      "rgb": [211, 183, 167],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Plum",
+      "hex": "#950051",
+      "rgb": [149, 0, 81],
+      "ams_slot": "C-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 200.0,
+    "pixel_size_mm": 0.5714285714285714
+  },
+  "mesh_stats": {
+    "num_vertices": 572072,
+    "num_triangles": 1008836,
+    "num_regions": 26176,
+    "num_colors": 11
+  }
+}

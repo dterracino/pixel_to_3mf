@@ -1,0 +1,54 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: forgey-trans_model.3mf
+Total Colors/Regions: 5468
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Beige
+   Hex: #F3E1D5
+   RGB: (243, 225, 213)
+   Regions: 197
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Black
+   Hex: #1F1C26
+   RGB: (31, 28, 38)
+   Regions: 1654
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Brown
+   Hex: #8F5A51
+   RGB: (143, 90, 81)
+   Regions: 1296
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Indigo Purple
+   Hex: #392E4B
+   RGB: (57, 46, 75)
+   Regions: 1198
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+6. Bambu Lab PLA Basic Purple
+   Hex: #8D37EE
+   RGB: (141, 55, 238)
+   Regions: 536
+   Location: 5 (AMS B, Slot 1)
+
+7. Bambu Lab PLA Matte Mandarin Orange
+   Hex: #DB9362
+   RGB: (219, 147, 98)
+   Regions: 586
+   Location: 6 (AMS B, Slot 2)
+
+======================================================================
