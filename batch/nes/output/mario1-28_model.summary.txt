@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: mario1-28_model.3mf
-Total Colors/Regions: 386
+Total Colors/Regions: 385
 Color Naming Mode: filament
 
 Filaments Used:
@@ -27,16 +27,16 @@ Filaments Used:
    Regions: 4
    Location: 3 (AMS A, Slot 3)
 
-4. Bambu Lab PLA Basic Cobalt Blue
-   Hex: #2038EC
-   RGB: (32, 56, 236)
-   Regions: 1
-   Location: 4 (AMS A, Slot 4)
+4. Bambu Lab PLA Basic Cyan
+   Hex: #5C94FC
+   RGB: (92, 148, 252)
+   Regions: 11
+   Location: 11 (AMS C, Slot 3)
 
 5. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 67
+   Regions: 66
    Location: 5 (AMS B, Slot 1)
 
 6. Bambu Lab PLA Basic Pumpkin Orange
@@ -45,34 +45,34 @@ Filaments Used:
    Regions: 6
    Location: 6 (AMS B, Slot 2)
 
-7. Bambu Lab PLA Basic Red
+7. Bambu Lab PLA Basic Purple
+   Hex: #2038EC
+   RGB: (32, 56, 236)
+   Regions: 1
+   Location: 4 (AMS A, Slot 4)
+
+8. Bambu Lab PLA Basic Red
    Hex: #D82800
    RGB: (216, 40, 0)
    Regions: 8
    Location: 7 (AMS B, Slot 3)
 
-8. Bambu Lab PLA Basic Silver
+9. Bambu Lab PLA Basic Silver
    Hex: #BCBCBC
    RGB: (188, 188, 188)
    Regions: 27
    Location: 8 (AMS B, Slot 4)
 
-9. Bambu Lab PLA Matte Apple Green
+10. Bambu Lab PLA Matte Apple Green
    Hex: #A8F0BC
    RGB: (168, 240, 188)
    Regions: 82
    Location: 9 (AMS C, Slot 1)
 
-10. Bambu Lab PLA Matte Desert Tan
+11. Bambu Lab PLA Matte Desert Tan
    Hex: #FCD8A8
    RGB: (252, 216, 168)
    Regions: 2
    Location: 10 (AMS C, Slot 2)
-
-11. Bambu Lab PLA Matte Sky Blue
-   Hex: #5C94FC
-   RGB: (92, 148, 252)
-   Regions: 11
-   Location: 11 (AMS C, Slot 3)
 
 ======================================================================

@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: mario1-18_model.3mf
-Total Colors/Regions: 476
+Total Colors/Regions: 475
 Color Naming Mode: filament
 
 Filaments Used:
@@ -27,43 +27,49 @@ Filaments Used:
    Regions: 15
    Location: 3 (AMS A, Slot 3)
 
-4. Bambu Lab PLA Basic Jade White
+4. Bambu Lab PLA Basic Cyan
+   Hex: #5C94FC
+   RGB: (92, 148, 252)
+   Regions: 11
+   Location: 9 (AMS C, Slot 1)
+
+5. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 29
+   Regions: 28
    Location: 4 (AMS A, Slot 4)
 
-5. Bambu Lab PLA Basic Pumpkin Orange
+6. Bambu Lab PLA Basic Pumpkin Orange
    Hex: #FC9838
    RGB: (252, 152, 56)
    Regions: 6
    Location: 5 (AMS B, Slot 1)
 
-6. Bambu Lab PLA Basic Red
+7. Bambu Lab PLA Basic Red
    Hex: #D82800
    RGB: (216, 40, 0)
    Regions: 8
    Location: 6 (AMS B, Slot 2)
 
-7. Bambu Lab PLA Matte Desert Tan
+8. Bambu Lab PLA Matte Desert Tan
    Hex: #FCD8A8
    RGB: (252, 216, 168)
    Regions: 3
    Location: 7 (AMS B, Slot 3)
 
-8. Bambu Lab PLA Matte Latte Brown
+9. Bambu Lab PLA Matte Latte Brown
    Hex: #FCBCB0
    RGB: (252, 188, 176)
    Regions: 99
    Location: 8 (AMS B, Slot 4)
 
-9. Bambu Lab PLA Matte Sky Blue
-   Hex: #5C94FC
-   RGB: (92, 148, 252)
-   Regions: 20
-   Location: 9 (AMS C, Slot 1)
+10. Bambu Lab PLA Matte Sky Blue
+   Hex: #3CBCFC
+   RGB: (60, 188, 252)
+   Regions: 9
+   Location: 10 (AMS C, Slot 2)
 
-10. Bambu Lab PLA Matte Terracotta
+11. Bambu Lab PLA Matte Terracotta
    Hex: #C84C0C
    RGB: (200, 76, 12)
    Regions: 249

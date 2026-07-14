@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: zelda2aol-33_model.3mf
-Total Colors/Regions: 905
+Total Colors/Regions: 904
 Color Naming Mode: filament
 
 Filaments Used:
@@ -15,28 +15,28 @@ Filaments Used:
    Regions: 39
    Location: 1 (AMS A, Slot 1)
 
-2. Bambu Lab PLA Basic Bright Green
+2. Bambu Lab PLA Basic Blue
+   Hex: #8000F0
+   RGB: (128, 0, 240)
+   Regions: 4
+   Location: 7 (AMS B, Slot 3)
+
+3. Bambu Lab PLA Basic Bright Green
    Hex: #80D010
    RGB: (128, 208, 16)
    Regions: 7
    Location: 2 (AMS A, Slot 2)
 
-3. Bambu Lab PLA Basic Bronze
+4. Bambu Lab PLA Basic Bronze
    Hex: #887000
    RGB: (136, 112, 0)
    Regions: 1
    Location: 3 (AMS A, Slot 3)
 
-4. Bambu Lab PLA Basic Cobalt Blue
-   Hex: #2038EC
-   RGB: (32, 56, 236)
-   Regions: 78
-   Location: 4 (AMS A, Slot 4)
-
 5. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 97
+   Regions: 96
    Location: 5 (AMS B, Slot 1)
 
 6. Bambu Lab PLA Basic Pink
@@ -46,10 +46,10 @@ Filaments Used:
    Location: 6 (AMS B, Slot 2)
 
 7. Bambu Lab PLA Basic Purple
-   Hex: #8000F0
-   RGB: (128, 0, 240)
-   Regions: 4
-   Location: 7 (AMS B, Slot 3)
+   Hex: #2038EC
+   RGB: (32, 56, 236)
+   Regions: 78
+   Location: 4 (AMS A, Slot 4)
 
 8. Bambu Lab PLA Basic Red
    Hex: #D82800

@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: lifeforce-1_model.3mf
-Total Colors/Regions: 518
+Total Colors/Regions: 517
 Color Naming Mode: filament
 
 Filaments Used:
@@ -24,7 +24,7 @@ Filaments Used:
 3. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 99
+   Regions: 98
    Location: 3 (AMS A, Slot 3)
 
 4. Bambu Lab PLA Basic Light Gray

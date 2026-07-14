@@ -982,9 +982,23 @@ def write_3mf(
         # Extract RGB colors and names from region_data
         summary_colors = [rgb for _, rgb, _ in region_data]
         summary_names = [color_name for _, _, color_name in region_data]
+
+        # In no-merge filament mode, region_data names were computed before
+        # greedy unique-filament assignment. Rebuild summary_names from the
+        # actual assigned mapping so summary.txt matches info.json/swatches.
+        if not config.merge_similar_colors and config.color_naming_mode == 'filament':
+            resolved_summary_names: List[str] = []
+            for rgb in summary_colors:
+                if use_greedy_matching and rgb in rgb_to_name_and_matched_rgb:
+                    filament_name, _ = rgb_to_name_and_matched_rgb[rgb]
+                else:
+                    filament_name = get_color_name(rgb, config)
+                resolved_summary_names.append(filament_name)
+            summary_names = resolved_summary_names
         
-        # Add backing plate color as a separate region
-        if has_backing_plate:
+        # Add backing plate color as a separate region only when it has its own
+        # dedicated slot/color entry.
+        if has_backing_plate and not config.no_backing_color:
             backing_name = get_color_name(config.backing_color, config)
             summary_colors.append(config.backing_color)
             summary_names.append(backing_name)

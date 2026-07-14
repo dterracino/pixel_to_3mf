@@ -1,8 +1,8 @@
 {
   "filename": "lifeforce-1_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\lifeforce-1_model.3mf",
-  "file_hash": "7a1275ed330fc819043ec1f1bd827764351a59429ecbc6c929459a909bf0a530",
-  "timestamp": "2026-07-13T20:43:19.971927",
+  "file_hash": "9f0017c3f8062c9959c73dfa1fc607e574ee2a10e036364720fcefe7cc2a1595",
+  "timestamp": "2026-07-13T20:57:06.603268",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -66,8 +66,8 @@
     "pixel_size_mm": 0.78125
   },
   "mesh_stats": {
-    "num_vertices": 19882,
-    "num_triangles": 29432,
+    "num_vertices": 138192,
+    "num_triangles": 273916,
     "num_regions": 517,
     "num_colors": 9
   }

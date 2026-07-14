@@ -1,8 +1,8 @@
 {
   "filename": "zelda2aol-33_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\zelda2aol-33_model.3mf",
-  "file_hash": "fb91edab8d01437ee3544c726daa1adc1119cdd8a9abcf1ab25ac3465bb97917",
-  "timestamp": "2026-07-13T20:44:27.482728",
+  "file_hash": "4d767ebe1c1fe2f66c86561ce144f365ed5b9c742968a2533f9f3e9fa4376536",
+  "timestamp": "2026-07-13T20:58:53.302749",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -84,8 +84,8 @@
     "pixel_size_mm": 0.78125
   },
   "mesh_stats": {
-    "num_vertices": 37654,
-    "num_triangles": 58138,
+    "num_vertices": 178904,
+    "num_triangles": 353132,
     "num_regions": 904,
     "num_colors": 12
   }

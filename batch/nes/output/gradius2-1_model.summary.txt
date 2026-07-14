@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: gradius2-1_model.3mf
-Total Colors/Regions: 679
+Total Colors/Regions: 678
 Color Naming Mode: filament
 
 Filaments Used:
@@ -18,7 +18,7 @@ Filaments Used:
 2. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 157
+   Regions: 156
    Location: 2 (AMS A, Slot 2)
 
 3. Bambu Lab PLA Basic Pink

@@ -1,8 +1,8 @@
 {
   "filename": "gradius2-1_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\gradius2-1_model.3mf",
-  "file_hash": "4240957797155f2fb27037497784017ab8e4b054f35ae48f4ef90a712000bbb5",
-  "timestamp": "2026-07-13T20:43:16.224778",
+  "file_hash": "3de18e8dd71c252fac951ca1d0dccdb55ebce85c204e977476e60d5f91a67800",
+  "timestamp": "2026-07-13T20:56:57.916056",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -48,8 +48,8 @@
     "pixel_size_mm": 0.78125
   },
   "mesh_stats": {
-    "num_vertices": 38840,
-    "num_triangles": 66316,
+    "num_vertices": 148406,
+    "num_triangles": 284988,
     "num_regions": 678,
     "num_colors": 6
   }

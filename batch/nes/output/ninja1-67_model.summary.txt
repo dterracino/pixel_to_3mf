@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: ninja1-67_model.3mf
-Total Colors/Regions: 1163
+Total Colors/Regions: 1162
 Color Naming Mode: filament
 
 Filaments Used:
@@ -21,23 +21,23 @@ Filaments Used:
    Regions: 102
    Location: 2 (AMS A, Slot 2)
 
-3. Bambu Lab PLA Basic Cobalt Blue
-   Hex: #2038EC
-   RGB: (32, 56, 236)
-   Regions: 40
-   Location: 3 (AMS A, Slot 3)
+3. Bambu Lab PLA Basic Cyan
+   Hex: #5C94FC
+   RGB: (92, 148, 252)
+   Regions: 212
+   Location: 8 (AMS B, Slot 4)
 
-4. Bambu Lab PLA Basic Jade White
-   Hex: #FFFFFF
-   RGB: (255, 255, 255)
-   Regions: 1 (0 color layer, 1 backing plate)
-   Location: 1 (AMS A, Slot 1)
-
-5. Bambu Lab PLA Basic Mistletoe Green
+4. Bambu Lab PLA Basic Mistletoe Green
    Hex: #009400
    RGB: (0, 148, 0)
    Regions: 260
    Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Purple
+   Hex: #2038EC
+   RGB: (32, 56, 236)
+   Regions: 40
+   Location: 3 (AMS A, Slot 3)
 
 6. Bambu Lab PLA Basic Red
    Hex: #D82800
@@ -56,11 +56,5 @@ Filaments Used:
    RGB: (252, 188, 176)
    Regions: 11
    Location: 7 (AMS B, Slot 3)
-
-9. Bambu Lab PLA Matte Sky Blue
-   Hex: #5C94FC
-   RGB: (92, 148, 252)
-   Regions: 212
-   Location: 8 (AMS B, Slot 4)
 
 ======================================================================

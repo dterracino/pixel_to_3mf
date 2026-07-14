@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: megaman2-89_model.3mf
-Total Colors/Regions: 584
+Total Colors/Regions: 583
 Color Naming Mode: filament
 
 Filaments Used:
@@ -15,55 +15,67 @@ Filaments Used:
    Regions: 38
    Location: 1 (AMS A, Slot 1)
 
-2. Bambu Lab PLA Basic Hot Pink
+2. Bambu Lab PLA Basic Brown
+   Hex: #A40000
+   RGB: (164, 0, 0)
+   Regions: 30
+   Location: 6 (AMS B, Slot 2)
+
+3. Bambu Lab PLA Basic Hot Pink
    Hex: #FC74B4
    RGB: (252, 116, 180)
    Regions: 61
    Location: 2 (AMS A, Slot 2)
 
-3. Bambu Lab PLA Basic Jade White
+4. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 49
+   Regions: 48
    Location: 3 (AMS A, Slot 3)
 
-4. Bambu Lab PLA Basic Pumpkin Orange
+5. Bambu Lab PLA Basic Pumpkin Orange
    Hex: #FC9838
    RGB: (252, 152, 56)
    Regions: 90
    Location: 4 (AMS A, Slot 4)
 
-5. Bambu Lab PLA Basic Red
+6. Bambu Lab PLA Basic Red
    Hex: #D82800
    RGB: (216, 40, 0)
-   Regions: 100
+   Regions: 70
    Location: 5 (AMS B, Slot 1)
 
-6. Bambu Lab PLA Basic Silver
+7. Bambu Lab PLA Basic Silver
    Hex: #BCBCBC
    RGB: (188, 188, 188)
    Regions: 52
    Location: 7 (AMS B, Slot 3)
 
-7. Bambu Lab PLA Matte Desert Tan
+8. Bambu Lab PLA Matte Desert Tan
+   Hex: #FCD8A8
+   RGB: (252, 216, 168)
+   Regions: 36
+   Location: 9 (AMS C, Slot 1)
+
+9. Bambu Lab PLA Matte Lemon Yellow
    Hex: #FCE4A0
    RGB: (252, 228, 160)
-   Regions: 94
+   Regions: 58
    Location: 8 (AMS B, Slot 4)
 
-8. Bambu Lab PLA Matte Marine Blue
+10. Bambu Lab PLA Matte Marine Blue
    Hex: #0070EC
    RGB: (0, 112, 236)
    Regions: 6
    Location: 10 (AMS C, Slot 2)
 
-9. Bambu Lab PLA Matte Nardo Gray
+11. Bambu Lab PLA Matte Nardo Gray
    Hex: #747474
    RGB: (116, 116, 116)
    Regions: 61
    Location: 11 (AMS C, Slot 3)
 
-10. Bambu Lab PLA Matte Sakura Pink
+12. Bambu Lab PLA Matte Sakura Pink
    Hex: #FCC4FC
    RGB: (252, 196, 252)
    Regions: 33

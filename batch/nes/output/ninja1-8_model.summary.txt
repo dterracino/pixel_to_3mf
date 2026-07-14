@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: ninja1-8_model.3mf
-Total Colors/Regions: 2156
+Total Colors/Regions: 2155
 Color Naming Mode: filament
 
 Filaments Used:
@@ -27,11 +27,11 @@ Filaments Used:
    Regions: 101
    Location: 3 (AMS A, Slot 3)
 
-4. Bambu Lab PLA Basic Jade White
-   Hex: #FFFFFF
-   RGB: (255, 255, 255)
-   Regions: 1 (0 color layer, 1 backing plate)
-   Location: 1 (AMS A, Slot 1)
+4. Bambu Lab PLA Basic Cyan
+   Hex: #5C94FC
+   RGB: (92, 148, 252)
+   Regions: 212
+   Location: 11 (AMS C, Slot 3)
 
 5. Bambu Lab PLA Basic Mistletoe Green
    Hex: #009400
@@ -58,10 +58,10 @@ Filaments Used:
    Location: 7 (AMS B, Slot 3)
 
 9. Bambu Lab PLA Matte Desert Tan
-   Hex: #FCE4A0
-   RGB: (252, 228, 160)
-   Regions: 15
-   Location: 8 (AMS B, Slot 4)
+   Hex: #FCD8A8
+   RGB: (252, 216, 168)
+   Regions: 10
+   Location: 9 (AMS C, Slot 1)
 
 10. Bambu Lab PLA Matte Grass Green
    Hex: #58F898
@@ -69,10 +69,10 @@ Filaments Used:
    Regions: 6
    Location: 10 (AMS C, Slot 2)
 
-11. Bambu Lab PLA Matte Sky Blue
-   Hex: #5C94FC
-   RGB: (92, 148, 252)
-   Regions: 212
-   Location: 11 (AMS C, Slot 3)
+11. Bambu Lab PLA Matte Lemon Yellow
+   Hex: #FCE4A0
+   RGB: (252, 228, 160)
+   Regions: 5
+   Location: 8 (AMS B, Slot 4)
 
 ======================================================================

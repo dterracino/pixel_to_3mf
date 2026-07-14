@@ -1,8 +1,8 @@
 {
   "filename": "megaman2-79_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\megaman2-79_model.3mf",
-  "file_hash": "820b3957cd629e881d1b6941f18096d25289947cf3f0347b551e0544c66e88d1",
-  "timestamp": "2026-07-13T20:43:36.858364",
+  "file_hash": "ba5583371ec198671740a1660da8cc4a769c4b0397c04b7cfa5cab0d50b82e62",
+  "timestamp": "2026-07-13T20:57:42.932791",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -78,8 +78,8 @@
     "pixel_size_mm": 0.78125
   },
   "mesh_stats": {
-    "num_vertices": 15482,
-    "num_triangles": 23464,
+    "num_vertices": 128056,
+    "num_triangles": 253844,
     "num_regions": 364,
     "num_colors": 11
   }

@@ -9,7 +9,9 @@ import sys
 import os
 import zipfile
 import tempfile
+import re
 from pathlib import Path
+from unittest.mock import patch
 
 # Add parent directory to path to import the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -233,6 +235,130 @@ class TestWrite3MF(unittest.TestCase):
         # Verify file was created
         self.assertTrue(os.path.exists(output_path))
         self.assertGreater(os.path.getsize(output_path), 0)
+
+    def test_summary_uses_no_merge_filament_assignments(self):
+        """Summary should list final no-merge filament assignments, not pre-assignment names."""
+        vertices = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.5, 1.0, 0.0)]
+        triangles = [(0, 1, 2)]
+        mesh1 = Mesh(vertices=vertices, triangles=triangles)
+        mesh2 = Mesh(vertices=vertices, triangles=triangles)
+
+        pixels = {
+            (0, 0): (255, 0, 0, 255),
+            (1, 0): (0, 255, 0, 255),
+        }
+        pixel_data = PixelData(width=2, height=1, pixel_size_mm=1.0, pixels=pixels)
+
+        config = ConversionConfig(
+            color_naming_mode="filament",
+            merge_similar_colors=False,
+            no_backing_color=True,
+            base_height_mm=0.0,
+            generate_summary=True,
+        )
+
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.temp_files.append(output_path)
+
+        summary_path = output_path.replace('.3mf', '.summary.txt')
+        self.temp_files.append(summary_path)
+
+        meshes = [(mesh1, "region_1"), (mesh2, "region_2")]
+        region_colors = [(255, 0, 0), (0, 255, 0)]
+
+        greedy_assignments = {
+            (255, 0, 0): ("Filament A", (10, 10, 10)),
+            (0, 255, 0): ("Filament B", (20, 20, 20)),
+        }
+
+        with patch('pixel_to_3mf.threemf_writer.get_color_name', return_value="DUPLICATE"):
+            with patch('pixel_to_3mf.threemf_writer.greedy_filament_matching', return_value=greedy_assignments):
+                write_3mf(output_path, meshes, region_colors, pixel_data, config)
+
+        with open(summary_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        self.assertIn("Filament A", content)
+        self.assertIn("Filament B", content)
+
+    def test_summary_no_backing_color_with_backing_plate_does_not_crash(self):
+        """No-merge filament summary should handle backing plate color safely."""
+        vertices = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.5, 1.0, 0.0)]
+        triangles = [(0, 1, 2)]
+        mesh1 = Mesh(vertices=vertices, triangles=triangles)
+        backing_mesh = Mesh(vertices=vertices, triangles=triangles)
+
+        pixels = {(0, 0): (255, 0, 0, 255)}
+        pixel_data = PixelData(width=1, height=1, pixel_size_mm=1.0, pixels=pixels)
+
+        config = ConversionConfig(
+            color_naming_mode="filament",
+            merge_similar_colors=False,
+            no_backing_color=True,
+            base_height_mm=1.0,
+            generate_summary=True,
+        )
+
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.temp_files.append(output_path)
+
+        summary_path = output_path.replace('.3mf', '.summary.txt')
+        self.temp_files.append(summary_path)
+
+        meshes = [(mesh1, "region_1"), (backing_mesh, "backing_plate")]
+        region_colors = [(255, 0, 0)]
+
+        greedy_assignments = {
+            (255, 0, 0): ("Filament A", (10, 10, 10)),
+        }
+
+        with patch('pixel_to_3mf.threemf_writer.greedy_filament_matching', return_value=greedy_assignments):
+            write_3mf(output_path, meshes, region_colors, pixel_data, config)
+
+        self.assertTrue(os.path.exists(summary_path))
+
+    def test_summary_no_backing_color_does_not_add_extra_color_entry(self):
+        """Summary color list should match slot mapping when backing shares slot 1."""
+        vertices = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.5, 1.0, 0.0)]
+        triangles = [(0, 1, 2)]
+        mesh1 = Mesh(vertices=vertices, triangles=triangles)
+        backing_mesh = Mesh(vertices=vertices, triangles=triangles)
+
+        pixels = {(0, 0): (255, 0, 0, 255)}
+        pixel_data = PixelData(width=1, height=1, pixel_size_mm=1.0, pixels=pixels)
+
+        config = ConversionConfig(
+            color_naming_mode="filament",
+            merge_similar_colors=False,
+            no_backing_color=True,
+            base_height_mm=1.0,
+            generate_summary=True,
+        )
+
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.temp_files.append(output_path)
+
+        summary_path = output_path.replace('.3mf', '.summary.txt')
+        self.temp_files.append(summary_path)
+
+        meshes = [(mesh1, "region_1"), (backing_mesh, "backing_plate")]
+        region_colors = [(255, 0, 0)]
+
+        greedy_assignments = {
+            (255, 0, 0): ("Filament A", (10, 10, 10)),
+        }
+
+        with patch('pixel_to_3mf.threemf_writer.greedy_filament_matching', return_value=greedy_assignments):
+            write_3mf(output_path, meshes, region_colors, pixel_data, config)
+
+        with open(summary_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        entries = re.findall(r'^\d+\.\s', content, flags=re.MULTILINE)
+        self.assertEqual(len(entries), 1)
 
 
 class TestWrite3MFIntegration(unittest.TestCase):

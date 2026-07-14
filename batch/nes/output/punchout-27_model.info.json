@@ -1,8 +1,8 @@
 {
   "filename": "punchout-27_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\punchout-27_model.3mf",
-  "file_hash": "65886b8d8764eae5aeb1ae0469c7c61a5524846dfe59486ab1794833cd55b336",
-  "timestamp": "2026-07-13T20:44:20.195064",
+  "file_hash": "55328a0df74b05a3fc96034ab3948f9bbe5f02bfe9396f2e959a3517a3d5c77e",
+  "timestamp": "2026-07-13T20:58:37.151438",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -114,8 +114,8 @@
     "pixel_size_mm": 0.78125
   },
   "mesh_stats": {
-    "num_vertices": 73330,
-    "num_triangles": 145004,
+    "num_vertices": 190288,
+    "num_triangles": 352240,
     "num_regions": 1299,
     "num_colors": 17
   }

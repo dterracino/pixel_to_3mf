@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: mario1-31_model.3mf
-Total Colors/Regions: 757
+Total Colors/Regions: 756
 Color Naming Mode: filament
 
 Filaments Used:
@@ -36,7 +36,7 @@ Filaments Used:
 5. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 52
+   Regions: 51
    Location: 5 (AMS B, Slot 1)
 
 6. Bambu Lab PLA Basic Pumpkin Orange

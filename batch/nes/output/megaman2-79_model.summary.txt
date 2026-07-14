@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: megaman2-79_model.3mf
-Total Colors/Regions: 365
+Total Colors/Regions: 364
 Color Naming Mode: filament
 
 Filaments Used:
@@ -30,7 +30,7 @@ Filaments Used:
 4. Bambu Lab PLA Basic Jade White
    Hex: #FCFCFC
    RGB: (252, 252, 252)
-   Regions: 60
+   Regions: 59
    Location: 4 (AMS A, Slot 4)
 
 5. Bambu Lab PLA Basic Mistletoe Green

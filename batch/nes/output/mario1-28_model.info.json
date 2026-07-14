@@ -1,8 +1,8 @@
 {
   "filename": "mario1-28_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\mario1-28_model.3mf",
-  "file_hash": "d197fe5914d4f72e106fe45671891a1e3957e62d1093e6c489f7ce2b8688e838",
-  "timestamp": "2026-07-13T20:43:27.730652",
+  "file_hash": "80b7177cd9135b5c09feef89097891e72dda4efc77ce4122c625648604a90cc6",
+  "timestamp": "2026-07-13T20:57:24.715359",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -78,8 +78,8 @@
     "pixel_size_mm": 0.78125
   },
   "mesh_stats": {
-    "num_vertices": 28020,
-    "num_triangles": 43554,
+    "num_vertices": 141128,
+    "num_triangles": 276696,
     "num_regions": 385,
     "num_colors": 11
   }

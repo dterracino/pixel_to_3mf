@@ -1,8 +1,8 @@
 {
   "filename": "ninja1-67_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\ninja1-67_model.3mf",
-  "file_hash": "0eabd591783ffa14edebca2839c52b14c1e560858b9eeaf39ceb2365a150fd1f",
-  "timestamp": "2026-07-13T20:43:50.445604",
+  "file_hash": "ee90f8c214d38d78838bf952a023149d6418acbc0b1e15310080761eca73af1e",
+  "timestamp": "2026-07-13T20:58:07.037885",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -60,8 +60,8 @@
     "pixel_size_mm": 0.78125
   },
   "mesh_stats": {
-    "num_vertices": 49188,
-    "num_triangles": 77562,
+    "num_vertices": 155380,
+    "num_triangles": 299540,
     "num_regions": 1162,
     "num_colors": 8
   }
