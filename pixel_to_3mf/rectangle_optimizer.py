@@ -506,7 +506,11 @@ def generate_backing_plate_optimized(
     # Create a copy to avoid modifying original
     class BackingConfig:
         def __init__(self, base_config: 'ConversionConfig'):
-            self.color_height_mm = base_config.base_height_mm
+            # Backing plate spans from -base_height_mm up to 0.0.
+            # Optimized helpers read z_top from color_height_mm and z_bottom
+            # from color_layer_z_bottom, so we expose both attributes here.
+            self.color_height_mm = 0.0
+            self.color_layer_z_bottom = -base_config.base_height_mm
     
     backing_config = BackingConfig(config)
     

@@ -1,0 +1,78 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: mario1-31_model.3mf
+Total Colors/Regions: 757
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Bambu Green
+   Hex: #00A800
+   RGB: (0, 168, 0)
+   Regions: 15
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 38
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Bright Green
+   Hex: #80D010
+   RGB: (128, 208, 16)
+   Regions: 24
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Bronze
+   Hex: #887000
+   RGB: (136, 112, 0)
+   Regions: 7
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Jade White
+   Hex: #FCFCFC
+   RGB: (252, 252, 252)
+   Regions: 52
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Basic Pumpkin Orange
+   Hex: #FC9838
+   RGB: (252, 152, 56)
+   Regions: 6
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Basic Red
+   Hex: #D82800
+   RGB: (216, 40, 0)
+   Regions: 3
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Basic Turquoise
+   Hex: #008088
+   RGB: (0, 128, 136)
+   Regions: 509
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Dark Blue
+   Hex: #183C5C
+   RGB: (24, 60, 92)
+   Regions: 1
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Dark Green
+   Hex: #004400
+   RGB: (0, 68, 0)
+   Regions: 3
+   Location: 10 (AMS C, Slot 2)
+
+11. Bambu Lab PLA Matte Ice Blue
+   Hex: #9CFCF0
+   RGB: (156, 252, 240)
+   Regions: 99
+   Location: 11 (AMS C, Slot 3)
+
+======================================================================

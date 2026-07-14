@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Optimized batch conversion crash with backing plate**: Fixed an `AttributeError` in the rectangle optimizer backing-plate path (`BackingConfig` missing `color_layer_z_bottom`) that caused all `--batch --optimize-mesh` conversions to fail before writing output files.
 - **`--iterate-quantize` backing color accounting**: Fixed iterative quantization producing `max_colors + 1` total slots when backing color is enabled. The iteration now compares against `max_colors - 1` (the actual slots available for image colors) instead of `max_colors`, correctly accounting for the slot reserved by the backing plate.
 - **Pyright type error in iterate-quantize loop**: Fixed union type ambiguity on `unique_names` set (`set[str] | set[Tuple]` inferred instead of `set[str | Tuple]`) by adding an explicit type annotation.
 - **Quantization trigger**: Fixed quantization only running when color count exceeds `max_colors`. Now runs whenever `--quantize` is True, allowing reduction from any color count to target (e.g., 7 colors → 4 colors even when max is 16)

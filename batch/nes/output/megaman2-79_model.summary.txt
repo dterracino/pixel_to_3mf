@@ -1,0 +1,78 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: megaman2-79_model.3mf
+Total Colors/Regions: 365
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 17
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Bright Green
+   Hex: #80D010
+   RGB: (128, 208, 16)
+   Regions: 11
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Hot Pink
+   Hex: #FC74B4
+   RGB: (252, 116, 180)
+   Regions: 62
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Jade White
+   Hex: #FCFCFC
+   RGB: (252, 252, 252)
+   Regions: 60
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Mistletoe Green
+   Hex: #009400
+   RGB: (0, 148, 0)
+   Regions: 47
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Basic Pumpkin Orange
+   Hex: #FC9838
+   RGB: (252, 152, 56)
+   Regions: 10
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Basic Sunflower Yellow
+   Hex: #F0BC3C
+   RGB: (240, 188, 60)
+   Regions: 11
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Dark Red
+   Hex: #E40058
+   RGB: (228, 0, 88)
+   Regions: 2
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Desert Tan
+   Hex: #FCE4A0
+   RGB: (252, 228, 160)
+   Regions: 105
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Marine Blue
+   Hex: #0070EC
+   RGB: (0, 112, 236)
+   Regions: 5
+   Location: 10 (AMS C, Slot 2)
+
+11. Bambu Lab PLA Matte Sakura Pink
+   Hex: #FCC4FC
+   RGB: (252, 196, 252)
+   Regions: 35
+   Location: 11 (AMS C, Slot 3)
+
+======================================================================

@@ -1,0 +1,86 @@
+{
+  "filename": "mario1-31_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\batch\\nes\\output\\mario1-31_model.3mf",
+  "file_hash": "5ceea9f40de54e4bcdd7946b0a97d57e03b701d66cd71fad0d93d830e0fa43c7",
+  "timestamp": "2026-07-13T20:43:32.865089",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Bambu Green",
+      "hex": "#00ae42",
+      "rgb": [0, 174, 66],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bright Green",
+      "hex": "#becf00",
+      "rgb": [190, 207, 0],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bronze",
+      "hex": "#847d48",
+      "rgb": [132, 125, 72],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pumpkin Orange",
+      "hex": "#ff9016",
+      "rgb": [255, 144, 22],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Turquoise",
+      "hex": "#00b1b7",
+      "rgb": [0, 177, 183],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Blue",
+      "hex": "#042f56",
+      "rgb": [4, 47, 86],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Green",
+      "hex": "#68724d",
+      "rgb": [104, 114, 77],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Ice Blue",
+      "hex": "#a3d8e1",
+      "rgb": [163, 216, 225],
+      "ams_slot": "C-3"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 175.0,
+    "pixel_size_mm": 0.78125
+  },
+  "mesh_stats": {
+    "num_vertices": 21852,
+    "num_triangles": 34904,
+    "num_regions": 756,
+    "num_colors": 11
+  }
+}

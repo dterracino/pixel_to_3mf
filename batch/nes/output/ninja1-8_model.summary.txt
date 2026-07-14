@@ -1,0 +1,78 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: ninja1-8_model.3mf
+Total Colors/Regions: 2156
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 540
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Blue
+   Hex: #24188C
+   RGB: (36, 24, 140)
+   Regions: 129
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Bright Green
+   Hex: #80D010
+   RGB: (128, 208, 16)
+   Regions: 101
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+5. Bambu Lab PLA Basic Mistletoe Green
+   Hex: #009400
+   RGB: (0, 148, 0)
+   Regions: 1134
+   Location: 4 (AMS A, Slot 4)
+
+6. Bambu Lab PLA Basic Pink
+   Hex: #FC7460
+   RGB: (252, 116, 96)
+   Regions: 5
+   Location: 5 (AMS B, Slot 1)
+
+7. Bambu Lab PLA Basic Red
+   Hex: #D82800
+   RGB: (216, 40, 0)
+   Regions: 5
+   Location: 6 (AMS B, Slot 2)
+
+8. Bambu Lab PLA Basic Silver
+   Hex: #BCBCBC
+   RGB: (188, 188, 188)
+   Regions: 8
+   Location: 7 (AMS B, Slot 3)
+
+9. Bambu Lab PLA Matte Desert Tan
+   Hex: #FCE4A0
+   RGB: (252, 228, 160)
+   Regions: 15
+   Location: 8 (AMS B, Slot 4)
+
+10. Bambu Lab PLA Matte Grass Green
+   Hex: #58F898
+   RGB: (88, 248, 152)
+   Regions: 6
+   Location: 10 (AMS C, Slot 2)
+
+11. Bambu Lab PLA Matte Sky Blue
+   Hex: #5C94FC
+   RGB: (92, 148, 252)
+   Regions: 212
+   Location: 11 (AMS C, Slot 3)
+
+======================================================================
