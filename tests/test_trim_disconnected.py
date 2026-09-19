@@ -331,14 +331,14 @@ class TestTrimDisconnectedPixels(unittest.TestCase):
         expected = region_pixels - {(4, 1), (5, 2)}
         self.assertEqual(result[0].pixels, expected)
     
-    def test_single_pixel_region_surrounded_by_other_color_removed(self):
-        """Test that a one-pixel region is removed even when other colors touch its edges."""
-        # Red pixel surrounded by blue pixels - it is still an unprintable island
+    def test_single_pixel_region_surrounded_by_other_color_preserved(self):
+        """Test that adjacent colors provide printable support for a one-pixel detail."""
+        # Red pixel surrounded by blue pixels - it is supported on every edge
         # Pattern:
         # BBBBB
         # BBRBBB
         # BBBBB
-        # The R pixel is its own one-pixel mesh object, so it should be removed
+        # The R pixel is a separate color region but not a floating island
         
         red_pixels = {(2, 1)}  # Single red pixel
         blue_pixels = {
@@ -357,9 +357,10 @@ class TestTrimDisconnectedPixels(unittest.TestCase):
         
         result = trim_disconnected_pixels([red_region, blue_region], all_pixels)
         
-        # Only the printable blue region should remain
-        self.assertEqual(len(result), 1)
-        blue_result = result[0]
+        self.assertEqual(len(result), 2)
+        red_result = next(r for r in result if r.color == (255, 0, 0))
+        blue_result = next(r for r in result if r.color == (0, 0, 255))
+        self.assertEqual(red_result.pixels, red_pixels)
         self.assertEqual(blue_result.pixels, blue_pixels)
     
     def test_diagonal_line_surrounded_by_other_color_preserved(self):

@@ -329,8 +329,8 @@ def trim_disconnected_pixels(
     Remove disconnected pixels from regions.
     
     Disconnected pixels are those that have NO edge-connected neighbors of ANY color.
-    One-pixel regions are also removed because they produce isolated mesh objects
-    that are too small to print reliably, even when another color touches an edge.
+    One-pixel color regions are retained when another color touches an edge because
+    that shared boundary provides physical support in the assembled model.
     These are problematic for 3D printing because:
     1. The physical connection is too weak to print reliably
     2. In the 3D mesh, they only share a vertex with neighbors, not an edge
@@ -359,22 +359,10 @@ def trim_disconnected_pixels(
         List of Region objects with disconnected pixels removed.
         Empty regions (if all pixels were disconnected) are filtered out.
     """
-    singleton_pixels = {
-        next(iter(region.pixels))
-        for region in regions
-        if len(region.pixels) == 1
-    }
-    remaining_pixels = {
-        coordinate: rgba
-        for coordinate, rgba in all_pixels.items()
-        if coordinate not in singleton_pixels
-    }
+    remaining_pixels = dict(all_pixels)
     trimmed_regions: List[Region] = []
     
     for region in regions:
-        if len(region.pixels) == 1:
-            continue
-
         # Keep removing disconnected pixels until none remain
         region_pixels = set(region.pixels)
         
