@@ -161,7 +161,8 @@ def process_batch(
     input_folder: Path,
     output_folder: Path,
     config: ConversionConfig,
-    recurse: bool = False
+    recurse: bool = False,
+    scale_to: Path | None = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     Process all images in a folder in batch mode.
@@ -171,6 +172,8 @@ def process_batch(
         output_folder: Folder where output files should be written
         config: ConversionConfig object with conversion parameters (including skip_checks and batch_mode flags)
         recurse: If True, process subfolders recursively and maintain folder structure
+        scale_to: Optional reference image to process first. In max-size mode,
+            its calculated millimeters-per-pixel scale is reused by the batch.
         
     Returns:
         Dictionary with 'success', 'skipped', and 'failed' results
@@ -193,12 +196,36 @@ def process_batch(
     if not image_files:
         console.print(f"[yellow]⚠️  No image files found in {input_folder}[/yellow]")
         return results
+
+    ordered_files = sorted(image_files)
+    if scale_to is not None:
+        reference_path = scale_to if scale_to.is_absolute() else input_folder / scale_to
+        reference_path = reference_path.resolve()
+        reference_matches = [path for path in ordered_files if path.resolve() == reference_path]
+        if not reference_matches:
+            raise ValueError(
+                f"--scale-to reference must be an image in the batch input folder: {scale_to}"
+            )
+        reference_file = reference_matches[0]
+        ordered_files = [reference_file] + [path for path in ordered_files if path != reference_file]
     
     console.print(f"[cyan]📁 Found {len(image_files)} image(s) to process[/cyan]")
+    if config.scale_mm_per_pixel is not None:
+        console.print(
+            f"[cyan]Scale mode: fixed pixel scale "
+            f"({config.scale_mm_per_pixel:g}mm × {config.scale_mm_per_pixel:g}mm per pixel)[/cyan]"
+        )
+    elif scale_to is not None:
+        console.print(
+            f"[cyan]Scale mode: reference max-size ({config.max_size_mm:g}mm), "
+            f"reference={ordered_files[0].name}[/cyan]"
+        )
+    else:
+        console.print(f"[cyan]Scale mode: per-file max-size ({config.max_size_mm:g}mm)[/cyan]")
     console.print()
     
     # Process each file
-    for i, input_path in enumerate(sorted(image_files), start=1):
+    for i, input_path in enumerate(ordered_files, start=1):
         console.print(f"[cyan][{i}/{len(image_files)}] Processing: {input_path.name}[/cyan]")
         
         # Determine output path - preserve folder structure if recursive
@@ -223,6 +250,16 @@ def process_batch(
                 config=config,
                 progress_callback=None  # No progress in batch mode
             )
+
+            if scale_to is not None and i == 1 and config.scale_mm_per_pixel is None:
+                config.scale_mm_per_pixel = stats['pixel_size_mm']
+                console.print(
+                    f"[cyan]   Scale factor calculated: "
+                    f"{config.scale_mm_per_pixel:g}mm per pixel[/cyan]"
+                )
+            console.print(
+                f"[cyan]   Scale factor applied: {stats['pixel_size_mm']:g}mm per pixel[/cyan]"
+            )
             
             # Success!
             # Store relative path for better reporting in recursive mode
@@ -238,6 +275,7 @@ def process_batch(
                 'num_colors': stats['num_colors'],
                 'model_width_mm': stats['model_width_mm'],
                 'model_height_mm': stats['model_height_mm'],
+                'pixel_size_mm': stats['pixel_size_mm'],
                 'num_vertices': stats['num_vertices'],
                 'num_triangles': stats['num_triangles'],
                 'file_size': stats['file_size']
@@ -247,6 +285,11 @@ def process_batch(
             
         except ValueError as e:
             error_msg = str(e)
+
+            if scale_to is not None and i == 1 and config.scale_mm_per_pixel is None:
+                raise ValueError(
+                    f"Unable to calculate batch scale from reference {input_path.name}: {error_msg}"
+                ) from e
             
             # Determine input file display name
             input_display = str(input_path.relative_to(input_folder)) if recurse else input_path.name
@@ -268,6 +311,10 @@ def process_batch(
                 error_console.print(f"[red]   ❌ Failed: {error_msg}[/red]")
                 
         except Exception as e:
+            if scale_to is not None and i == 1 and config.scale_mm_per_pixel is None:
+                raise ValueError(
+                    f"Unable to calculate batch scale from reference {input_path.name}: {e}"
+                ) from e
             # Any other error = failure
             input_display = str(input_path.relative_to(input_folder)) if recurse else input_path.name
             results['failed'].append({
@@ -371,6 +418,22 @@ The program will:
         type=float,
         default=MAX_MODEL_SIZE_MM,
         help=f"Maximum dimension (width or height) in mm (default: {MAX_MODEL_SIZE_MM})"
+    )
+
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=None,
+        metavar="MM",
+        help="Scale each source pixel to an MM x MM square, overriding --max-size"
+    )
+
+    parser.add_argument(
+        "--scale-to",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help="In batch mode, process FILE first and apply its scale to every image"
     )
     
     parser.add_argument(
@@ -799,6 +862,9 @@ The program will:
             sys.exit(1)
     else:
         # Single-file mode - image_file is required
+        if args.scale_to:
+            error_console.print("[red]❌ Error: --scale-to is only valid in batch mode[/red]")
+            sys.exit(1)
         if not args.image_file:
             error_console.print("[red]❌ Error: Image file is required (or use --batch mode)[/red]")
             parser.print_help()
@@ -871,6 +937,7 @@ The program will:
     try:
         config = ConversionConfig(
             max_size_mm=args.max_size,
+            scale_mm_per_pixel=args.scale,
             line_width_mm=args.line_width,
             color_height_mm=args.color_height,
             base_height_mm=base_height,
@@ -967,7 +1034,17 @@ The program will:
         
         # Process the batch
         start_time = datetime.now()
-        results = process_batch(input_folder, output_folder, config, recurse=args.recurse)
+        try:
+            results = process_batch(
+                input_folder,
+                output_folder,
+                config,
+                recurse=args.recurse,
+                scale_to=Path(args.scale_to) if args.scale_to else None,
+            )
+        except ValueError as e:
+            error_console.print(f"[red]❌ Error: {e}[/red]")
+            sys.exit(1)
         end_time = datetime.now()
         
         # Generate summary
@@ -1026,7 +1103,13 @@ The program will:
     config_table.add_row("Output File", output_path)
     
     # Dimensions
-    config_table.add_row("Max Size", f"{config.max_size_mm}mm")
+    if config.scale_mm_per_pixel is not None:
+        config_table.add_row(
+            "Scale Mode",
+            f"Fixed ({config.scale_mm_per_pixel:g}mm × {config.scale_mm_per_pixel:g}mm per pixel)",
+        )
+    else:
+        config_table.add_row("Scale Mode", f"Max size ({config.max_size_mm:g}mm)")
     config_table.add_row("Line Width", f"{config.line_width_mm}mm")
     
     # Heights
@@ -1141,6 +1224,23 @@ The program will:
     def warning_callback(warning_type: str, data: Dict[str, Any]) -> bool:
         """Handle warnings during conversion, ask user for confirmation."""
         if warning_type == 'resolution_warning':
+            if data['scale_mm_per_pixel'] is not None:
+                scaling_detail = (
+                    f"[cyan]Fixed scale:[/cyan]      {data['scale_mm_per_pixel']}mm per pixel\n"
+                )
+                scale_suggestion = (
+                    f"   • Increase --scale to at least {data['line_width_mm']}"
+                )
+            else:
+                scaling_detail = (
+                    f"[cyan]Max recommended:[/cyan]  {data['max_recommended_px']} pixels "
+                    f"({data['max_size_mm']}mm ÷ {data['line_width_mm']}mm)\n"
+                )
+                scale_suggestion = (
+                    f"   • Increase --max-size "
+                    f"(e.g., --max-size {int(data['max_dimension_px'] * data['line_width_mm'])})"
+                )
+
             # Display warning panel
             console.print()
             warning_panel = Panel(
@@ -1148,8 +1248,7 @@ The program will:
                 f"[cyan]Image dimensions:[/cyan] {data['image_width']} x {data['image_height']} pixels "
                 f"({data['max_dimension_px']}px largest)\n"
                 f"[cyan]Your line width:[/cyan]  {data['line_width_mm']}mm\n"
-                f"[cyan]Max recommended:[/cyan]  {data['max_recommended_px']} pixels "
-                f"({data['max_size_mm']}mm ÷ {data['line_width_mm']}mm)\n\n"
+                f"{scaling_detail}\n"
                 f"[yellow]Your pixels will be: {data['pixel_size_mm']:.3f}mm each[/yellow]\n"
                 f"[yellow]This is SMALLER than your line width ({data['line_width_mm']}mm)![/yellow]\n\n"
                 "[dim]The printer may struggle with details this fine.[/dim]",
@@ -1168,7 +1267,7 @@ The program will:
                 console.print()
                 console.print("[bold cyan]💡 Suggestions:[/bold cyan]")
                 console.print(f"   • Resize your image to max {data['max_recommended_px']}px in an image editor")
-                console.print(f"   • Increase --max-size (e.g., --max-size {int(data['max_dimension_px'] * data['line_width_mm'])})")
+                console.print(scale_suggestion)
                 console.print(f"   • Use a smaller nozzle and adjust --line-width accordingly")
                 console.print()
                 return False
@@ -1399,7 +1498,10 @@ The program will:
     
     stats_table.add_row("Image:", f"{stats['image_width']} x {stats['image_height']} pixels")
     stats_table.add_row("Model:", f"{stats['model_width_mm']:.1f} x {stats['model_height_mm']:.1f} mm")
-    stats_table.add_row("Pixel size:", f"{round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm")
+    stats_table.add_row(
+        "Scale factor:",
+        f"{round(stats['pixel_size_mm'], COORDINATE_PRECISION)} mm per pixel",
+    )
     if config.has_solid_core:
         shell_regions = stats['num_regions'] * 2
         stats_table.add_row("Regions:", f"{stats['num_regions']} x 2 = {shell_regions:,} ({stats['num_colors']} colors, 2x shells via solid core)")

@@ -16,6 +16,9 @@ import tempfile
 import shutil
 from pathlib import Path
 from datetime import datetime
+from unittest.mock import patch
+
+from rich.console import Console
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -161,6 +164,90 @@ class TestProcessBatch(unittest.TestCase):
         # Check output files exist
         self.assertTrue((self.output_dir / "image1_model.3mf").exists())
         self.assertTrue((self.output_dir / "image2_model.3mf").exists())
+
+    def test_scale_to_processes_reference_first_and_reuses_its_scale(self):
+        """Test max-size scaling is derived from the reference and reused."""
+        reference_path = create_simple_square_image(size=10, color=(255, 0, 0))
+        other_path = create_simple_square_image(size=4, color=(0, 0, 255))
+        shutil.move(reference_path, self.input_dir / "z-reference.png")
+        shutil.move(other_path, self.input_dir / "a-other.png")
+
+        config = ConversionConfig(max_size_mm=20.0, batch_mode=True, skip_checks=True)
+        recording_console = Console(record=True, width=120)
+        with patch("pixel_to_3mf.cli.console", recording_console):
+            results = process_batch(
+                self.input_dir,
+                self.output_dir,
+                config,
+                scale_to=Path("z-reference.png"),
+            )
+
+        self.assertEqual(
+            [item['input_file'] for item in results['success']],
+            ["z-reference.png", "a-other.png"],
+        )
+        self.assertEqual(results['success'][0]['pixel_size_mm'], 2.0)
+        self.assertEqual(results['success'][1]['pixel_size_mm'], 2.0)
+        self.assertEqual(results['success'][1]['model_width_mm'], 8.0)
+        output = recording_console.export_text()
+        self.assertIn("Scale mode: reference max-size", output)
+        self.assertIn("Scale factor calculated: 2mm per pixel", output)
+        self.assertEqual(output.count("Scale factor applied: 2mm per pixel"), 2)
+
+    def test_batch_explicit_scale_applies_to_every_file(self):
+        """Test explicit millimeters-per-pixel scaling is shared by the batch."""
+        first_path = create_simple_square_image(size=3, color=(255, 0, 0))
+        second_path = create_simple_square_image(size=5, color=(0, 0, 255))
+        shutil.move(first_path, self.input_dir / "first.png")
+        shutil.move(second_path, self.input_dir / "second.png")
+
+        config = ConversionConfig(
+            scale_mm_per_pixel=1.4,
+            batch_mode=True,
+            skip_checks=True,
+        )
+        results = process_batch(self.input_dir, self.output_dir, config)
+
+        self.assertEqual(
+            [item['pixel_size_mm'] for item in results['success']],
+            [1.4, 1.4],
+        )
+
+    def test_explicit_scale_controls_printability_check(self):
+        """Test fixed scale is checked directly instead of using max-size dimensions."""
+        test_size = 50
+        positions = [(x, y) for x in range(test_size) for y in range(test_size)]
+        image_path = create_test_image(
+            test_size,
+            test_size,
+            {(255, 0, 0, 255): positions},
+        )
+        shutil.move(image_path, self.input_dir / "fixed-scale.png")
+
+        config = ConversionConfig(
+            max_size_mm=20.0,
+            scale_mm_per_pixel=1.0,
+            line_width_mm=0.42,
+            batch_mode=True,
+        )
+        results = process_batch(self.input_dir, self.output_dir, config)
+
+        self.assertEqual(len(results['success']), 1)
+        self.assertEqual(len(results['skipped']), 0)
+        self.assertEqual(results['success'][0]['model_width_mm'], 50.0)
+
+    def test_scale_to_rejects_file_outside_batch(self):
+        """Test that the reference must be one of the discovered batch images."""
+        image_path = create_simple_square_image(size=3, color=(255, 0, 0))
+        shutil.move(image_path, self.input_dir / "image.png")
+
+        with self.assertRaisesRegex(ValueError, "must be an image in the batch"):
+            process_batch(
+                self.input_dir,
+                self.output_dir,
+                ConversionConfig(batch_mode=True),
+                scale_to=Path("missing.png"),
+            )
     
     def test_process_with_skip_checks(self):
         """Test batch processing with skip_checks enabled."""

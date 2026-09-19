@@ -142,6 +142,12 @@ python run_converter.py --batch \
   --max-colors 20 \
   --skip-checks
 
+# Keep every sprite at the scale calculated from hero.png
+python run_converter.py --batch \
+  --batch-input my_sprites \
+  --max-size 150 \
+  --scale-to hero.png
+
 # Process subfolders recursively, preserving folder structure
 python run_converter.py --batch \
   --batch-input game_assets \
@@ -156,6 +162,7 @@ python run_converter.py --batch \
 - ✅ Continues processing if individual files fail
 - ✅ Use `--skip-checks` to bypass resolution warnings
 - ✅ Use `--recurse` to process subfolders and maintain folder structure in output
+- ✅ Use `--scale-to` to process a reference first and reuse its physical pixel scale
 
 ### Command-Line Options Reference
 
@@ -166,6 +173,7 @@ python run_converter.py --batch \
 | `image_file` | Input pixel art image (PNG, JPG, etc.) | Required |
 | `-o, --output` | Output 3MF file path | `{input}_model.3mf` |
 | `--max-size` | Maximum model dimension in mm | 200 |
+| `--scale` | Size of each source pixel in mm (`n` creates `n`mm × `n`mm squares); overrides `--max-size` | Off |
 | `--line-width` | Nozzle line width for printability checks (mm) | 0.42 |
 | `--color-height` | Height of colored layer (mm) | 1.0 |
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
@@ -202,6 +210,7 @@ python run_converter.py --batch \
 | `--batch` | Enable batch processing | Off |
 | `--batch-input` | Input folder with images | `batch/input` |
 | `--batch-output` | Output folder for 3MF files | `batch/output` |
+| `--scale-to` | Reference image to process first; all files reuse its calculated scale | Off |
 | `--skip-checks` | Skip resolution warnings | Off |
 | `--recurse` | Process subfolders recursively, maintaining folder structure in output | Off |
 
@@ -506,6 +515,16 @@ python run_converter.py image.png --max-size 150
 - **Result:** Fits within 150mm × 150mm build area
 - **Use case:** Smaller printers, multiple prints on one plate
 
+#### Fixed Pixel Scale
+
+```bash
+python run_converter.py image.png --scale 1.4
+```
+
+- **Result:** Every source pixel becomes a 1.4mm × 1.4mm square
+- **Precedence:** `--scale` overrides `--max-size`
+- **Use case:** Keeping several independently converted sprites at one physical pixel scale
+
 #### Thick & Sturdy (Coasters, Tiles)
 
 ```bash
@@ -618,6 +637,21 @@ python run_converter.py --batch \
 - **Output:** Individual 3MF files in `3d_models/`
 - **Size:** All scaled to 100mm max
 - **Summary:** Creates timestamped report in output folder
+
+To preserve relative sprite sizes, select one image as the scale reference:
+
+```bash
+python run_converter.py --batch \
+  --batch-input game_sprites \
+  --batch-output 3d_models \
+  --max-size 100 \
+  --scale-to hero.png
+```
+
+The reference must be an image in the batch input folder. It is processed first and
+scaled to the active `--max-size`. Its resulting millimeters-per-pixel value is then
+applied to every other image. When `--scale` is also supplied, that fixed value applies
+to every image and `--scale-to` only selects which file is processed first.
 
 #### Recursive Batch Processing with Folder Structure
 

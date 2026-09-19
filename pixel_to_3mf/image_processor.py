@@ -80,8 +80,9 @@ def calculate_pixel_size(
     """
     Calculate the size of each pixel in millimeters.
     
-    Simple and predictable: scales the largest dimension to exactly match
-    the max_size_mm from config. No rounding, no surprises!
+    An explicit scale_mm_per_pixel takes precedence when configured. Otherwise,
+    the largest dimension scales to exactly match max_size_mm. No rounding is
+    applied in either mode.
     
     Example:
         64x32 image with max_size=200mm
@@ -98,11 +99,14 @@ def calculate_pixel_size(
     Args:
         image_width: Width of image in pixels
         image_height: Height of image in pixels
-        config: ConversionConfig object with max_size_mm and other parameters
+        config: ConversionConfig with explicit scale or max-size parameters
     
     Returns:
         Pixel size in millimeters (exact, no rounding)
     """
+    if config.scale_mm_per_pixel is not None:
+        return config.scale_mm_per_pixel
+
     # Find the larger dimension
     max_dimension_px = max(image_width, image_height)
     

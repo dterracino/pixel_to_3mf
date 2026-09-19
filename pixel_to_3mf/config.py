@@ -119,6 +119,8 @@ class ConversionConfig:
 
     Attributes:
         max_size_mm: Maximum dimension (width or height) in millimeters
+        scale_mm_per_pixel: Explicit square size for each source pixel in millimeters.
+            When set, this overrides max_size_mm scaling.
         line_width_mm: Nozzle line width for printability check
         color_height_mm: Height of colored regions in millimeters
         base_height_mm: Height of backing plate in millimeters
@@ -165,6 +167,7 @@ class ConversionConfig:
     """
 
     max_size_mm: float = MAX_MODEL_SIZE_MM
+    scale_mm_per_pixel: float | None = None
     line_width_mm: float = LINE_WIDTH_MM
     color_height_mm: float = COLOR_LAYER_HEIGHT_MM
     base_height_mm: float = BASE_LAYER_HEIGHT_MM
@@ -241,6 +244,10 @@ class ConversionConfig:
         """Validate configuration parameters."""
         if self.max_size_mm <= 0:
             raise ValueError(f"max_size_mm must be positive, got {self.max_size_mm}")
+        if self.scale_mm_per_pixel is not None and self.scale_mm_per_pixel <= 0:
+            raise ValueError(
+                f"scale_mm_per_pixel must be positive, got {self.scale_mm_per_pixel}"
+            )
         if self.color_height_mm <= 0:
             raise ValueError(f"color_height_mm must be positive, got {self.color_height_mm}")
         if self.base_height_mm < 0:

@@ -314,14 +314,17 @@ def convert_image_to_3mf(
             ctx.snapshot_denoised(pixel_data)
             _progress("denoise", "Complete!")
 
-    _progress("load", f"Image loaded: {pixel_data.width}x{pixel_data.height}px, "
-                     f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel")
+    _progress(
+        "load",
+        f"Image loaded: {pixel_data.width}x{pixel_data.height}px, scale factor: "
+        f"{round(pixel_data.pixel_size_mm, COORDINATE_PRECISION)}mm per pixel",
+    )
 
-    # Check if resolution is too high for the line width
+    # Check whether the actual physical pixel size is too small for the line width.
     max_dimension_px = max(pixel_data.width, pixel_data.height)
     max_recommended_px = int(config.max_size_mm / config.line_width_mm)
     
-    if max_dimension_px > max_recommended_px:
+    if pixel_data.pixel_size_mm < config.line_width_mm:
         # Pixels are smaller than line width!
         
         if config.skip_checks:
@@ -333,7 +336,6 @@ def convert_image_to_3mf(
             raise ValueError(
                 f"Image resolution too high for reliable printing. "
                 f"Image: {pixel_data.width}x{pixel_data.height}px ({max_dimension_px}px max), "
-                f"Recommended max: {max_recommended_px}px for {config.line_width_mm}mm line width. "
                 f"Pixel size would be {pixel_data.pixel_size_mm:.3f}mm (smaller than line width)."
             )
         else:
@@ -347,7 +349,8 @@ def convert_image_to_3mf(
                     'line_width_mm': config.line_width_mm,
                     'max_recommended_px': max_recommended_px,
                     'max_size_mm': config.max_size_mm,
-                    'pixel_size_mm': pixel_data.pixel_size_mm
+                    'pixel_size_mm': pixel_data.pixel_size_mm,
+                    'scale_mm_per_pixel': config.scale_mm_per_pixel,
                 }
                 
                 # Ask callback if we should continue
@@ -359,7 +362,6 @@ def convert_image_to_3mf(
                 raise ValueError(
                     f"Image resolution too high for reliable printing. "
                     f"Image: {pixel_data.width}x{pixel_data.height}px ({max_dimension_px}px max), "
-                    f"Recommended max: {max_recommended_px}px for {config.line_width_mm}mm line width. "
                     f"Pixel size would be {pixel_data.pixel_size_mm:.3f}mm (smaller than line width)."
                 )
     

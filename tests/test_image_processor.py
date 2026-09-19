@@ -119,6 +119,19 @@ class TestCalculatePixelSize(unittest.TestCase):
         pixel_size = calculate_pixel_size(100, 100, config)
         self.assertEqual(pixel_size, 1.5)  # 150 / 100
 
+    def test_explicit_scale_overrides_max_size(self):
+        """Test that explicit scale sets the physical size of every pixel."""
+        config = ConversionConfig(max_size_mm=200.0, scale_mm_per_pixel=1.4)
+        pixel_size = calculate_pixel_size(100, 50, config)
+        self.assertEqual(pixel_size, 1.4)
+
+    def test_explicit_scale_must_be_positive(self):
+        """Test that zero and negative explicit scales are rejected."""
+        for scale in (0.0, -1.0):
+            with self.subTest(scale=scale):
+                with self.assertRaises(ValueError):
+                    ConversionConfig(scale_mm_per_pixel=scale)
+
 
 class TestLoadImage(unittest.TestCase):
     """Test image loading and processing."""
