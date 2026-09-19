@@ -331,14 +331,14 @@ class TestTrimDisconnectedPixels(unittest.TestCase):
         expected = region_pixels - {(4, 1), (5, 2)}
         self.assertEqual(result[0].pixels, expected)
     
-    def test_cross_color_edge_connection_preserved(self):
-        """Test that pixels with edge-connected neighbors of different colors are NOT trimmed."""
-        # Red pixel surrounded by blue pixels - should NOT be trimmed
+    def test_single_pixel_region_surrounded_by_other_color_removed(self):
+        """Test that a one-pixel region is removed even when other colors touch its edges."""
+        # Red pixel surrounded by blue pixels - it is still an unprintable island
         # Pattern:
         # BBBBB
         # BBRBBB
         # BBBBB
-        # The R pixel has edge-connected blue neighbors, so it should be kept
+        # The R pixel is its own one-pixel mesh object, so it should be removed
         
         red_pixels = {(2, 1)}  # Single red pixel
         blue_pixels = {
@@ -357,21 +357,9 @@ class TestTrimDisconnectedPixels(unittest.TestCase):
         
         result = trim_disconnected_pixels([red_region, blue_region], all_pixels)
         
-        # Should have 2 regions still (red pixel preserved due to blue neighbors)
-        self.assertEqual(len(result), 2)
-        
-        # Find regions by color
-        red_result = next((r for r in result if r.color == (255, 0, 0)), None)
-        blue_result = next((r for r in result if r.color == (0, 0, 255)), None)
-        
-        # Both regions should exist
-        self.assertIsNotNone(red_result)
-        self.assertIsNotNone(blue_result)
-        assert red_result is not None  # Type narrowing for Pyright
-        assert blue_result is not None  # Type narrowing for Pyright
-        
-        # Red pixel should be preserved (has edge-connected blue neighbors)
-        self.assertEqual(red_result.pixels, red_pixels)
+        # Only the printable blue region should remain
+        self.assertEqual(len(result), 1)
+        blue_result = result[0]
         self.assertEqual(blue_result.pixels, blue_pixels)
     
     def test_diagonal_line_surrounded_by_other_color_preserved(self):

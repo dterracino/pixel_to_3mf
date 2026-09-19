@@ -171,6 +171,33 @@ class TestTrimIntegration(unittest.TestCase):
         # Should still have 1 region with all 9 pixels
         self.assertEqual(stats['num_regions'], 1)
 
+    def test_preview_right_panel_excludes_trimmed_pixel(self):
+        """Test that the matched preview reflects the final trimmed model footprint."""
+        colors = {
+            (0, 0, 255, 255): [
+                (0, 0), (1, 0), (2, 0),
+                (0, 1),         (2, 1),
+                (0, 2), (1, 2), (2, 2),
+            ],
+            (255, 0, 0, 255): [(1, 1)],
+        }
+
+        input_path = create_test_image(3, 3, colors)
+        output_path = input_path.replace('.png', '_model.3mf')
+        preview_path = output_path.replace('.3mf', '_preview.png')
+        self.test_files.extend([input_path, output_path, preview_path])
+
+        config = ConversionConfig(
+            trim_disconnected=True,
+            generate_preview=True,
+            skip_checks=True,
+        )
+        convert_image_to_3mf(input_path, output_path, config=config)
+
+        with Image.open(preview_path) as preview:
+            self.assertEqual(preview.getpixel((1, 31)), (255, 0, 0))
+            self.assertEqual(preview.getpixel((24, 31)), (255, 255, 255))
+
 
 if __name__ == '__main__':
     unittest.main()

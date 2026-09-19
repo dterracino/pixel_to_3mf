@@ -43,6 +43,7 @@ class PipelineContext:
         original_pixels:    PixelData right after load_image() — always set.
         quantized_pixels:   PixelData after colour quantization, or None.
         denoised_pixels:    PixelData after blob denoising, or None.
+        model_pixels:       PixelData filtered to the final model regions.
         color_mapping:      Dict mapping detected RGB → filament/CSS RGB,
                             populated by write_3mf() via the preview_mapping
                             return value.  Used to render the matched preview.
@@ -51,6 +52,7 @@ class PipelineContext:
     original_pixels: PixelData | None = None
     quantized_pixels: PixelData | None = None
     denoised_pixels: PixelData | None = None
+    model_pixels: PixelData | None = None
     color_mapping: Dict[Tuple[int, int, int], Tuple[int, int, int]] | None = None
 
     # ------------------------------------------------------------------ #
@@ -68,6 +70,10 @@ class PipelineContext:
     def snapshot_denoised(self, pixel_data: PixelData) -> None:
         """Store a snapshot after denoising."""
         self.denoised_pixels = _copy_pixel_data(pixel_data)
+
+    def snapshot_model(self, pixel_data: PixelData) -> None:
+        """Store the pixel footprint represented by the final model regions."""
+        self.model_pixels = _copy_pixel_data(pixel_data)
 
     # ------------------------------------------------------------------ #
     # Convenience: the "most recent" snapshot before colour matching      #
@@ -154,9 +160,11 @@ def generate_previews(
         path = f"{stem}_preview.png"
         before = ctx.pre_match_pixels()
         assert before is not None
+        model_pixels = ctx.model_pixels or before
         _progress("Generating colour preview...")
         _save_side_by_side_mapped(
-            pixel_data=before,
+            left=before,
+            right=model_pixels,
             color_mapping=ctx.color_mapping,
             left_label="Before Matching",
             right_label="Matched Filament Colors",
@@ -223,25 +231,29 @@ def _save_side_by_side(
 
 
 def _save_side_by_side_mapped(
-    pixel_data: PixelData,
+    left: PixelData,
+    right: PixelData,
     color_mapping: Dict[Tuple[int, int, int], Tuple[int, int, int]],
     left_label: str,
     right_label: str,
     output_path: str,
 ) -> None:
     """
-    Render the pre-match PixelData alongside its filament-mapped version.
+    Render pre-match pixels beside the mapped final-model footprint.
     """
     from PIL import Image
     import numpy as np
 
-    h, w = pixel_data.height, pixel_data.width
+    h, w = left.height, left.width
     left_arr = np.zeros((h, w, 4), dtype=np.uint8)
     right_arr = np.zeros((h, w, 4), dtype=np.uint8)
 
-    for (x, y), (r, g, b, a) in pixel_data.pixels.items():
+    for (x, y), (r, g, b, a) in left.pixels.items():
         iy = h - 1 - y
         left_arr[iy, x] = (r, g, b, a)
+
+    for (x, y), (r, g, b, a) in right.pixels.items():
+        iy = h - 1 - y
         matched = color_mapping.get((r, g, b), (r, g, b))
         right_arr[iy, x] = (*matched, a)
 

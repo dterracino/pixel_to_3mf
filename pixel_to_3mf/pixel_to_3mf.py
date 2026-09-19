@@ -379,6 +379,9 @@ def convert_image_to_3mf(
     else:
         _progress("merge", f"Found {len(regions)} connected regions")
 
+    if config.generate_preview:
+        ctx.snapshot_model(_create_filtered_pixel_data(regions, pixel_data))
+
     # Step 2.7: Smooth region boundaries (optional — disabled by default)
     smoothed_regions = None
     if config.smooth_boundaries:

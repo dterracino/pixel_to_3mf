@@ -1,0 +1,44 @@
+{
+  "filename": "nes-mario_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\sprites\\nes-mario_model.3mf",
+  "file_hash": "63de2b5849f145c86c74f3fd2ad6cd8c3638621fdf818e31eaa238a16599360e",
+  "timestamp": "2026-09-18T21:16:56.919594",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Bronze",
+      "hex": "#847d48",
+      "rgb": [132, 125, 72],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Pumpkin Orange",
+      "hex": "#ff9016",
+      "rgb": [255, 144, 22],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "A-4"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 200.0,
+    "pixel_size_mm": 12.5
+  },
+  "mesh_stats": {
+    "num_vertices": 946,
+    "num_triangles": 1816,
+    "num_regions": 13,
+    "num_colors": 4
+  }
+}

@@ -329,6 +329,8 @@ def trim_disconnected_pixels(
     Remove disconnected pixels from regions.
     
     Disconnected pixels are those that have NO edge-connected neighbors of ANY color.
+    One-pixel regions are also removed because they produce isolated mesh objects
+    that are too small to print reliably, even when another color touches an edge.
     These are problematic for 3D printing because:
     1. The physical connection is too weak to print reliably
     2. In the 3D mesh, they only share a vertex with neighbors, not an edge
@@ -357,9 +359,22 @@ def trim_disconnected_pixels(
         List of Region objects with disconnected pixels removed.
         Empty regions (if all pixels were disconnected) are filtered out.
     """
+    singleton_pixels = {
+        next(iter(region.pixels))
+        for region in regions
+        if len(region.pixels) == 1
+    }
+    remaining_pixels = {
+        coordinate: rgba
+        for coordinate, rgba in all_pixels.items()
+        if coordinate not in singleton_pixels
+    }
     trimmed_regions: List[Region] = []
     
     for region in regions:
+        if len(region.pixels) == 1:
+            continue
+
         # Keep removing disconnected pixels until none remain
         region_pixels = set(region.pixels)
         
@@ -368,7 +383,7 @@ def trim_disconnected_pixels(
             # Check against ALL pixels in image, not just this region
             disconnected = {
                 (x, y) for x, y in region_pixels
-                if is_pixel_disconnected(x, y, all_pixels)
+                if is_pixel_disconnected(x, y, remaining_pixels)
             }
             
             # If no disconnected pixels found, we're done
@@ -378,11 +393,10 @@ def trim_disconnected_pixels(
             # Remove disconnected pixels from this region
             region_pixels -= disconnected
             
-            # Also remove them from all_pixels so they don't provide
+            # Also remove them from remaining_pixels so they don't provide
             # edge connections for other pixels in subsequent iterations
             for pixel in disconnected:
-                if pixel in all_pixels:
-                    all_pixels = {k: v for k, v in all_pixels.items() if k != pixel}
+                remaining_pixels.pop(pixel, None)
         
         # Only keep regions that still have pixels
         if region_pixels:
