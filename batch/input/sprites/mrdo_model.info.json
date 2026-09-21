@@ -1,0 +1,44 @@
+{
+  "filename": "mrdo_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\sprites\\mrdo_model.3mf",
+  "file_hash": "54bfa39e121d8a886715651da1189041fc434a8effa8ec1970e61f0676df029b",
+  "timestamp": "2026-09-21T10:17:07.621570",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Blue",
+      "hex": "#0a2989",
+      "rgb": [10, 41, 137],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Scarlet Red",
+      "hex": "#de4343",
+      "rgb": [222, 67, 67],
+      "ams_slot": "A-4"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 175.0,
+    "pixel_size_mm": 12.5
+  },
+  "mesh_stats": {
+    "num_vertices": 508,
+    "num_triangles": 952,
+    "num_regions": 18,
+    "num_colors": 4
+  }
+}
