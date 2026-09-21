@@ -1,0 +1,84 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: zelda-title-screen_model.3mf
+Total Colors/Regions: 1096
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 114
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Bright Green
+   Hex: #BCBE00
+   RGB: (188, 190, 0)
+   Regions: 132
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFEFF
+   RGB: (255, 254, 255)
+   Regions: 28
+   Location: 1 (AMS A, Slot 1)
+
+4. Bambu Lab PLA Basic Mistletoe Green
+   Hex: #0C9300
+   RGB: (12, 147, 0)
+   Regions: 204
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Silver
+   Hex: #ADADAD
+   RGB: (173, 173, 173)
+   Regions: 52
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Matte Apple Green
+   Hex: #B3F3CC
+   RGB: (179, 243, 204)
+   Regions: 16
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Matte Dark Chocolate
+   Hex: #333500
+   RGB: (51, 53, 0)
+   Regions: 222
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Desert Tan
+   Hex: #F7D8A5
+   RGB: (247, 216, 165)
+   Regions: 11
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Latte Brown
+   Hex: #FECCC5
+   RGB: (254, 204, 197)
+   Regions: 41
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Lilac Purple
+   Hex: #9290FF
+   RGB: (146, 144, 255)
+   Regions: 4
+   Location: 10 (AMS C, Slot 2)
+
+11. Bambu Lab PLA Matte Nardo Gray
+   Hex: #666666
+   RGB: (102, 102, 102)
+   Regions: 267
+   Location: 11 (AMS C, Slot 3)
+
+12. Bambu Lab PLA Matte Terracotta
+   Hex: #994E00
+   RGB: (153, 78, 0)
+   Regions: 5
+   Location: 12 (AMS C, Slot 4)
+
+======================================================================

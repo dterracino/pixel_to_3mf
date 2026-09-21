@@ -1,0 +1,72 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: pacman_model.3mf
+Total Colors/Regions: 325
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 11
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Blue
+   Hex: #2121DE
+   RGB: (33, 33, 222)
+   Regions: 32
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Gold
+   Hex: #FFB847
+   RGB: (255, 184, 71)
+   Regions: 2
+   Location: 4 (AMS A, Slot 4)
+
+4. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+5. Bambu Lab PLA Basic Light Gray
+   Hex: #DEDEDE
+   RGB: (222, 222, 222)
+   Regions: 27
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Basic Yellow
+   Hex: #FFFF00
+   RGB: (255, 255, 0)
+   Regions: 3
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Matte Grass Green
+   Hex: #00FFDE
+   RGB: (0, 255, 222)
+   Regions: 1
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Mandarin Orange
+   Hex: #FFB897
+   RGB: (255, 184, 151)
+   Regions: 244
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Sakura Pink
+   Hex: #FFB8DE
+   RGB: (255, 184, 222)
+   Regions: 2
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Scarlet Red
+   Hex: #FF0000
+   RGB: (255, 0, 0)
+   Regions: 2
+   Location: 10 (AMS C, Slot 2)
+
+======================================================================
