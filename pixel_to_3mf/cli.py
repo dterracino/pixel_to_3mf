@@ -502,8 +502,15 @@ The program will:
         "--backing-color",
         type=str,
         default=None,
-        help=f"Backing plate color as R,G,B (e.g., '255,255,255' for white). "
+        help=f"Backing plate color as R,G,B (e.g., '255,255,255' for white), or 'auto' "
+             f"to use the dominant image color. "
              f"If not in image, reserves 1 color slot. Default: {BACKING_COLOR}"
+    )
+
+    parser.add_argument(
+        "--auto-backing-color",
+        action="store_true",
+        help="Use the dominant non-transparent image color for the backing plate so it shares a slot"
     )
 
     parser.add_argument(
@@ -913,7 +920,21 @@ The program will:
 
     # Parse backing color if provided
     backing_color = BACKING_COLOR
-    if args.backing_color:
+    backing_color_is_auto = (
+        args.auto_backing_color
+        or (args.backing_color is not None and args.backing_color.strip().lower() == "auto")
+    )
+    if args.auto_backing_color and args.backing_color is not None:
+        error_console.print(
+            "[red]❌ Error: Use either --auto-backing-color or --backing-color, not both[/red]"
+        )
+        sys.exit(1)
+    if backing_color_is_auto and args.no_backing_color:
+        error_console.print(
+            "[red]❌ Error: Automatic backing color cannot be combined with --no-backing-color[/red]"
+        )
+        sys.exit(1)
+    if args.backing_color and not backing_color_is_auto:
         try:
             backing_color = _parse_rgb_color(args.backing_color)
         except Exception as e:
@@ -990,6 +1011,7 @@ The program will:
             base_height_mm=base_height,
             max_colors=args.max_colors,
             backing_color=backing_color,
+            auto_backing_color=backing_color_is_auto,
             no_backing_color=args.no_backing_color,
             no_backing_plate=args.no_backing_plate,
             solid_core=args.solid_core,
@@ -1174,7 +1196,13 @@ The program will:
     
     # Colors
     config_table.add_row("Max Colors", str(config.max_colors))
-    config_table.add_row("Backing Color", f"RGB{config.backing_color}" + (" (slot shared with color 1)" if config.no_backing_color else ""))
+    if config.auto_backing_color:
+        backing_color_display = "Automatic (dominant image color)"
+    else:
+        backing_color_display = f"RGB{config.backing_color}"
+        if config.no_backing_color:
+            backing_color_display += " (slot shared with color 1)"
+    config_table.add_row("Backing Color", backing_color_display)
     config_table.add_row("Color Naming Mode", config.color_naming_mode)
     
     # AMS Configuration

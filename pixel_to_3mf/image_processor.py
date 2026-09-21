@@ -72,6 +72,24 @@ class PixelData:
         )
 
 
+def _get_dominant_color(
+    pixels: Dict[Tuple[int, int], Tuple[int, int, int, int]]
+) -> Tuple[int, int, int]:
+    """Select the most frequent RGB, using image scan order to break ties."""
+    color_counts: Dict[Tuple[int, int, int], int] = {}
+    for red, green, blue, _ in pixels.values():
+        color = (red, green, blue)
+        color_counts[color] = color_counts.get(color, 0) + 1
+
+    if not color_counts:
+        raise ValueError(
+            "Cannot select an automatic backing color because the image has no "
+            "non-transparent pixels."
+        )
+
+    return max(color_counts, key=color_counts.__getitem__)
+
+
 def calculate_pixel_size(
     image_width: int,
     image_height: int,
@@ -384,6 +402,9 @@ def load_image(
                 # So we need to flip: image_y=0 → 3d_y=(height-1)
                 flipped_y = height - 1 - y
                 pixels[(x, flipped_y)] = (int(r), int(g), int(b), int(a))
+
+    if config.auto_backing_color:
+        config.backing_color = _get_dominant_color(pixels)
     
     # Check color count with backing color reservation
     unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
@@ -430,6 +451,9 @@ def load_image(
             # Recalculate color count after quantization
             unique_colors = {(r, g, b) for r, g, b, a in pixels.values()}
             num_colors = len(unique_colors)
+
+            if config.auto_backing_color:
+                config.backing_color = _get_dominant_color(pixels)
             
             # Check again if we're within limits now
             backing_in_image = config.backing_color in unique_colors

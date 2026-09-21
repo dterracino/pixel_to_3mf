@@ -1,0 +1,36 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: mrdo_model.3mf
+Total Colors/Regions: 18
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 1
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Blue
+   Hex: #0000FF
+   RGB: (0, 0, 255)
+   Regions: 4
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 11
+   Location: 1 (AMS A, Slot 1)
+
+4. Bambu Lab PLA Matte Scarlet Red
+   Hex: #FF0000
+   RGB: (255, 0, 0)
+   Regions: 2
+   Location: 4 (AMS A, Slot 4)
+
+======================================================================

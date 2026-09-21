@@ -26,6 +26,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Auto-Crop**: Optional automatic cropping of fully transparent edges to optimize model size
 - **Smart Padding**: Add outlines around sprites to fill gaps between diagonally-connected pixels and improve printability
 - **Automatic Color Quantization**: Reduce image colors on-the-fly when exceeding limits - no external preprocessing needed!
+- **Automatic Backing Color**: Reuse each image's dominant visible color for the backing plate, leaving every configured color slot available to the image
 - **Flexible Color Naming**: Choose between CSS color names, filament names (with maker/type/finish filters), or hex codes
 - **AMS Integration**: Automatic AMS slot assignments with validation, CLI display table, and summary file recommendations
 - **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used with AMS slot locations (use `--summary`)
@@ -182,7 +183,8 @@ python run_converter.py --batch \
 | `--relief-height` | Extra height for non-background colors in relief mode (mm) | 1.0 |
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
-| `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
+| `--backing-color` | Backing plate color as R,G,B, or `auto` for the dominant image color | `255,255,255` (white) |
+| `--auto-backing-color` | Alias for `--backing-color auto` | Off |
 | `--no-backing-color` | Don't reserve a slot for the backing plate; backing reuses slot 1 | Off |
 | `--no-backing-plate` | Omit the backing plate entirely; color layers extend downward to fill the same total depth | Off |
 | `--solid-core` | Add a single-filament solid core between two thin colour shells; reduces filament-swap time | Off |
@@ -273,6 +275,7 @@ config = ConversionConfig(
     base_height_mm=2.0,
     max_colors=16,
     backing_color=(255, 255, 255),  # RGB tuple
+    auto_backing_color=False,       # Select dominant image RGB for backing
     auto_crop=True,                  # Crop transparent edges
     padding_size=5,                  # Add 5px outline padding
     padding_color=(255, 255, 255),   # White padding
@@ -637,6 +640,22 @@ python run_converter.py decal.png --base-height 0
 
 #### Reclaim the Backing Color Slot
 
+Use the dominant visible image color as the backing automatically:
+
+```bash
+python run_converter.py art.png --backing-color auto
+
+# Equivalent explicit flag
+python run_converter.py art.png --auto-backing-color
+```
+
+- **Color capacity:** Because the selected backing RGB already exists in the image, all `--max-colors` slots remain available to image colors
+- **Processing:** Transparent pixels are ignored; selection occurs after crop and padding and is recalculated after quantization
+- **Ties:** If multiple colors are equally common, the first one encountered in image scan order wins
+- **Batch mode:** Each input file selects its own dominant backing color independently
+
+To reuse slot 1 without automatically choosing the backing RGB:
+
 ```bash
 python run_converter.py art.png --no-backing-color
 ```
@@ -976,7 +995,6 @@ python run_converter.py sprite.png --auto-crop --padding-size 5 --quantize
    - Counts unique colors in the image (after auto-crop and padding)
    - Ensures it doesn't exceed your color limit (default: 16)
    - **Quantization**: Optionally reduces colors if needed (if `--quantize` is enabled)
-   - Reserves one color slot for backing plate if needed
 
 3. **Calculate Exact Scaling**
    - Determines pixel size: `pixel_size = max_size_mm / largest_dimension_px`

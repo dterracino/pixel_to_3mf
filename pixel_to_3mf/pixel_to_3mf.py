@@ -273,10 +273,12 @@ def convert_image_to_3mf(
             # Reconstruct: load without quantize to get original, then the
             # quantized result is already in pixel_data.
             original_config_q = config.quantize_colors
+            resolved_backing_color = config.backing_color
             config.quantize = False
             original_pixel_data = load_image(str(input_path), config)
             config.quantize = True
             config.quantize_colors = original_config_q
+            config.backing_color = resolved_backing_color
             ctx.snapshot_original(original_pixel_data)
             ctx.snapshot_quantized(pixel_data)
             if config.denoise_min_size > 0:

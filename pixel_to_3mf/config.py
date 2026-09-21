@@ -130,6 +130,8 @@ class ConversionConfig:
         base_height_mm: Height of backing plate in millimeters
         max_colors: Maximum unique colors allowed
         backing_color: RGB color for the backing plate (reserved if not in image)
+        auto_backing_color: If True, use the dominant non-transparent image color
+            for the backing plate so it shares an existing color slot
         no_backing_color: If True, don't reserve a slot for the backing color; all slots are available
             for image colors, and the backing plate reuses slot 1 (the first image color)
         no_backing_plate: If True, omit the backing plate entirely and extend color layers downward to
@@ -180,6 +182,7 @@ class ConversionConfig:
     base_height_mm: float = BASE_LAYER_HEIGHT_MM
     max_colors: int = MAX_COLORS
     backing_color: Tuple[int, int, int] = BACKING_COLOR
+    auto_backing_color: bool = False
     no_backing_color: bool = False
     no_backing_plate: bool = False
     solid_core: bool = False
@@ -271,6 +274,10 @@ class ConversionConfig:
             raise ValueError(f"backing_color must be an RGB tuple, got {self.backing_color}")
         if not all(0 <= c <= 255 for c in self.backing_color):
             raise ValueError(f"backing_color RGB values must be 0-255, got {self.backing_color}")
+        if self.auto_backing_color and self.no_backing_color:
+            raise ValueError(
+                "auto_backing_color cannot be combined with no_backing_color"
+            )
         if not isinstance(self.relief_background_color, tuple) or len(self.relief_background_color) != 3:
             raise ValueError(
                 "relief_background_color must be an RGB tuple, "

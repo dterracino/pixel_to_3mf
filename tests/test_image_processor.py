@@ -21,6 +21,7 @@ from pixel_to_3mf.image_processor import (
 from pixel_to_3mf.config import ConversionConfig
 from tests.helpers import (
     create_simple_square_image,
+    create_test_image,
     create_two_region_image,
     create_transparent_image,
     cleanup_test_file
@@ -200,6 +201,73 @@ class TestLoadImage(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             load_image(filepath, config_fail)
         self.assertIn("unique colors", str(context.exception))
+
+    def test_auto_backing_color_uses_dominant_image_color(self):
+        """Automatic backing shares the most frequently used image RGB."""
+        filepath = create_test_image(
+            3,
+            2,
+            {
+                (255, 0, 0, 255): [(0, 0), (1, 0), (2, 0), (0, 1)],
+                (0, 0, 255, 255): [(1, 1), (2, 1)],
+            },
+        )
+        self.test_files.append(filepath)
+        config = ConversionConfig(max_colors=2, auto_backing_color=True)
+
+        pixel_data = load_image(filepath, config)
+
+        self.assertEqual(config.backing_color, (255, 0, 0))
+        self.assertEqual(len(pixel_data.get_unique_colors()), 2)
+
+    def test_auto_backing_color_tie_uses_first_scanned_color(self):
+        """Equal-frequency colors resolve deterministically in image scan order."""
+        filepath = create_test_image(
+            2,
+            1,
+            {
+                (0, 255, 0, 255): [(0, 0)],
+                (255, 0, 0, 255): [(1, 0)],
+            },
+        )
+        self.test_files.append(filepath)
+        config = ConversionConfig(auto_backing_color=True)
+
+        load_image(filepath, config)
+
+        self.assertEqual(config.backing_color, (0, 255, 0))
+
+    def test_auto_backing_color_is_in_quantized_palette(self):
+        """Automatic backing is recalculated from the final quantized colors."""
+        filepath = create_test_image(
+            3,
+            1,
+            {
+                (255, 0, 0, 255): [(0, 0)],
+                (0, 255, 0, 255): [(1, 0)],
+                (0, 0, 255, 255): [(2, 0)],
+            },
+        )
+        self.test_files.append(filepath)
+        config = ConversionConfig(
+            max_colors=2,
+            auto_backing_color=True,
+            quantize=True,
+            quantize_colors=2,
+        )
+
+        pixel_data = load_image(filepath, config)
+
+        self.assertIn(config.backing_color, pixel_data.get_unique_colors())
+        self.assertLessEqual(len(pixel_data.get_unique_colors()), 2)
+
+    def test_auto_backing_color_rejects_fully_transparent_image(self):
+        """Automatic selection requires at least one visible pixel."""
+        filepath = create_test_image(2, 2, {})
+        self.test_files.append(filepath)
+
+        with self.assertRaisesRegex(ValueError, "no non-transparent pixels"):
+            load_image(filepath, ConversionConfig(auto_backing_color=True))
 
     def test_nonexistent_file(self):
         """Test that loading nonexistent file raises error."""

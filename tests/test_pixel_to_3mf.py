@@ -17,6 +17,7 @@ from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf, format_filesize
 from pixel_to_3mf.config import ConversionConfig
 from tests.helpers import (
     create_simple_square_image,
+    create_test_image,
     create_two_region_image,
     create_transparent_image,
     cleanup_test_file,
@@ -81,6 +82,38 @@ class TestConvertImageTo3MF(unittest.TestCase):
         # Verify output
         self.assertTrue(os.path.exists(output_path))
         validate_3mf_structure(output_path)
+
+    def test_auto_backing_assigns_all_sixteen_image_colors_to_slots(self):
+        """Automatic backing should share a slot instead of reserving a seventeenth color."""
+        colors = [(index * 16, 255 - index * 16, index * 7) for index in range(16)]
+        image_colors = {
+            color + (255,): [(index % 4, index // 4)]
+            for index, color in enumerate(colors)
+        }
+        input_path = create_test_image(4, 4, image_colors)
+        self.test_files.append(input_path)
+
+        fd, output_path = tempfile.mkstemp(suffix='.3mf')
+        os.close(fd)
+        self.test_files.append(output_path)
+
+        config = ConversionConfig(
+            max_colors=16,
+            auto_backing_color=True,
+            color_naming_mode="hex",
+            merge_similar_colors=False,
+        )
+        stats = convert_image_to_3mf(input_path, output_path, config=config)
+        self.test_files.append(stats['info_path'])
+
+        color_mapping = stats['color_mapping']
+        assigned_slots = {slot for slot, _, _ in color_mapping}
+        assigned_colors = {rgb for _, _, rgb in color_mapping}
+
+        self.assertEqual(config.backing_color, colors[0])
+        self.assertEqual(len(color_mapping), 16)
+        self.assertEqual(assigned_slots, set(range(1, 17)))
+        self.assertEqual(assigned_colors, set(colors))
     
     def test_convert_transparent_image(self):
         """Test converting image with transparent areas."""

@@ -298,8 +298,8 @@ The codebase strictly separates **CLI layer** from **business logic**:
 
 **Pipeline flow**:
 ```
-Image Load → Auto-Crop (optional) → Padding (optional) → Y-Flip → Color Validation → 
-Quantization (optional) → Exact Scaling → Region Merging (configurable connectivity) → 
+Image Load → Auto-Crop (optional) → Padding (optional) → Y-Flip → Color Validation →
+Quantization (optional) → Auto Backing Selection (optional) → Exact Scaling → Region Merging (configurable connectivity) →
 Trim Disconnected Pixels (optional) → Manifold Mesh Generation (Original or Optimized) → 
 Color Naming → 3MF Export → Summary Generation (optional)
 ```
@@ -422,6 +422,7 @@ config = ConversionConfig(
     base_height_mm=2.0,
     max_colors=16,
     backing_color=(255, 255, 255),
+    auto_backing_color=False,
     auto_crop=True,
     padding_size=5,
     padding_color=(255, 255, 255),

@@ -1,0 +1,36 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: mspacman_model.3mf
+Total Colors/Regions: 8
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 2
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Blue
+   Hex: #2121FF
+   RGB: (33, 33, 255)
+   Regions: 2
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Yellow
+   Hex: #FFFF00
+   RGB: (255, 255, 0)
+   Regions: 1
+   Location: 4 (AMS A, Slot 4)
+
+4. Bambu Lab PLA Matte Scarlet Red
+   Hex: #FF0000
+   RGB: (255, 0, 0)
+   Regions: 3
+   Location: 5 (AMS B, Slot 1)
+
+======================================================================

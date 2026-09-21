@@ -1,0 +1,108 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: sf2-ryu-ending-back_model.3mf
+Total Colors/Regions: 1503
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Bronze
+   Hex: #888866
+   RGB: (136, 136, 102)
+   Regions: 30
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Brown
+   Hex: #880000
+   RGB: (136, 0, 0)
+   Regions: 233 (232 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+3. Bambu Lab PLA Basic Cocoa Brown
+   Hex: #665544
+   RGB: (102, 85, 68)
+   Regions: 43
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Gold
+   Hex: #FFD37E
+   RGB: (255, 211, 126)
+   Regions: 34
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Basic Maroon Red
+   Hex: #660000
+   RGB: (102, 0, 0)
+   Regions: 59
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Basic Mistletoe Green
+   Hex: #779977
+   RGB: (119, 153, 119)
+   Regions: 68
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Basic Orange
+   Hex: #EE7755
+   RGB: (238, 119, 85)
+   Regions: 191
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Caramel
+   Hex: #A98877
+   RGB: (169, 136, 119)
+   Regions: 89
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Dark Brown
+   Hex: #776655
+   RGB: (119, 102, 85)
+   Regions: 82
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Dark Chocolate
+   Hex: #550000
+   RGB: (85, 0, 0)
+   Regions: 22
+   Location: 10 (AMS C, Slot 2)
+
+11. Bambu Lab PLA Matte Dark Green
+   Hex: #668866
+   RGB: (102, 136, 102)
+   Regions: 98
+   Location: 11 (AMS C, Slot 3)
+
+12. Bambu Lab PLA Matte Desert Tan
+   Hex: #FFF9CD
+   RGB: (255, 249, 205)
+   Regions: 3
+   Location: 12 (AMS C, Slot 4)
+
+13. Bambu Lab PLA Matte Mandarin Orange
+   Hex: #FF9955
+   RGB: (255, 153, 85)
+   Regions: 109
+   Location: 13 (AMS D, Slot 1)
+
+14. Bambu Lab PLA Matte Scarlet Red
+   Hex: #CC4B33
+   RGB: (204, 75, 51)
+   Regions: 371
+   Location: 14 (AMS D, Slot 2)
+
+15. Bambu Lab PLA Matte Terracotta
+   Hex: #AE6747
+   RGB: (174, 103, 71)
+   Regions: 28
+   Location: 15 (AMS D, Slot 3)
+
+16. Bambu Lab PLA Pure Apricot
+   Hex: #FFAA66
+   RGB: (255, 170, 102)
+   Regions: 43
+   Location: 16 (AMS D, Slot 4)
+
+======================================================================

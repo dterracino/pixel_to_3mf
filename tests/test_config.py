@@ -353,6 +353,11 @@ class TestConversionConfigSolidCore(unittest.TestCase):
         config = ConversionConfig(base_height_mm=1.0, no_backing_plate=False)
         self.assertTrue(config.has_backing_plate)
 
+    def test_auto_backing_color_conflicts_with_no_backing_color(self):
+        """Automatic selection and disabled backing assignment are contradictory."""
+        with self.assertRaisesRegex(ValueError, "cannot be combined"):
+            ConversionConfig(auto_backing_color=True, no_backing_color=True)
+
     def test_solid_core_default_core_height(self):
         """Default core_height_mm matches SOLID_CORE_HEIGHT_MM constant (1.0mm)."""
         from pixel_to_3mf.constants import SOLID_CORE_HEIGHT_MM
