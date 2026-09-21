@@ -35,6 +35,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations with smart RGB-based boundary detection to prevent blue→purple mismatches in palettes with gaps (e.g., Bambu Lab)
 - **Transparent Pixel Support**: Transparent areas become holes in the model
 - **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable, or use `--no-backing-plate` to omit it entirely while extending color layers to fill the same depth — ideal for suncatchers and reversible pieces). Use `--solid-core` to sandwich a single-filament core between two thin colour shells for faster multi-colour prints.
+- **Two-Level Relief**: Keep an exact background RGB at the normal color plane while raising every other image color by a configurable extra height with `--relief`
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
@@ -176,6 +177,9 @@ python run_converter.py --batch \
 | `--scale` | Size of each source pixel in mm (`n` creates `n`mm × `n`mm squares); overrides `--max-size` | Off |
 | `--line-width` | Nozzle line width for printability checks (mm) | 0.42 |
 | `--color-height` | Height of colored layer (mm) | 1.0 |
+| `--relief` | Raise all image colors except the exact background RGB | Off |
+| `--background-color` | Exact image RGB that remains at normal color height in relief mode | `255,255,255` |
+| `--relief-height` | Extra height for non-background colors in relief mode (mm) | 1.0 |
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B | `255,255,255` (white) |
@@ -263,6 +267,9 @@ stats = convert_image_to_3mf(
 config = ConversionConfig(
     max_size_mm=150,
     color_height_mm=2.0,
+  relief=True,
+  relief_background_color=(255, 255, 255),
+  relief_height_mm=1.0,
     base_height_mm=2.0,
     max_colors=16,
     backing_color=(255, 255, 255),  # RGB tuple
@@ -535,6 +542,21 @@ python run_converter.py coaster.png \
 
 - **Total height:** 5mm (2mm color + 3mm base)
 - **Use case:** Functional items that need durability
+
+#### Two-Level Relief
+
+```bash
+python run_converter.py artwork.png \
+  --relief \
+  --background-color "255,255,255" \
+  --relief-height 1.0
+```
+
+- **Background plane:** Pixels matching `255,255,255` remain at the normal `--color-height`
+- **Raised plane:** Every other image color extends by an additional 1mm
+- **Default profile:** 1mm backing + 1mm background color layer; raised regions reach 3mm total thickness
+- **Matching:** Uses the exact RGB assigned during region merging, before filament or color-name matching
+- **Compatibility:** Works with standard, optimized, smoothed, no-backing, and solid-core meshes; solid-core relief raises only the top-facing shell
 
 #### Multi-Object Images (Separated by Transparency)
 
@@ -972,6 +994,7 @@ python run_converter.py sprite.png --auto-crop --padding-size 5 --quantize
      - Top face (colored layer)
      - Bottom face
      - Perimeter walls connecting them
+   - In relief mode, exact background-color regions retain the normal top plane while all other regions use the configured extra height
    - **Shared vertices** between adjacent pixels
    - **Counter-clockwise winding** for correct normals
    - Generates optional backing plate with holes for transparent areas (if base_height > 0)

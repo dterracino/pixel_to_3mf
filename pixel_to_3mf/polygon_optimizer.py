@@ -833,7 +833,7 @@ def generate_region_mesh_optimized(
             vertices_2d,
             segments_2d,
             z_bottom=config.color_layer_z_bottom,
-            z_top=config.color_height_mm
+            z_top=config.region_top_z(region.color)
         )
         logger.debug(f"3D mesh created: {len(mesh.vertices)} vertices, {len(mesh.triangles)} triangles")
         
@@ -971,7 +971,7 @@ def generate_region_mesh_from_smoothed(
     if isinstance(poly_mm, MultiPolygon):
         meshes: list = []
         for sub_poly in poly_mm.geoms:
-            sub_mesh = _mesh_from_polygon(sub_poly, config)
+            sub_mesh = _mesh_from_polygon(sub_poly, config, smoothed_region.color)
             if sub_mesh is not None:
                 meshes.append(sub_mesh)
         if not meshes:
@@ -982,7 +982,7 @@ def generate_region_mesh_from_smoothed(
             return generate_region_mesh(dummy, _DummyPixelData(pixel_size_mm), config)
         return _combine_meshes(meshes)
 
-    mesh = _mesh_from_polygon(poly_mm, config)
+    mesh = _mesh_from_polygon(poly_mm, config, smoothed_region.color)
     if mesh is not None:
         return mesh
 
@@ -998,7 +998,11 @@ def generate_region_mesh_from_smoothed(
     return generate_region_mesh(dummy, _DummyPixelData(pixel_size_mm), config)
 
 
-def _mesh_from_polygon(poly: Polygon, config: 'ConversionConfig') -> 'Mesh | None':
+def _mesh_from_polygon(
+    poly: Polygon,
+    config: 'ConversionConfig',
+    color: tuple[int, int, int],
+) -> 'Mesh | None':
     """Triangulate and extrude a single mm-space Polygon. Returns None on failure."""
     is_valid, err = _validate_polygon_for_triangulation(poly)
     if not is_valid:
@@ -1012,7 +1016,7 @@ def _mesh_from_polygon(poly: Polygon, config: 'ConversionConfig') -> 'Mesh | Non
             verts_2d,
             segs_2d,
             z_bottom=config.color_layer_z_bottom,
-            z_top=config.color_height_mm,
+            z_top=config.region_top_z(color),
         )
     except Exception as exc:
         logger.warning(f"_mesh_from_polygon: triangulation/extrusion failed — {exc}")

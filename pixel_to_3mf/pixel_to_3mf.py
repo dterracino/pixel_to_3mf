@@ -409,7 +409,14 @@ def convert_image_to_3mf(
         for i, region in enumerate(regions, start=1):
             _progress("mesh", f"Region {i}/{len(regions)}: {len(region.pixels)} pixels (dual shell)")
             bottom_shell = generate_region_mesh_shell(region, pixel_data, config, z_shell_bot, z_core_bot)
-            top_shell = generate_region_mesh_shell(region, pixel_data, config, z_core_top, z_shell_top)
+            relief_extra = config.region_top_z(region.color) - config.color_height_mm
+            top_shell = generate_region_mesh_shell(
+                region,
+                pixel_data,
+                config,
+                z_core_top,
+                z_shell_top + relief_extra,
+            )
             meshes.append((bottom_shell, f"region_{i}_bottom"))
             meshes.append((top_shell, f"region_{i}_top"))
             region_colors.append(region.color)  # one color entry per logical region

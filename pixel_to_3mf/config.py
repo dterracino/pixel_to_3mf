@@ -15,6 +15,7 @@ from .constants import (
     MAX_MODEL_SIZE_MM,
     LINE_WIDTH_MM,
     COLOR_LAYER_HEIGHT_MM,
+    RELIEF_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
     MAX_COLORS,
     BACKING_COLOR,
@@ -123,6 +124,9 @@ class ConversionConfig:
             When set, this overrides max_size_mm scaling.
         line_width_mm: Nozzle line width for printability check
         color_height_mm: Height of colored regions in millimeters
+        relief: If True, raise colors other than relief_background_color
+        relief_background_color: Exact source RGB that remains at color_height_mm
+        relief_height_mm: Additional height for non-background regions in relief mode
         base_height_mm: Height of backing plate in millimeters
         max_colors: Maximum unique colors allowed
         backing_color: RGB color for the backing plate (reserved if not in image)
@@ -170,6 +174,9 @@ class ConversionConfig:
     scale_mm_per_pixel: float | None = None
     line_width_mm: float = LINE_WIDTH_MM
     color_height_mm: float = COLOR_LAYER_HEIGHT_MM
+    relief: bool = False
+    relief_background_color: Tuple[int, int, int] = BACKING_COLOR
+    relief_height_mm: float = RELIEF_HEIGHT_MM
     base_height_mm: float = BASE_LAYER_HEIGHT_MM
     max_colors: int = MAX_COLORS
     backing_color: Tuple[int, int, int] = BACKING_COLOR
@@ -250,6 +257,8 @@ class ConversionConfig:
             )
         if self.color_height_mm <= 0:
             raise ValueError(f"color_height_mm must be positive, got {self.color_height_mm}")
+        if self.relief_height_mm <= 0:
+            raise ValueError(f"relief_height_mm must be positive, got {self.relief_height_mm}")
         if self.base_height_mm < 0:
             raise ValueError(f"base_height_mm must be non-negative, got {self.base_height_mm}")
         if self.core_height_mm <= 0:
@@ -262,6 +271,16 @@ class ConversionConfig:
             raise ValueError(f"backing_color must be an RGB tuple, got {self.backing_color}")
         if not all(0 <= c <= 255 for c in self.backing_color):
             raise ValueError(f"backing_color RGB values must be 0-255, got {self.backing_color}")
+        if not isinstance(self.relief_background_color, tuple) or len(self.relief_background_color) != 3:
+            raise ValueError(
+                "relief_background_color must be an RGB tuple, "
+                f"got {self.relief_background_color}"
+            )
+        if not all(0 <= c <= 255 for c in self.relief_background_color):
+            raise ValueError(
+                "relief_background_color RGB values must be 0-255, "
+                f"got {self.relief_background_color}"
+            )
         
         # Validate color naming mode
         valid_modes = {"color", "filament", "hex", "generated"}
@@ -359,6 +378,12 @@ class ConversionConfig:
         top at z=color_height_mm.  Total model depth is unchanged.
         """
         return -self.base_height_mm if self.no_backing_plate else 0.0
+
+    def region_top_z(self, color: tuple[int, int, int]) -> float:
+        """Return the top Z for a region using its exact pre-mapping RGB color."""
+        if self.relief and color != self.relief_background_color:
+            return self.color_height_mm + self.relief_height_mm
+        return self.color_height_mm
 
     @property
     def core_z_bottom(self) -> float:

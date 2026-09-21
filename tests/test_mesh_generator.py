@@ -21,6 +21,7 @@ from pixel_to_3mf.mesh_generator import (
 from pixel_to_3mf.region_merger import Region
 from pixel_to_3mf.image_processor import PixelData
 from pixel_to_3mf.config import ConversionConfig
+from pixel_to_3mf.rectangle_optimizer import optimize_region_rectangles
 
 
 class TestMesh(unittest.TestCase):
@@ -111,6 +112,57 @@ class TestGenerateRegionMesh(unittest.TestCase):
         z_coords = [v[2] for v in mesh.vertices]
         self.assertIn(2.5, z_coords)
         self.assertIn(0.0, z_coords)
+
+    def test_relief_mesh_height_uses_exact_region_rgb(self):
+        """Test relief raises non-background regions while preserving the background plane."""
+        background = (12, 34, 56)
+        pixel_data = PixelData(
+            width=2,
+            height=1,
+            pixel_size_mm=1.0,
+            pixels={(0, 0): (*background, 255), (1, 0): (12, 34, 57, 255)},
+        )
+        config = ConversionConfig(
+            color_height_mm=1.0,
+            relief=True,
+            relief_background_color=background,
+            relief_height_mm=1.5,
+        )
+
+        background_mesh = generate_region_mesh(
+            Region(color=background, pixels={(0, 0)}),
+            pixel_data,
+            config,
+        )
+        foreground_mesh = generate_region_mesh(
+            Region(color=(12, 34, 57), pixels={(1, 0)}),
+            pixel_data,
+            config,
+        )
+
+        self.assertEqual(max(vertex[2] for vertex in background_mesh.vertices), 1.0)
+        self.assertEqual(max(vertex[2] for vertex in foreground_mesh.vertices), 2.5)
+
+    def test_rectangle_optimized_mesh_uses_relief_height(self):
+        """Test rectangle optimization uses the same per-region relief height."""
+        foreground = (200, 10, 20)
+        region = Region(color=foreground, pixels={(0, 0), (1, 0)})
+        pixel_data = PixelData(
+            width=2,
+            height=1,
+            pixel_size_mm=1.0,
+            pixels={(0, 0): (*foreground, 255), (1, 0): (*foreground, 255)},
+        )
+        config = ConversionConfig(
+            color_height_mm=1.0,
+            relief=True,
+            relief_background_color=(255, 255, 255),
+            relief_height_mm=0.75,
+        )
+
+        mesh = optimize_region_rectangles(region, pixel_data, config)
+
+        self.assertEqual(max(vertex[2] for vertex in mesh.vertices), 1.75)
     
     def test_mesh_vertices_in_correct_position(self):
         """Test that mesh vertices are positioned correctly in space."""

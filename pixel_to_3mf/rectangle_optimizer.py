@@ -209,7 +209,8 @@ def merge_vertical_rectangles(strips: List[Tuple[int, int, int]]) -> List[Tuple[
 def generate_vertices(
     rectangles: List[Tuple[int, int, int, int]],
     pixel_data: PixelData,
-    config: 'ConversionConfig'
+    config: 'ConversionConfig',
+    z_top: float | None = None,
 ) -> Tuple[List[Tuple[float, float, float]], Dict[Tuple[float, float, float], int]]:
     """
     Generate shared vertices for all rectangles.
@@ -233,7 +234,7 @@ def generate_vertices(
     
     pixel_size_mm = pixel_data.pixel_size_mm
     z_bottom = config.color_layer_z_bottom
-    z_top = config.color_height_mm
+    resolved_z_top = config.color_height_mm if z_top is None else z_top
     
     def get_or_create_vertex(x_mm: float, y_mm: float, z_mm: float) -> int:
         """Get existing vertex index or create new vertex."""
@@ -266,10 +267,10 @@ def generate_vertices(
         get_or_create_vertex(x_right, y_bottom, z_bottom)   # v3: bottom-right-bottom
         
         # Top face (z = color_height_mm)
-        get_or_create_vertex(x_left, y_bottom, z_top)       # v4: bottom-left-top
-        get_or_create_vertex(x_left, y_top, z_top)          # v5: top-left-top
-        get_or_create_vertex(x_right, y_top, z_top)         # v6: top-right-top
-        get_or_create_vertex(x_right, y_bottom, z_top)      # v7: bottom-right-top
+        get_or_create_vertex(x_left, y_bottom, resolved_z_top)  # v4: bottom-left-top
+        get_or_create_vertex(x_left, y_top, resolved_z_top)     # v5: top-left-top
+        get_or_create_vertex(x_right, y_top, resolved_z_top)    # v6: top-right-top
+        get_or_create_vertex(x_right, y_bottom, resolved_z_top) # v7: bottom-right-top
     
     logger.debug(f"Generated {len(vertices)} shared vertices for {len(rectangles)} rectangles")
     return vertices, vertex_map
@@ -280,7 +281,8 @@ def generate_triangles(
     pixels: Set[Tuple[int, int]],
     pixel_data: PixelData,
     config: 'ConversionConfig',
-    vertex_map: Dict[Tuple[float, float, float], int]
+    vertex_map: Dict[Tuple[float, float, float], int],
+    z_top: float | None = None,
 ) -> List[Tuple[int, int, int]]:
     """
     Generate triangles with proper CCW winding for all rectangles.
@@ -304,7 +306,7 @@ def generate_triangles(
     
     pixel_size_mm = pixel_data.pixel_size_mm
     z_bottom = config.color_layer_z_bottom
-    z_top = config.color_height_mm
+    resolved_z_top = config.color_height_mm if z_top is None else z_top
     
     def get_vertex_index(x_mm: float, y_mm: float, z_mm: float) -> int:
         """Look up vertex index from coordinates."""
@@ -367,10 +369,10 @@ def generate_triangles(
         v1 = get_vertex_index(x_left, y_top, z_bottom)      # top-left-bottom
         v2 = get_vertex_index(x_right, y_top, z_bottom)     # top-right-bottom
         v3 = get_vertex_index(x_right, y_bottom, z_bottom)  # bottom-right-bottom
-        v4 = get_vertex_index(x_left, y_bottom, z_top)      # bottom-left-top
-        v5 = get_vertex_index(x_left, y_top, z_top)         # top-left-top
-        v6 = get_vertex_index(x_right, y_top, z_top)        # top-right-top
-        v7 = get_vertex_index(x_right, y_bottom, z_top)     # bottom-right-top
+        v4 = get_vertex_index(x_left, y_bottom, resolved_z_top)  # bottom-left-top
+        v5 = get_vertex_index(x_left, y_top, resolved_z_top)     # top-left-top
+        v6 = get_vertex_index(x_right, y_top, resolved_z_top)    # top-right-top
+        v7 = get_vertex_index(x_right, y_bottom, resolved_z_top) # bottom-right-top
         
         # Top face (2 triangles, CCW from above)
         triangles.append((v4, v5, v6))  # bottom-left, top-left, top-right
@@ -453,10 +455,18 @@ def optimize_region_rectangles(
     logger.debug(f"Total rectangles after merging all sub-regions: {len(all_rectangles)}")
     
     # Phase 4: Generate shared vertices
-    vertices, vertex_map = generate_vertices(all_rectangles, pixel_data, config)
+    z_top = config.region_top_z(region.color)
+    vertices, vertex_map = generate_vertices(all_rectangles, pixel_data, config, z_top)
     
     # Phase 5: Generate triangles (pass original pixels for perimeter detection)
-    triangles = generate_triangles(all_rectangles, region.pixels, pixel_data, config, vertex_map)
+    triangles = generate_triangles(
+        all_rectangles,
+        region.pixels,
+        pixel_data,
+        config,
+        vertex_map,
+        z_top,
+    )
     
     # Calculate reduction statistics
     original_vertex_count = len(region.pixels) * 8  # Each pixel would have 8 vertices

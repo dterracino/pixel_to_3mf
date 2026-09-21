@@ -360,5 +360,38 @@ class TestConversionConfigSolidCore(unittest.TestCase):
         self.assertEqual(config.core_height_mm, SOLID_CORE_HEIGHT_MM)
 
 
+class TestConversionConfigRelief(unittest.TestCase):
+    """Test two-level relief height selection and validation."""
+
+    def test_relief_is_disabled_by_default(self):
+        """All regions retain the normal color height unless relief is enabled."""
+        config = ConversionConfig(color_height_mm=1.25)
+
+        self.assertEqual(config.region_top_z((255, 255, 255)), 1.25)
+        self.assertEqual(config.region_top_z((255, 0, 0)), 1.25)
+
+    def test_relief_uses_exact_background_rgb(self):
+        """Only the exact configured source RGB remains at the normal plane."""
+        config = ConversionConfig(
+            color_height_mm=1.0,
+            relief=True,
+            relief_background_color=(12, 34, 56),
+            relief_height_mm=1.5,
+        )
+
+        self.assertEqual(config.region_top_z((12, 34, 56)), 1.0)
+        self.assertEqual(config.region_top_z((12, 34, 57)), 2.5)
+
+    def test_relief_height_must_be_positive(self):
+        """Relief requires a positive additional extrusion height."""
+        with self.assertRaises(ValueError):
+            ConversionConfig(relief_height_mm=0)
+
+    def test_relief_background_color_must_be_rgb_tuple(self):
+        """Relief background matching requires a valid RGB tuple."""
+        with self.assertRaises(ValueError):
+            ConversionConfig(relief_background_color=(255, 255))  # type: ignore[arg-type]
+
+
 if __name__ == "__main__":
     unittest.main()

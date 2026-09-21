@@ -35,6 +35,9 @@ LINE_WIDTH_MM = 0.42
 # Each colored region gets extruded to this height
 COLOR_LAYER_HEIGHT_MM = 1.0
 
+# Additional height for non-background colors when relief mode is enabled
+RELIEF_HEIGHT_MM = 1.0
+
 # Height of the backing plate in millimeters
 # This is the solid base layer that spans the entire model
 BASE_LAYER_HEIGHT_MM = 1.0

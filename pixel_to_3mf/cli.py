@@ -27,6 +27,7 @@ from .constants import (
     MAX_MODEL_SIZE_MM,
     LINE_WIDTH_MM,
     COLOR_LAYER_HEIGHT_MM,
+    RELIEF_HEIGHT_MM,
     BASE_LAYER_HEIGHT_MM,
     SOLID_CORE_HEIGHT_MM,
     DEFAULT_OUTPUT_SUFFIX,
@@ -71,6 +72,17 @@ error_console = Console(stderr=True)
 def is_image_file(filepath: Path) -> bool:
     """Check if a file is a supported image format."""
     return filepath.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS
+
+
+def _parse_rgb_color(value: str) -> tuple[int, int, int]:
+    """Parse a comma-separated RGB value for CLI color options."""
+    parts = value.split(',')
+    if len(parts) != 3:
+        raise ValueError("Must have exactly 3 values (R,G,B)")
+    color = tuple(int(part.strip()) for part in parts)
+    if not all(0 <= channel <= 255 for channel in color):
+        raise ValueError("RGB values must be 0-255")
+    return color
 
 
 def generate_batch_summary(
@@ -448,6 +460,28 @@ The program will:
         type=float,
         default=COLOR_LAYER_HEIGHT_MM,
         help=f"Height of colored regions in mm (default: {COLOR_LAYER_HEIGHT_MM})"
+    )
+
+    parser.add_argument(
+        "--relief",
+        action="store_true",
+        help="Raise every image color except the exact --background-color RGB value"
+    )
+
+    parser.add_argument(
+        "--background-color",
+        type=str,
+        default=None,
+        metavar="R,G,B",
+        help=f"Exact source RGB that stays at --color-height in relief mode (default: {BACKING_COLOR})"
+    )
+
+    parser.add_argument(
+        "--relief-height",
+        type=float,
+        default=None,
+        metavar="MM",
+        help=f"Extra height for non-background colors in relief mode (default: {RELIEF_HEIGHT_MM})"
     )
     
     parser.add_argument(
@@ -870,19 +904,31 @@ The program will:
             parser.print_help()
             sys.exit(1)
 
+    if args.background_color is not None and not args.relief:
+        error_console.print("[red]❌ Error: --background-color is only valid with --relief[/red]")
+        sys.exit(1)
+    if args.relief_height is not None and not args.relief:
+        error_console.print("[red]❌ Error: --relief-height is only valid with --relief[/red]")
+        sys.exit(1)
+
     # Parse backing color if provided
     backing_color = BACKING_COLOR
     if args.backing_color:
         try:
-            parts = args.backing_color.split(',')
-            if len(parts) != 3:
-                raise ValueError("Must have exactly 3 values (R,G,B)")
-            r, g, b = (int(p.strip()) for p in parts)
-            backing_color = (r, g, b)  # Explicitly create 3-tuple
-            if not all(0 <= c <= 255 for c in backing_color):
-                raise ValueError("RGB values must be 0-255")
+            backing_color = _parse_rgb_color(args.backing_color)
         except Exception as e:
             error_console.print(f"[red]❌ Error: Invalid backing color '{args.backing_color}': {e}[/red]")
+            error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
+            sys.exit(1)
+
+    relief_background_color = BACKING_COLOR
+    if args.background_color:
+        try:
+            relief_background_color = _parse_rgb_color(args.background_color)
+        except Exception as e:
+            error_console.print(
+                f"[red]❌ Error: Invalid background color '{args.background_color}': {e}[/red]"
+            )
             error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
             sys.exit(1)
     
@@ -890,13 +936,7 @@ The program will:
     padding_color = PADDING_COLOR
     if args.padding_color:
         try:
-            parts = args.padding_color.split(',')
-            if len(parts) != 3:
-                raise ValueError("Must have exactly 3 values (R,G,B)")
-            r, g, b = (int(p.strip()) for p in parts)
-            padding_color = (r, g, b)  # Explicitly create 3-tuple
-            if not all(0 <= c <= 255 for c in padding_color):
-                raise ValueError("RGB values must be 0-255")
+            padding_color = _parse_rgb_color(args.padding_color)
         except Exception as e:
             error_console.print(f"[red]❌ Error: Invalid padding color '{args.padding_color}': {e}[/red]")
             error_console.print("[red]   Format: R,G,B (e.g., '255,255,255' for white)[/red]")
@@ -940,6 +980,13 @@ The program will:
             scale_mm_per_pixel=args.scale,
             line_width_mm=args.line_width,
             color_height_mm=args.color_height,
+            relief=args.relief,
+            relief_background_color=relief_background_color,
+            relief_height_mm=(
+                args.relief_height
+                if args.relief_height is not None
+                else RELIEF_HEIGHT_MM
+            ),
             base_height_mm=base_height,
             max_colors=args.max_colors,
             backing_color=backing_color,
@@ -1114,6 +1161,11 @@ The program will:
     
     # Heights
     config_table.add_row("Color Layer Height", f"{config.color_height_mm}mm")
+    if config.relief:
+        config_table.add_row(
+            "Relief",
+            f"+{config.relief_height_mm:g}mm above RGB{config.relief_background_color}",
+        )
     config_table.add_row("Base Layer Height", f"{config.base_height_mm}mm" if config.base_height_mm > 0 else "0mm (disabled)")
     if config.no_backing_plate:
         config_table.add_row("Backing Plate", "Disabled (colors fill full depth)")

@@ -109,6 +109,7 @@ def _generate_region_mesh_original(
     """
     region_pixels = region.pixels
     ps = pixel_data.pixel_size_mm
+    z_top = config.region_top_z(region.color)
 
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
@@ -124,7 +125,7 @@ def _generate_region_mesh_original(
                 break
 
     # ========================================================================
-    # Pass 2: Generate top face  (z = config.color_height_mm)
+    # Pass 2: Generate top face
     # ========================================================================
     top_vertex_map: Dict[tuple, int] = {}
 
@@ -134,7 +135,7 @@ def _generate_region_mesh_original(
             key = _corner_key(x, y, cx, cy, region_pixels)
             if key not in top_vertex_map:
                 top_vertex_map[key] = len(vertices)
-                vertices.append((cx * ps, cy * ps, config.color_height_mm))
+                vertices.append((cx * ps, cy * ps, z_top))
             corner_indices.append(top_vertex_map[key])
 
         bl, br, tl, tr = corner_indices

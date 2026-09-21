@@ -15,8 +15,10 @@ from pixel_to_3mf.polygon_optimizer import (
     triangulate_polygon_2d,
     extrude_polygon_to_mesh,
     generate_region_mesh_optimized,
-    generate_backing_plate_optimized
+    generate_backing_plate_optimized,
+    generate_region_mesh_from_smoothed,
 )
+from pixel_to_3mf.boundary_smoother import SmoothedRegion
 from pixel_to_3mf.region_merger import Region
 from pixel_to_3mf.image_processor import PixelData
 from pixel_to_3mf.config import ConversionConfig
@@ -214,6 +216,54 @@ class TestExtrudePolygonToMesh(unittest.TestCase):
 
 class TestOptimizedMeshGeneration(unittest.TestCase):
     """Test optimized mesh generation maintains manifold properties."""
+
+    def test_relief_height_uses_region_color(self):
+        """Optimized extrusion raises only colors outside the exact background RGB."""
+        background = (12, 34, 56)
+        pixel_data = PixelData(
+            width=2,
+            height=1,
+            pixel_size_mm=1.0,
+            pixels={(0, 0): (*background, 255), (1, 0): (12, 34, 57, 255)},
+        )
+        config = ConversionConfig(
+            color_height_mm=1.0,
+            relief=True,
+            relief_background_color=background,
+            relief_height_mm=1.5,
+        )
+
+        background_mesh = generate_region_mesh_optimized(
+            Region(color=background, pixels={(0, 0)}),
+            pixel_data,
+            config,
+        )
+        foreground_mesh = generate_region_mesh_optimized(
+            Region(color=(12, 34, 57), pixels={(1, 0)}),
+            pixel_data,
+            config,
+        )
+
+        self.assertEqual(max(vertex[2] for vertex in background_mesh.vertices), 1.0)
+        self.assertEqual(max(vertex[2] for vertex in foreground_mesh.vertices), 2.5)
+
+    def test_smoothed_mesh_uses_relief_height(self):
+        """Smoothed extrusion resolves relief from the region's exact RGB color."""
+        foreground = (200, 10, 20)
+        config = ConversionConfig(
+            color_height_mm=1.0,
+            relief=True,
+            relief_background_color=(255, 255, 255),
+            relief_height_mm=1.2,
+        )
+
+        mesh = generate_region_mesh_from_smoothed(
+            SmoothedRegion(color=foreground, polygon=box(0, 0, 1, 1)),
+            pixel_size_mm=1.0,
+            config=config,
+        )
+
+        self.assertEqual(max(vertex[2] for vertex in mesh.vertices), 2.2)
     
     def test_mesh_is_manifold_single_pixel(self):
         """Single pixel mesh should be manifold."""

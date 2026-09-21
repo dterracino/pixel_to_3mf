@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Two-level relief mode**: `--relief` keeps pixels matching the exact `--background-color R,G,B` at the normal color plane and raises every other image color by `--relief-height` (default 1mm). The comparison uses region RGB values before filament or color-name matching and works with standard, optimized, smoothed, no-backing, and solid-core geometry.
 - **`--scale` fixed pixel sizing**: Set each source pixel to an explicit `n`mm × `n`mm square instead of scaling the image to `--max-size`.
 - **`--scale-to` batch reference sizing**: Process a selected batch image first and reuse its calculated millimeters-per-pixel scale for every other image, preserving relative sprite sizes. Batch output reports the scale mode, calculated reference factor, and factor applied to each file.
 - **`--no-backing-plate` flag**: Omit the backing plate entirely and extend color layers downward to fill the same total depth. Useful for suncatchers, stained-glass-style pieces, and reversible display items where both sides of the print are visible.

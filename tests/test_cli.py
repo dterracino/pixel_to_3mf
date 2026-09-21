@@ -23,7 +23,12 @@ from rich.console import Console
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pixel_to_3mf.cli import is_image_file, process_batch, generate_batch_summary
+from pixel_to_3mf.cli import (
+    _parse_rgb_color,
+    generate_batch_summary,
+    is_image_file,
+    process_batch,
+)
 from pixel_to_3mf.config import ConversionConfig
 from tests.helpers import (
     create_simple_square_image,
@@ -85,6 +90,24 @@ class TestIsImageFile(unittest.TestCase):
         """Test that files without extensions are not recognized."""
         path = Path("test")
         self.assertFalse(is_image_file(path))
+
+
+class TestParseRgbColor(unittest.TestCase):
+    """Test shared parsing for CLI RGB color options."""
+
+    def test_parses_rgb_triplet(self):
+        """Whitespace around three valid channels is accepted."""
+        self.assertEqual(_parse_rgb_color("12, 34,56"), (12, 34, 56))
+
+    def test_rejects_wrong_channel_count(self):
+        """RGB values must contain exactly three channels."""
+        with self.assertRaises(ValueError):
+            _parse_rgb_color("12,34")
+
+    def test_rejects_channel_out_of_range(self):
+        """RGB channels outside 0-255 are rejected."""
+        with self.assertRaises(ValueError):
+            _parse_rgb_color("12,34,256")
 
 
 class TestProcessBatch(unittest.TestCase):
