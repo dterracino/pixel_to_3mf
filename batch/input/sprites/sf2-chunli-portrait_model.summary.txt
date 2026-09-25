@@ -30,20 +30,20 @@ Filaments Used:
 4. Bambu Lab PLA Basic Cyan
    Hex: #0088E8
    RGB: (0, 136, 232)
-   Regions: 33
-   Location: 5 (AMS B, Slot 1)
+   Regions: 34 (33 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
 
 5. Bambu Lab PLA Basic Gold
    Hex: #F8C860
    RGB: (248, 200, 96)
    Regions: 64
-   Location: 6 (AMS B, Slot 2)
+   Location: 5 (AMS B, Slot 1)
 
 6. Bambu Lab PLA Basic Jade White
    Hex: #F8F8F8
    RGB: (248, 248, 248)
-   Regions: 34
-   Location: 1 (AMS A, Slot 1)
+   Regions: 33
+   Location: 6 (AMS B, Slot 2)
 
 7. Bambu Lab PLA Basic Orange
    Hex: #E87000
