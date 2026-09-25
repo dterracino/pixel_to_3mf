@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: pacman_model.3mf
-Total Colors/Regions: 325
+Total Colors/Regions: 321
 Color Naming Mode: filament
 
 Filaments Used:
@@ -12,7 +12,7 @@ Filaments Used:
 1. Bambu Lab PLA Basic Black
    Hex: #000000
    RGB: (0, 0, 0)
-   Regions: 11
+   Regions: 7
    Location: 2 (AMS A, Slot 2)
 
 2. Bambu Lab PLA Basic Blue

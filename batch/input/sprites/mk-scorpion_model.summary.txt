@@ -1,0 +1,84 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: mk-scorpion_model.3mf
+Total Colors/Regions: 773
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #101010
+   RGB: (16, 16, 16)
+   Regions: 154
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Bronze
+   Hex: #8B6B1B
+   RGB: (139, 107, 27)
+   Regions: 43
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Cocoa Brown
+   Hex: #603A11
+   RGB: (96, 58, 17)
+   Regions: 92
+   Location: 4 (AMS A, Slot 4)
+
+4. Bambu Lab PLA Basic Dark Gray
+   Hex: #5A5A5A
+   RGB: (90, 90, 90)
+   Regions: 6
+   Location: 5 (AMS B, Slot 1)
+
+5. Bambu Lab PLA Basic Gold
+   Hex: #B89647
+   RGB: (184, 150, 71)
+   Regions: 50
+   Location: 6 (AMS B, Slot 2)
+
+6. Bambu Lab PLA Basic Jade White
+   Hex: #FFFFFF
+   RGB: (255, 255, 255)
+   Regions: 4 (3 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+7. Bambu Lab PLA Basic Pumpkin Orange
+   Hex: #CE8C18
+   RGB: (206, 140, 24)
+   Regions: 40
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Basic Sunflower Yellow
+   Hex: #F7AD29
+   RGB: (247, 173, 41)
+   Regions: 38
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Caramel
+   Hex: #CE8C63
+   RGB: (206, 140, 99)
+   Regions: 151
+   Location: 9 (AMS C, Slot 1)
+
+10. Bambu Lab PLA Matte Dark Chocolate
+   Hex: #312D1D
+   RGB: (49, 45, 29)
+   Regions: 142
+   Location: 10 (AMS C, Slot 2)
+
+11. Bambu Lab PLA Matte Lemon Yellow
+   Hex: #FFEF97
+   RGB: (255, 239, 151)
+   Regions: 21
+   Location: 11 (AMS C, Slot 3)
+
+12. Bambu Lab PLA Matte Terracotta
+   Hex: #9F5F35
+   RGB: (159, 95, 53)
+   Regions: 32
+   Location: 12 (AMS C, Slot 4)
+
+======================================================================
