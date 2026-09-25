@@ -1,14 +1,14 @@
 {
   "filename": "sf2-chunli-portrait_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\samples\\input\\sprites\\sf2-chunli-portrait_model.3mf",
-  "file_hash": "1767eb5231645b062c768deb449243c636486280666c1081c51944a12882c429",
-  "timestamp": "2026-09-21T10:26:19.616208",
+  "file_hash": "4a231d18ae6d220d0ee8fcbc03be12e8cf03fcd39017ce429147e6803e0d2d57",
+  "timestamp": "2026-09-21T10:46:53.866053",
   "converter_version": "0.x.x",
   "colors": [
     {
-      "name": "Bambu Lab PLA Basic Jade White",
-      "hex": "#ffffff",
-      "rgb": [255, 255, 255],
+      "name": "Bambu Lab PLA Basic Cyan",
+      "hex": "#0086d6",
+      "rgb": [0, 134, 214],
       "ams_slot": "A-1"
     },
     {
@@ -30,15 +30,15 @@
       "ams_slot": "A-4"
     },
     {
-      "name": "Bambu Lab PLA Basic Cyan",
-      "hex": "#0086d6",
-      "rgb": [0, 134, 214],
-      "ams_slot": "B-1"
-    },
-    {
       "name": "Bambu Lab PLA Basic Gold",
       "hex": "#e4bd68",
       "rgb": [228, 189, 104],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
       "ams_slot": "B-2"
     },
     {

@@ -1,0 +1,92 @@
+{
+  "filename": "sf2-ryu-ending-front_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\layers\\sf2-ryu-ending-front_model.3mf",
+  "file_hash": "8845b8c4d66e9f017db31faf34ff301e417344cc70a4f19a40bb40ec3b432bc9",
+  "timestamp": "2026-09-25T00:12:53.693753",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Brown",
+      "hex": "#9d432c",
+      "rgb": [157, 67, 44],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Gold",
+      "hex": "#e4bd68",
+      "rgb": [228, 189, 104],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Maroon Red",
+      "hex": "#9d2235",
+      "rgb": [157, 34, 53],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Orange",
+      "hex": "#ff6a13",
+      "rgb": [255, 106, 19],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Red",
+      "hex": "#c12e1f",
+      "rgb": [193, 46, 31],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Chocolate",
+      "hex": "#4d3324",
+      "rgb": [77, 51, 36],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Desert Tan",
+      "hex": "#e8dbb7",
+      "rgb": [232, 219, 183],
+      "ams_slot": "B-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Lemon Yellow",
+      "hex": "#f7d959",
+      "rgb": [247, 217, 89],
+      "ams_slot": "C-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Mandarin Orange",
+      "hex": "#f99963",
+      "rgb": [249, 153, 99],
+      "ams_slot": "C-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Scarlet Red",
+      "hex": "#de4343",
+      "rgb": [222, 67, 67],
+      "ams_slot": "C-3"
+    },
+    {
+      "name": "Bambu Lab PLA Pure Apricot",
+      "hex": "#ffb673",
+      "rgb": [255, 182, 115],
+      "ams_slot": "C-4"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 229.99999999999997,
+    "height_mm": 114.99999999999999,
+    "pixel_size_mm": 1.0267857142857142
+  },
+  "mesh_stats": {
+    "num_vertices": 9140,
+    "num_triangles": 16880,
+    "num_regions": 254,
+    "num_colors": 12
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "scan": {
+    "target": ".",
+    "use_default_exclusions": true,
+    "excluded_directory_names": [
+      ".git",
+      ".hg",
+      ".svn",
+      ".venv",
+      "venv",
+      "env",
+      "ENV",
+      "__pypackages__",
+      "site-packages",
+      "__pycache__",
+      ".pytest_cache",
+      ".mypy_cache",
+      ".ruff_cache",
+      ".pyright",
+      ".hypothesis",
+      ".tox",
+      ".nox",
+      ".cache",
+      "build",
+      "dist",
+      ".eggs",
+      "eggs",
+      "htmlcov",
+      ".vscode",
+      ".idea",
+      ".vercel",
+      "node_modules"
+    ],
+    "excluded_directory_patterns": [
+      "*.egg-info"
+    ],
+    "exclude_paths": []
+  },
+  "thresholds": {
+    "lines": 500,
+    "code_lines": 500,
+    "classes": 1,
+    "definition_lines": 100
+  },
+  "terminal": {
+    "sort": "path",
+    "color": "auto",
+    "problems_only": false,
+    "fail_on_problems": false
+  },
+  "report": {
+    "enabled": false,
+    "path": "code_metrics_report.md",
+    "include_accepted_findings": true
+  }
+}

@@ -13,7 +13,7 @@ from collections import defaultdict
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pixel_to_3mf.mesh_generator import generate_region_mesh, Mesh
+from pixel_to_3mf.mesh_generator import generate_backing_plate, generate_region_mesh, Mesh
 from pixel_to_3mf.region_merger import Region
 from pixel_to_3mf.image_processor import PixelData
 from pixel_to_3mf.config import ConversionConfig
@@ -146,6 +146,32 @@ class TestManifoldMeshGeneration(unittest.TestCase):
             is_manifold,
             f"Diagonal pixels in 8-connectivity should be manifold. "
             f"Errors: {errors}"
+        )
+
+    def test_diagonal_pixels_backing_plate_is_manifold(self):
+        """Backing saddle corners retained by trim must use separate vertices."""
+        pixels = {
+            (0, 1): (255, 0, 0, 255),
+            (1, 1): (255, 0, 0, 255),
+            (2, 0): (0, 0, 255, 255),
+            (3, 0): (0, 0, 255, 255),
+        }
+        pixel_data = PixelData(
+            width=4,
+            height=2,
+            pixel_size_mm=1.0,
+            pixels=pixels,
+        )
+
+        mesh = generate_backing_plate(
+            pixel_data,
+            ConversionConfig(base_height_mm=7.0),
+        )
+        is_manifold, errors = check_mesh_is_manifold(mesh)
+
+        self.assertTrue(
+            is_manifold,
+            f"Diagonal backing pixels should be manifold. Errors: {errors}",
         )
     
     def test_l_shape_connectivity_4_manifold(self):

@@ -1,0 +1,66 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: sf2-ryu-ending-mid_model.3mf
+Total Colors/Regions: 541
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Bronze
+   Hex: #778844
+   RGB: (119, 136, 68)
+   Regions: 130
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Cocoa Brown
+   Hex: #775544
+   RGB: (119, 85, 68)
+   Regions: 64
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Mistletoe Green
+   Hex: #447744
+   RGB: (68, 119, 68)
+   Regions: 166
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Matte Caramel
+   Hex: #AA7766
+   RGB: (170, 119, 102)
+   Regions: 18
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Matte Dark Brown
+   Hex: #886655
+   RGB: (136, 102, 85)
+   Regions: 54
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Matte Dark Green
+   Hex: #335533
+   RGB: (51, 85, 51)
+   Regions: 74
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Scarlet Red
+   Hex: #CC7766
+   RGB: (204, 119, 102)
+   Regions: 2
+   Location: 8 (AMS B, Slot 4)
+
+9. Bambu Lab PLA Matte Terracotta
+   Hex: #995533
+   RGB: (153, 85, 51)
+   Regions: 32
+   Location: 9 (AMS C, Slot 1)
+
+======================================================================

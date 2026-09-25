@@ -255,28 +255,33 @@ def _generate_slab_mesh(pixel_data: PixelData, z_bottom: float, z_top: float) ->
 
     verts: List[Tuple[float, float, float]] = []
     tris: List[Tuple[int, int, int]] = []
-    top_map: Dict[Tuple[int, int], int] = {}
-    bot_map: Dict[Tuple[int, int], int] = {}
+    top_map: Dict[tuple, int] = {}
+    bot_map: Dict[tuple, int] = {}
 
     for x, y in pixel_positions:
-        for (cx, cy), is_top in [
-            *[((x + dx, y + dy), True)  for dx, dy in ((0,0),(1,0),(0,1),(1,1))],
-            *[((x + dx, y + dy), False) for dx, dy in ((0,0),(1,0),(0,1),(1,1))],
-        ]:
-            key = (cx, cy)
-            m = top_map if is_top else bot_map
-            if key not in m:
-                m[key] = len(verts)
-                verts.append((cx * ps, cy * ps, z_top if is_top else z_bottom))
+        corners = ((x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1))
+        corner_keys = [
+            _corner_key(x, y, cx, cy, pixel_positions)
+            for cx, cy in corners
+        ]
 
-        bl_t = top_map[(x,   y)]
-        br_t = top_map[(x+1, y)]
-        tl_t = top_map[(x,   y+1)]
-        tr_t = top_map[(x+1, y+1)]
-        bl_b = bot_map[(x,   y)]
-        br_b = bot_map[(x+1, y)]
-        tl_b = bot_map[(x,   y+1)]
-        tr_b = bot_map[(x+1, y+1)]
+        for (cx, cy), key in zip(corners, corner_keys):
+            if key not in top_map:
+                top_map[key] = len(verts)
+                verts.append((cx * ps, cy * ps, z_top))
+            if key not in bot_map:
+                bot_map[key] = len(verts)
+                verts.append((cx * ps, cy * ps, z_bottom))
+
+        bl_key, br_key, tl_key, tr_key = corner_keys
+        bl_t = top_map[bl_key]
+        br_t = top_map[br_key]
+        tl_t = top_map[tl_key]
+        tr_t = top_map[tr_key]
+        bl_b = bot_map[bl_key]
+        br_b = bot_map[br_key]
+        tl_b = bot_map[tl_key]
+        tr_b = bot_map[tr_key]
 
         tris.append((bl_t, br_t, tl_t)); tris.append((br_t, tr_t, tl_t))  # top face
         tris.append((bl_b, tl_b, br_b)); tris.append((br_b, tl_b, tr_b))  # bottom face
@@ -290,12 +295,10 @@ def _generate_slab_mesh(pixel_data: PixelData, z_bottom: float, z_top: float) ->
         ]:
             if neighbor in pixel_positions:
                 continue
-            assert (x1, y1) in bot_map
-            assert (x2, y2) in bot_map
-            assert (x1, y1) in top_map
-            assert (x2, y2) in top_map
-            tris.append((bot_map[(x1,y1)], bot_map[(x2,y2)], top_map[(x1,y1)]))
-            tris.append((bot_map[(x2,y2)], top_map[(x2,y2)], top_map[(x1,y1)]))
+            key1 = _corner_key(x, y, x1, y1, pixel_positions)
+            key2 = _corner_key(x, y, x2, y2, pixel_positions)
+            tris.append((bot_map[key1], bot_map[key2], top_map[key1]))
+            tris.append((bot_map[key2], top_map[key2], top_map[key1]))
 
     return Mesh(vertices=verts, triangles=tris)
 
