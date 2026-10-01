@@ -1,0 +1,60 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: mega-man-2-midground_model.3mf
+Total Colors/Regions: 263
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 34 (33 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Jade White
+   Hex: #FCFCFC
+   RGB: (252, 252, 252)
+   Regions: 42
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Basic Pink
+   Hex: #FC7460
+   RGB: (252, 116, 96)
+   Regions: 3
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Silver
+   Hex: #BCBCBC
+   RGB: (188, 188, 188)
+   Regions: 44
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Matte Dark Red
+   Hex: #E40058
+   RGB: (228, 0, 88)
+   Regions: 5
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Matte Marine Blue
+   Hex: #0070EC
+   RGB: (0, 112, 236)
+   Regions: 36
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Matte Nardo Gray
+   Hex: #747474
+   RGB: (116, 116, 116)
+   Regions: 52
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Sky Blue
+   Hex: #3CBCFC
+   RGB: (60, 188, 252)
+   Regions: 47
+   Location: 8 (AMS B, Slot 4)
+
+======================================================================

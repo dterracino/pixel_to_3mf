@@ -24,14 +24,14 @@ Filaments Used:
 3. Bambu Lab PLA Basic Gold
    Hex: #E0B070
    RGB: (224, 176, 112)
-   Regions: 94
-   Location: 4 (AMS A, Slot 4)
+   Regions: 95 (94 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
 
 4. Bambu Lab PLA Basic Jade White
    Hex: #F0F0F0
    RGB: (240, 240, 240)
-   Regions: 17
-   Location: 1 (AMS A, Slot 1)
+   Regions: 16
+   Location: 4 (AMS A, Slot 4)
 
 5. Bambu Lab PLA Basic Mistletoe Green
    Hex: #608040

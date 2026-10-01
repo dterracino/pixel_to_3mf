@@ -1,14 +1,14 @@
 {
   "filename": "sf2-cammy-sprite_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\samples\\input\\sprites\\sf2-cammy-sprite_model.3mf",
-  "file_hash": "cc6e452e7248559a7caa5b7f491a4979b84611a828615efbf68a41172437b853",
-  "timestamp": "2026-09-21T10:28:21.694088",
+  "file_hash": "d049da72e4e9d1f8de6ba92343da38ddb8a810d8efaf902a7008ae3399c66fde",
+  "timestamp": "2026-09-21T10:47:10.703867",
   "converter_version": "0.x.x",
   "colors": [
     {
-      "name": "Bambu Lab PLA Basic Jade White",
-      "hex": "#ffffff",
-      "rgb": [255, 255, 255],
+      "name": "Bambu Lab PLA Basic Gold",
+      "hex": "#e4bd68",
+      "rgb": [228, 189, 104],
       "ams_slot": "A-1"
     },
     {
@@ -24,9 +24,9 @@
       "ams_slot": "A-3"
     },
     {
-      "name": "Bambu Lab PLA Basic Gold",
-      "hex": "#e4bd68",
-      "rgb": [228, 189, 104],
+      "name": "Bambu Lab PLA Basic Jade White",
+      "hex": "#ffffff",
+      "rgb": [255, 255, 255],
       "ams_slot": "A-4"
     },
     {

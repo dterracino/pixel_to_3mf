@@ -1,0 +1,30 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: mega-man-2-background_model.3mf
+Total Colors/Regions: 241
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 95 (94 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Cobalt Blue
+   Hex: #0064D3
+   RGB: (0, 100, 211)
+   Regions: 8
+   Location: 2 (AMS A, Slot 2)
+
+3. Bambu Lab PLA Matte Marine Blue
+   Hex: #0070EC
+   RGB: (0, 112, 236)
+   Regions: 138
+   Location: 3 (AMS A, Slot 3)
+
+======================================================================
