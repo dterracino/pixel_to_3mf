@@ -1,0 +1,68 @@
+{
+  "filename": "zyn_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\zyn_model.3mf",
+  "file_hash": "5ee542b4253b52ba285c4e290ddde266fbc4c3e8b1d745dc892c275b6b1d8557",
+  "timestamp": "2026-09-29T03:04:46.778310",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Beige",
+      "hex": "#f7e6de",
+      "rgb": [247, 230, 222],
+      "ams_slot": "A-2"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Cocoa Brown",
+      "hex": "#6f5034",
+      "rgb": [111, 80, 52],
+      "ams_slot": "A-3"
+    },
+    {
+      "name": "Bambu Lab PLA Basic Maroon Red",
+      "hex": "#9d2235",
+      "rgb": [157, 34, 53],
+      "ams_slot": "A-4"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Bone White",
+      "hex": "#cbc6b8",
+      "rgb": [203, 198, 184],
+      "ams_slot": "B-1"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Caramel",
+      "hex": "#ae835b",
+      "rgb": [174, 131, 91],
+      "ams_slot": "B-2"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Dark Chocolate",
+      "hex": "#4d3324",
+      "rgb": [77, 51, 36],
+      "ams_slot": "B-3"
+    },
+    {
+      "name": "Bambu Lab PLA Matte Latte Brown",
+      "hex": "#d3b7a7",
+      "rgb": [211, 183, 167],
+      "ams_slot": "B-4"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 200.0,
+    "height_mm": 198.66666666666666,
+    "pixel_size_mm": 0.4444444444444444
+  },
+  "mesh_stats": {
+    "num_vertices": 783934,
+    "num_triangles": 1519668,
+    "num_regions": 9279,
+    "num_colors": 8
+  }
+}

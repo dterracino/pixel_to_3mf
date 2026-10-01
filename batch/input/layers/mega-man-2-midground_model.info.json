@@ -1,8 +1,8 @@
 {
   "filename": "mega-man-2-midground_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\samples\\input\\layers\\mega-man-2-midground_model.3mf",
-  "file_hash": "1343bc5c07dfcf93f4bc686d7c13c00b454038fd7f77eba2e1bf80962bc3a637",
-  "timestamp": "2026-09-25T05:17:13.169869",
+  "file_hash": "f4e8096f20c9e27ca12d7edc2f844b139223ea84e40ed3175f5334b4119ca05c",
+  "timestamp": "2026-09-25T05:44:24.931594",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -60,9 +60,9 @@
     "pixel_size_mm": 0.8984375
   },
   "mesh_stats": {
-    "num_vertices": 28878,
-    "num_triangles": 55384,
-    "num_regions": 262,
+    "num_vertices": 28920,
+    "num_triangles": 55456,
+    "num_regions": 264,
     "num_colors": 8
   }
 }

@@ -1,0 +1,60 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: zyn_model.3mf
+Total Colors/Regions: 9280
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Beige
+   Hex: #DFD7D1
+   RGB: (223, 215, 209)
+   Regions: 717
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Black
+   Hex: #231D08
+   RGB: (35, 29, 8)
+   Regions: 55
+   Location: 1 (AMS A, Slot 1)
+
+3. Bambu Lab PLA Basic Cocoa Brown
+   Hex: #5C4822
+   RGB: (92, 72, 34)
+   Regions: 1525
+   Location: 3 (AMS A, Slot 3)
+
+4. Bambu Lab PLA Basic Maroon Red
+   Hex: #64140F
+   RGB: (100, 20, 15)
+   Regions: 142
+   Location: 4 (AMS A, Slot 4)
+
+5. Bambu Lab PLA Matte Bone White
+   Hex: #DED5CC
+   RGB: (222, 213, 204)
+   Regions: 3544
+   Location: 5 (AMS B, Slot 1)
+
+6. Bambu Lab PLA Matte Caramel
+   Hex: #AB8355
+   RGB: (171, 131, 85)
+   Regions: 1840
+   Location: 6 (AMS B, Slot 2)
+
+7. Bambu Lab PLA Matte Dark Chocolate
+   Hex: #3A2B0E
+   RGB: (58, 43, 14)
+   Regions: 775
+   Location: 7 (AMS B, Slot 3)
+
+8. Bambu Lab PLA Matte Latte Brown
+   Hex: #D1BEAE
+   RGB: (209, 190, 174)
+   Regions: 682
+   Location: 8 (AMS B, Slot 4)
+
+======================================================================
