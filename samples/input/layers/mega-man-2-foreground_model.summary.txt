@@ -3,7 +3,7 @@
 ======================================================================
 
 3MF File: mega-man-2-foreground_model.3mf
-Total Colors/Regions: 251
+Total Colors/Regions: 253
 Color Naming Mode: filament
 
 Filaments Used:
@@ -12,7 +12,7 @@ Filaments Used:
 1. Bambu Lab PLA Basic Black
    Hex: #000000
    RGB: (0, 0, 0)
-   Regions: 39 (38 color layer, 1 backing plate)
+   Regions: 41 (40 color layer, 1 backing plate)
    Location: 1 (AMS A, Slot 1)
 
 2. Bambu Lab PLA Basic Bright Green
