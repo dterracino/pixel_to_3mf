@@ -129,4 +129,4 @@ dmypy.json
 cython_debug/
 
 # App-specific ignores
-/samples/
+samples/
