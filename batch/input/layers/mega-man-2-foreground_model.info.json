@@ -1,8 +1,8 @@
 {
   "filename": "mega-man-2-foreground_model.3mf",
   "filepath": "E:\\pixel_to_3mf\\samples\\input\\layers\\mega-man-2-foreground_model.3mf",
-  "file_hash": "820801b1c12b541a7fcab11c0a0fdc99fcf43f2b7db26baf5e9f44b086f1ec15",
-  "timestamp": "2026-09-25T05:17:37.356892",
+  "file_hash": "bec7fdd8edf951a98a5f9934ad68d3f7fbe9c85c72b55eafa2ec55a05fe21a56",
+  "timestamp": "2026-09-25T05:44:29.925474",
   "converter_version": "0.x.x",
   "colors": [
     {
@@ -66,9 +66,9 @@
     "pixel_size_mm": 0.8984375
   },
   "mesh_stats": {
-    "num_vertices": 52570,
+    "num_vertices": 52574,
     "num_triangles": 103104,
-    "num_regions": 250,
+    "num_regions": 252,
     "num_colors": 9
   }
 }

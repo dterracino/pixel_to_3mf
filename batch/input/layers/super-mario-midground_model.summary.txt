@@ -1,0 +1,48 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: super-mario-midground_model.3mf
+Total Colors/Regions: 78
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Bambu Green
+   Hex: #00A800
+   RGB: (0, 168, 0)
+   Regions: 5
+   Location: 2 (AMS A, Slot 2)
+
+2. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 24
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Bright Green
+   Hex: #80D010
+   RGB: (128, 208, 16)
+   Regions: 8
+   Location: 4 (AMS A, Slot 4)
+
+4. Bambu Lab PLA Basic Pumpkin Orange
+   Hex: #FC9838
+   RGB: (252, 152, 56)
+   Regions: 3
+   Location: 5 (AMS B, Slot 1)
+
+5. Bambu Lab PLA Matte Terracotta
+   Hex: #C84C0C
+   RGB: (200, 76, 12)
+   Regions: 35
+   Location: 6 (AMS B, Slot 2)
+
+6. Bambu Lab PLA Pure Milky Pink
+   Hex: #FCBCB0
+   RGB: (252, 188, 176)
+   Regions: 3
+   Location: 7 (AMS B, Slot 3)
+
+======================================================================
