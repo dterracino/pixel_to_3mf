@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Preview format**: The `--preview` flag now generates a side-by-side comparison image showing original colors (left) and matched filament colors (right) with labeled panels. This makes it much easier to identify color shifts at a glance compared to the previous single-image format.
 
+### Removed
+
+- **Sample input synchronization workflow**: Removed the obsolete workflow that mirrored `samples/input` to `batch/input`, preventing failed push runs now that the samples directory is no longer tracked.
+
 ### Added
 
 - **Automatic backing color**: `--backing-color auto` and its `--auto-backing-color` alias select the dominant non-transparent color from each processed image for the backing plate. The selected RGB is recalculated after quantization, shares its existing image-color slot, and is resolved independently for every file in batch mode.
