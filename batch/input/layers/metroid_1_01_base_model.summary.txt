@@ -1,0 +1,18 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: metroid_1_01_base_model.3mf
+Total Colors/Regions: 2
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 2 (1 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+======================================================================
