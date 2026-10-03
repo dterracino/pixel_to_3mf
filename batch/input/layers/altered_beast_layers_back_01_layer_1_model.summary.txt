@@ -1,0 +1,42 @@
+======================================================================
+3MF Conversion Summary
+======================================================================
+
+3MF File: altered_beast_layers_back_01_layer_1_model.3mf
+Total Colors/Regions: 177
+Color Naming Mode: filament
+
+Filaments Used:
+----------------------------------------------------------------------
+
+1. Bambu Lab PLA Basic Black
+   Hex: #000000
+   RGB: (0, 0, 0)
+   Regions: 1 (0 color layer, 1 backing plate)
+   Location: 1 (AMS A, Slot 1)
+
+2. Bambu Lab PLA Basic Blue
+   Hex: #00009C
+   RGB: (0, 0, 156)
+   Regions: 70
+   Location: 3 (AMS A, Slot 3)
+
+3. Bambu Lab PLA Basic Cobalt Blue
+   Hex: #0000D6
+   RGB: (0, 0, 214)
+   Regions: 40
+   Location: 5 (AMS B, Slot 1)
+
+4. Bambu Lab PLA Basic Purple
+   Hex: #0000F7
+   RGB: (0, 0, 247)
+   Regions: 21
+   Location: 2 (AMS A, Slot 2)
+
+5. Bambu Lab PLA Matte Dark Blue
+   Hex: #0000B5
+   RGB: (0, 0, 181)
+   Regions: 45
+   Location: 4 (AMS A, Slot 4)
+
+======================================================================
