@@ -1,0 +1,26 @@
+{
+  "filename": "metroid_1_01_base_model.3mf",
+  "filepath": "E:\\pixel_to_3mf\\samples\\input\\layers\\metroid_1_01_base_model.3mf",
+  "file_hash": "42af1b1e6226532a632e26139888ffa289d5bcda1254fb1b01c06e5c0f3bba20",
+  "timestamp": "2026-10-02T18:15:49.700350",
+  "converter_version": "0.x.x",
+  "colors": [
+    {
+      "name": "Bambu Lab PLA Basic Black",
+      "hex": "#000000",
+      "rgb": [0, 0, 0],
+      "ams_slot": "A-1"
+    }
+  ],
+  "model_dimensions": {
+    "width_mm": 230.0,
+    "height_mm": 201.25,
+    "pixel_size_mm": 0.8984375
+  },
+  "mesh_stats": {
+    "num_vertices": 115658,
+    "num_triangles": 231308,
+    "num_regions": 1,
+    "num_colors": 1
+  }
+}
