@@ -23,6 +23,9 @@ color-match-tools>=3.5.0
 # Shared headless 3D rendering
 preview-renderer>=0.1.0,<0.2.0
 
+# Stack manifest editor GUI
+PySide6>=6.8,<7
+
 # Mesh processing and repair
 trimesh>=4.0.0
 

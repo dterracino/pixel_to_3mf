@@ -296,7 +296,8 @@ def _is_sha256(value: Any) -> bool:
     )
 
 
-def _validate_processing(data: dict[str, Any], errors: list[str]) -> None:
+def validate_processing_settings(data: dict[str, Any], errors: list[str]) -> None:
+    """Validate the preprocessing contract shared by relief manifest modes."""
     processing = data.get("processing")
     if not isinstance(processing, dict):
         errors.append("processing must be an object")
@@ -365,7 +366,7 @@ def validate_relief_manifest(
         errors.append(f"schema_version must be {SCHEMA_VERSION}")
     if data.get("mode") != "palette_relief":
         errors.append("mode must be 'palette_relief'")
-    _validate_processing(data, errors)
+    validate_processing_settings(data, errors)
 
     source = data.get("source")
     source_stem: str | None = None

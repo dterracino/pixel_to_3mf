@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterable, Protocol
 
 from .config import ConversionConfig
 from .image_processor import PixelData
@@ -14,7 +14,23 @@ from .mesh_generator import (
     generate_region_mesh_shell,
 )
 from .region_merger import Region
-from .relief_plan import PaletteReliefPlan
+from .relief_plan import ReliefMaterialSpan
+
+
+class MaterialReliefPlan(Protocol):
+    """Structural contract shared by palette and selection-stack relief."""
+
+    @property
+    def backing_color(self) -> tuple[int, int, int]: ...
+
+    @property
+    def backing_height_mm(self) -> float: ...
+
+    @property
+    def footprint(self) -> frozenset[tuple[int, int]]: ...
+
+    @property
+    def spans(self) -> tuple[ReliefMaterialSpan, ...]: ...
 
 
 def combine_meshes(meshes: Iterable[Mesh]) -> Mesh:
@@ -30,7 +46,7 @@ def combine_meshes(meshes: Iterable[Mesh]) -> Mesh:
 
 
 def build_palette_relief_meshes(
-    plan: PaletteReliefPlan,
+    plan: MaterialReliefPlan,
     pixel_data: PixelData,
     config: ConversionConfig,
 ) -> tuple[list[tuple[Mesh, str]], list[tuple[int, int, int]]]:
@@ -59,7 +75,7 @@ def build_palette_relief_meshes(
 
 
 def validate_palette_relief_geometry(
-    plan: PaletteReliefPlan,
+    plan: MaterialReliefPlan,
     pixel_data: PixelData,
     config: ConversionConfig,
 ) -> list[str]:

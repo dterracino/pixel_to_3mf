@@ -39,6 +39,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable, or use `--no-backing-plate` to omit it entirely while extending color layers to fill the same depth — ideal for suncatchers and reversible pieces). Use `--solid-core` to sandwich a single-filament core between two thin colour shells for faster multi-colour prints.
 - **Two-Level Relief**: Keep an exact background RGB at the normal color plane while raising every other image color by a configurable extra height with `--relief`
 - **Palette Relief**: Generate an editable manifest, assign an exact height to every processed color, validate it, then build one slicer object per material color
+- **Stack Relief Editor**: Select connected image areas in a pan-and-zoom GUI, group arbitrary colors into named stacks, and independently set each stack's total and top-color heights
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
@@ -190,8 +191,11 @@ python run_converter.py --batch \
 | `--background-color` | Exact image RGB that remains at normal color height in relief mode | `255,255,255` |
 | `--relief-height` | Extra height for non-background colors in relief mode (mm) | 1.0 |
 | `--generate-relief-manifest [PATH]` | Write an editable manifest and one full-canvas reference PNG per color section | `{image}.manifest.json` |
-| `--validate-relief-manifest PATH` | Validate manifest values and reproduce its processed source image | Off |
-| `--relief-manifest PATH` | Build palette-relief geometry from a validated manifest | Off |
+| `--manifest [PATH]` | Open the stack-relief GUI editor | `{image}.manifest.json` |
+| `--validate-manifest PATH` | Validate either stack- or palette-relief data, reproduce preprocessing, and dry-run geometry | Off |
+| `--apply-manifest PATH` | Build stack- or palette-relief geometry from a validated manifest | Off |
+| `--validate-relief-manifest PATH` | Legacy spelling of `--validate-manifest` | Off |
+| `--relief-manifest PATH` | Legacy spelling of `--apply-manifest` | Off |
 | `--color-at X,Y` | Print the processed color at a top-left-origin image coordinate | Off |
 | `--backing-color-at X,Y` | Select the backing color from a processed image coordinate | Off |
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
@@ -576,7 +580,42 @@ python run_converter.py artwork.png \
 - **Matching:** Uses the exact RGB assigned during region merging, before filament or color-name matching
 - **Compatibility:** Works with standard, optimized, smoothed, no-backing, and solid-core meshes; solid-core relief raises only the top-facing shell
 
-#### Palette Relief with Exact Per-Color Heights
+#### Stack Relief Editor
+
+Stack relief lets different connected areas of the same source color use
+different heights. Open the editor with:
+
+```bash
+python run_converter.py ms-pac-man.png \
+  --background-color 0,0,0 \
+  --backing-color 0,0,0 \
+  --base-height 2 \
+  --manifest
+```
+
+The editor uses exact-RGB, 4-connected fills. Click replaces the current
+selection, Shift-click adds another connected area, and Alt-click removes one.
+The mouse wheel zooms and middle-drag pans. A saved stack may contain multiple
+source colors: every selected pixel keeps its own source color in the top
+portion. `stack height - color height` is filled with the manifest's background
+color. The physical backing plate is separate and uses the backing color.
+
+Draft manifests may be saved with unassigned pixels so work can be resumed.
+Every opaque non-background pixel must belong to exactly one stack before
+validation/export; background pixels are exempt but may still be selected.
+
+```bash
+python run_converter.py --validate-manifest ms-pac-man.manifest.json
+python run_converter.py ms-pac-man.png \
+  --apply-manifest ms-pac-man.manifest.json \
+  --summary --swatches --render
+```
+
+The manifest freezes preprocessing settings and source/processed-image hashes,
+so validation catches source edits or option drift. The 3MF, standalone render,
+and embedded thumbnails all consume the same compiled final meshes.
+
+#### Palette Relief (Legacy Color-Based Workflow)
 
 Palette relief is a three-step workflow. The background color stays at the
 normal color-layer height and is omitted from the editable section list. Every

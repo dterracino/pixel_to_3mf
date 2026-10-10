@@ -15,7 +15,7 @@ import sys
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, List, Any, cast
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
@@ -514,14 +514,25 @@ The program will:
     )
 
     parser.add_argument(
-        "--validate-relief-manifest",
+        "--manifest",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help="Open the stack-relief editor. Defaults to {image_stem}.manifest.json.",
+    )
+
+    parser.add_argument(
+        "--validate-relief-manifest", "--validate-manifest",
+        dest="validate_relief_manifest",
         type=str,
         metavar="PATH",
         help="Validate a relief manifest and its processed source image, then exit"
     )
 
     parser.add_argument(
-        "--relief-manifest",
+        "--relief-manifest", "--apply-manifest",
+        dest="relief_manifest",
         type=str,
         metavar="PATH",
         help="Generate palette-relief geometry using the exact heights in PATH"
@@ -977,9 +988,23 @@ The program will:
 
     palette_relief_requested = bool(
         args.generate_relief_manifest is not None
+        or args.manifest is not None
         or args.validate_relief_manifest
         or args.relief_manifest
     )
+    manifest_operations = sum(
+        (
+            args.generate_relief_manifest is not None,
+            args.manifest is not None,
+            bool(args.validate_relief_manifest),
+            bool(args.relief_manifest),
+        )
+    )
+    if manifest_operations > 1:
+        error_console.print(
+            "[red]❌ Error: Choose only one manifest generate, edit, validate, or apply operation[/red]"
+        )
+        sys.exit(1)
     if args.relief and args.relief_manifest:
         error_console.print("[red]❌ Error: --relief and --relief-manifest are mutually exclusive[/red]")
         sys.exit(1)
@@ -1159,6 +1184,7 @@ The program will:
     try:
         from .relief_workflow import (
             color_at_image_coordinate,
+            filter_pixel_data_to_regions,
             generate_relief_manifest_file,
             prepare_relief_image,
         )
@@ -1172,12 +1198,23 @@ The program will:
             from hashlib import sha256
 
             manifest_data = load_relief_manifest(args.validate_relief_manifest)
-            _, static_errors, static_warnings = validate_relief_manifest(manifest_data)
+            is_stack_manifest = manifest_data.get("mode") == "stack_relief"
+            if is_stack_manifest:
+                from .stack_manifest import (
+                    apply_stack_manifest_settings,
+                    validate_stack_manifest,
+                )
+
+                _, static_errors, static_warnings = validate_stack_manifest(manifest_data)
+                apply_settings = apply_stack_manifest_settings
+            else:
+                _, static_errors, static_warnings = validate_relief_manifest(manifest_data)
+                apply_settings = apply_manifest_settings
             for warning in static_warnings:
                 console.print(f"[yellow]Warning: {warning}[/yellow]")
             if static_errors:
                 raise ValueError("; ".join(static_errors))
-            apply_manifest_settings(manifest_data, config)
+            apply_settings(manifest_data, config)
             source = args.image_file
             if source is None:
                 source_obj = manifest_data.get("source", {})
@@ -1189,18 +1226,34 @@ The program will:
             if expected_hash and sha256(Path(source).read_bytes()).hexdigest() != expected_hash:
                 raise ValueError("Manifest source SHA-256 does not match the source image")
             pixels, regions = prepare_relief_image(source, config)
-            manifest, errors, warnings = validate_relief_manifest(
-                manifest_data, pixels, regions
-            )
+            if is_stack_manifest:
+                pixels = filter_pixel_data_to_regions(pixels, regions)
+                manifest, errors, warnings = validate_stack_manifest(
+                    manifest_data, pixels
+                )
+            else:
+                manifest, errors, warnings = validate_relief_manifest(
+                    manifest_data, pixels, regions
+                )
             for warning in warnings:
                 console.print(f"[yellow]Warning: {warning}[/yellow]")
             if errors:
                 raise ValueError("; ".join(errors))
             assert manifest is not None
             from .palette_relief import validate_palette_relief_geometry
-            from .relief_plan import create_palette_relief_plan
 
-            plan = create_palette_relief_plan(manifest, regions)
+            if is_stack_manifest:
+                from .stack_manifest import StackManifest
+                from .stack_plan import create_stack_relief_plan
+
+                plan = create_stack_relief_plan(cast(StackManifest, manifest), pixels)
+            else:
+                from .relief_manifest import ReliefManifest
+                from .relief_plan import create_palette_relief_plan
+
+                plan = create_palette_relief_plan(
+                    cast(ReliefManifest, manifest), regions
+                )
             geometry_errors = validate_palette_relief_geometry(
                 plan, pixels, config
             )
@@ -1247,6 +1300,20 @@ The program will:
             )
             return
 
+        if args.manifest is not None:
+            if not args.image_file:
+                raise ValueError("--manifest requires an image file")
+            image_path = Path(args.image_file)
+            manifest_path = (
+                Path(args.manifest)
+                if args.manifest
+                else image_path.with_suffix(".manifest.json")
+            )
+            from .stack_editor import launch_stack_editor
+
+            launch_stack_editor(image_path, manifest_path, config)
+            return
+
         if args.generate_relief_manifest is not None:
             if not args.image_file:
                 raise ValueError("--generate-relief-manifest requires an image file")
@@ -1270,15 +1337,25 @@ The program will:
         if args.relief_manifest:
             if config.optimize_mesh:
                 raise ValueError(
-                    "Palette relief does not currently support --optimize-mesh"
+                    "Manifest relief does not currently support --optimize-mesh"
                 )
             manifest_data = load_relief_manifest(args.relief_manifest)
-            _, errors, warnings = validate_relief_manifest(manifest_data)
+            if manifest_data.get("mode") == "stack_relief":
+                from .stack_manifest import (
+                    apply_stack_manifest_settings,
+                    validate_stack_manifest,
+                )
+
+                _, errors, warnings = validate_stack_manifest(manifest_data)
+                apply_settings = apply_stack_manifest_settings
+            else:
+                _, errors, warnings = validate_relief_manifest(manifest_data)
+                apply_settings = apply_manifest_settings
             for warning in warnings:
                 console.print(f"[yellow]Warning: {warning}[/yellow]")
             if errors:
                 raise ValueError("; ".join(errors))
-            apply_manifest_settings(manifest_data, config)
+            apply_settings(manifest_data, config)
     except (OSError, ValueError, KeyError) as exc:
         error_console.print(f"[red]❌ Relief manifest error: {exc}[/red]")
         sys.exit(1)

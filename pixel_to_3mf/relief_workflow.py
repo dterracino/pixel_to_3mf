@@ -34,6 +34,24 @@ def prepare_relief_image(
     return pixels, regions
 
 
+def filter_pixel_data_to_regions(
+    pixel_data: PixelData, regions: list[Region]
+) -> PixelData:
+    """Return the exact post-region pixel map used by final geometry."""
+
+    included = {coordinate for region in regions for coordinate in region.pixels}
+    return PixelData(
+        pixel_data.width,
+        pixel_data.height,
+        pixel_data.pixel_size_mm,
+        {
+            coordinate: rgba
+            for coordinate, rgba in pixel_data.pixels.items()
+            if coordinate in included
+        },
+    )
+
+
 def generate_relief_manifest_file(
     image_path: str | Path,
     output_path: str | Path,

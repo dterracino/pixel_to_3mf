@@ -11,9 +11,10 @@ No print statements, no argparse, just clean conversion logic! 🎯
 import math
 import os
 import logging
+import json
 from hashlib import sha256
 
-from typing import Optional, Callable, Dict, Any, List, Set, Tuple
+from typing import Optional, Callable, Dict, Any, List, Set, Tuple, cast
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -163,20 +164,33 @@ def convert_image_to_3mf(
         config = ConversionConfig()
 
     relief_manifest_data = None
+    relief_manifest_mode = None
     if config.relief_manifest_path is not None:
         if config.relief:
             raise ValueError("--relief-manifest cannot be combined with traditional --relief")
         if config.solid_core or config.no_backing_plate:
-            raise ValueError("Palette relief currently requires a physical backing plate")
+            raise ValueError("Manifest relief currently requires a physical backing plate")
         if config.smooth_boundaries:
-            raise ValueError("Palette relief does not currently support boundary smoothing")
+            raise ValueError("Manifest relief does not currently support boundary smoothing")
         if config.optimize_mesh:
-            raise ValueError("Palette relief does not currently support optimized mesh generation")
-        relief_manifest_data = load_relief_manifest(config.relief_manifest_path)
-        _, manifest_errors, _ = validate_relief_manifest(relief_manifest_data)
+            raise ValueError("Manifest relief does not currently support optimized mesh generation")
+        relief_manifest_data = json.loads(
+            Path(config.relief_manifest_path).read_text(encoding="utf-8")
+        )
+        if not isinstance(relief_manifest_data, dict):
+            raise ValueError("Relief manifest root must be a JSON object")
+        relief_manifest_mode = relief_manifest_data.get("mode")
+        if relief_manifest_mode == "stack_relief":
+            from .stack_manifest import apply_stack_manifest_settings, validate_stack_manifest
+
+            _, manifest_errors, _ = validate_stack_manifest(relief_manifest_data)
+            settings_applier = apply_stack_manifest_settings
+        else:
+            _, manifest_errors, _ = validate_relief_manifest(relief_manifest_data)
+            settings_applier = apply_manifest_settings
         if manifest_errors:
             raise ValueError("Invalid relief manifest: " + "; ".join(manifest_errors))
-        apply_manifest_settings(relief_manifest_data, config)
+        settings_applier(relief_manifest_data, config)
     
     # Reset optimization statistics if optimization is enabled
     from . import mesh_generator as mg
@@ -342,17 +356,38 @@ def convert_image_to_3mf(
     relief_manifest = None
     relief_plan = None
     if relief_manifest_data is not None:
-        relief_manifest, manifest_errors, manifest_warnings = validate_relief_manifest(
-            relief_manifest_data, pixel_data, regions
-        )
+        if relief_manifest_mode == "stack_relief":
+            from .stack_manifest import validate_stack_manifest
+            from .relief_workflow import filter_pixel_data_to_regions
+
+            relief_pixel_data = filter_pixel_data_to_regions(pixel_data, regions)
+            relief_manifest, manifest_errors, manifest_warnings = validate_stack_manifest(
+                relief_manifest_data, relief_pixel_data
+            )
+        else:
+            relief_pixel_data = pixel_data
+            relief_manifest, manifest_errors, manifest_warnings = validate_relief_manifest(
+                relief_manifest_data, pixel_data, regions
+            )
         if manifest_errors:
             raise ValueError("Relief manifest does not match this image: " + "; ".join(manifest_errors))
         for warning in manifest_warnings:
             _progress("manifest", warning)
         assert relief_manifest is not None
-        from .relief_plan import create_palette_relief_plan
+        if relief_manifest_mode == "stack_relief":
+            from .stack_manifest import StackManifest
+            from .stack_plan import create_stack_relief_plan
 
-        relief_plan = create_palette_relief_plan(relief_manifest, regions)
+            relief_plan = create_stack_relief_plan(
+                cast(StackManifest, relief_manifest), relief_pixel_data
+            )
+        else:
+            from .relief_manifest import ReliefManifest
+            from .relief_plan import create_palette_relief_plan
+
+            relief_plan = create_palette_relief_plan(
+                cast(ReliefManifest, relief_manifest), regions
+            )
 
     # Step 2.7: Smooth region boundaries (optional — disabled by default)
     smoothed_regions = None
@@ -372,7 +407,7 @@ def convert_image_to_3mf(
     if relief_plan is not None:
         from .palette_relief import build_palette_relief_meshes
 
-        _progress("mesh", "Building palette-relief material volumes...")
+        _progress("mesh", "Building manifest-relief material volumes...")
         filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
         meshes, region_colors = build_palette_relief_meshes(
             relief_plan, filtered_pixel_data, config

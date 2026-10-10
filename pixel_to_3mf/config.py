@@ -227,7 +227,7 @@ class ConversionConfig:
     generate_preview: bool = False
     generate_quantized_preview: bool = False
 
-    # Palette-relief manifest to apply. None selects the traditional pipeline.
+    # Palette- or stack-relief manifest to apply. None selects the traditional pipeline.
     relief_manifest_path: str | None = None
     
     # Color swatches image options
