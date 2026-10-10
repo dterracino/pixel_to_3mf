@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Preview format**: The `--preview` flag now generates a side-by-side comparison image showing original colors (left) and matched filament colors (right) with labeled panels. This makes it much easier to identify color shifts at a glance compared to the previous single-image format.
 - **Unified 3D rendering**: `--render` and the embedded `plate_1.png`, `plate_1_small.png`, and `plate_no_light_1.png` thumbnails now use one headless ModernGL mesh renderer based on LayerForge's camera, lighting, and material shader. The angled view is generated from final 3D geometry, so backing thickness, relief levels, smoothed or optimized boundaries, and solid-core shells are represented consistently.
 
+### Removed
+
+- **Sample input synchronization workflow**: Removed the obsolete workflow that mirrored `samples/input` to `batch/input`, preventing failed push runs now that the samples directory is no longer tracked.
+
 ### Added
 
 - **Palette Relief manifests**: Added a three-stage color-height workflow with `--generate-relief-manifest`, `--validate-relief-manifest`, and `--relief-manifest`. Manifests freeze preprocessing, omit the selected background from editable sections, record source/processed fingerprints and palette diagnostics, and assign exact per-color heights relative to the backing top.
