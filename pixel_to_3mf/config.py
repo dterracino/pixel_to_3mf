@@ -132,6 +132,10 @@ class ConversionConfig:
         backing_color: RGB color for the backing plate (reserved if not in image)
         auto_backing_color: If True, use the dominant non-transparent image color
             for the backing plate so it shares an existing color slot
+        backing_color_selection: Provenance for the resolved backing color:
+            default, explicit, auto, or coordinate
+        backing_color_coordinate: Processed top-left-origin X,Y when coordinate
+            selection was used, otherwise None
         no_backing_color: If True, don't reserve a slot for the backing color; all slots are available
             for image colors, and the backing plate reuses slot 1 (the first image color)
         no_backing_plate: If True, omit the backing plate entirely and extend color layers downward to
@@ -183,6 +187,8 @@ class ConversionConfig:
     max_colors: int = MAX_COLORS
     backing_color: Tuple[int, int, int] = BACKING_COLOR
     auto_backing_color: bool = False
+    backing_color_selection: str = "default"
+    backing_color_coordinate: tuple[int, int] | None = None
     no_backing_color: bool = False
     no_backing_plate: bool = False
     solid_core: bool = False
@@ -219,6 +225,10 @@ class ConversionConfig:
     
     # Preview image options
     generate_preview: bool = False
+    generate_quantized_preview: bool = False
+
+    # Palette-relief manifest to apply. None selects the traditional pipeline.
+    relief_manifest_path: str | None = None
     
     # Color swatches image options
     generate_swatches: bool = GENERATE_SWATCHES
@@ -278,6 +288,23 @@ class ConversionConfig:
             raise ValueError(
                 "auto_backing_color cannot be combined with no_backing_color"
             )
+        if self.backing_color_selection not in {"default", "explicit", "auto", "coordinate"}:
+            raise ValueError(
+                "backing_color_selection must be default, explicit, auto, or coordinate"
+            )
+        if self.backing_color_coordinate is not None:
+            coordinate = self.backing_color_coordinate
+            if (
+                not isinstance(coordinate, tuple)
+                or len(coordinate) != 2
+                or any(
+                    not isinstance(value, int) or isinstance(value, bool) or value < 0
+                    for value in coordinate
+                )
+            ):
+                raise ValueError(
+                    "backing_color_coordinate must contain non-negative integer X,Y values"
+                )
         if not isinstance(self.relief_background_color, tuple) or len(self.relief_background_color) != 3:
             raise ValueError(
                 "relief_background_color must be an RGB tuple, "

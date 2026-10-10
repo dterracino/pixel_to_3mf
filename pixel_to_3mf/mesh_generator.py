@@ -10,7 +10,7 @@ indices each). This is the universal format for 3D meshes - STL, OBJ,
 3MF all use this approach! 🎲
 """
 
-from typing import List, Tuple, Set, Dict, TYPE_CHECKING
+from typing import List, Tuple, Set, Dict, TYPE_CHECKING, TypedDict
 from .region_merger import Region
 from .image_processor import PixelData
 from .mesh import Mesh  # noqa: F401  (re-exported for backwards compatibility)
@@ -27,6 +27,17 @@ if TYPE_CHECKING:
 # When False, uses original per-pixel mesh generation. Both produce manifold
 # meshes with identical visual results.
 USE_OPTIMIZED_MESH_GENERATION = False
+
+
+class MeshValidationResult(TypedDict):
+    """Describe the fixed-shape diagnostics returned by manifold validation."""
+
+    boundary_edges: int
+    non_manifold_edges: int
+    winding: str
+    is_manifold: bool
+    is_ccw: bool
+    is_valid: bool
 
 # Try to import optimized functions
 try:
@@ -421,35 +432,24 @@ def generate_region_mesh_shell(
     Returns:
         A Mesh object ready for export
     """
-    edge_connected_pixels = set()
-    for x, y in region.pixels:
-        for nx, ny in [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]:
-            if (nx, ny) in region.pixels:
-                edge_connected_pixels.add((x, y))
-                break
-
-    diagonal_only_pixels = region.pixels - edge_connected_pixels
-
+    region_pixels = region.pixels
     vertices: List[Tuple[float, float, float]] = []
     triangles: List[Tuple[int, int, int]] = []
     ps = pixel_data.pixel_size_mm
 
     perimeter_pixels: Set[Tuple[int, int]] = set()
-    for x, y in region.pixels:
+    for x, y in region_pixels:
         for nx, ny in [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]:
-            if (nx, ny) not in region.pixels:
+            if (nx, ny) not in region_pixels:
                 perimeter_pixels.add((x, y))
                 break
 
     top_vertex_map: Dict[tuple, int] = {}
-    for x, y in region.pixels:
+    for x, y in region_pixels:
         corners = [(x, y, "bl"), (x+1, y, "br"), (x, y+1, "tl"), (x+1, y+1, "tr")]
         corner_indices = []
-        for cx, cy, label in corners:
-            if (x, y) in diagonal_only_pixels:
-                key: tuple = ((x, y), cx, cy, "top")
-            else:
-                key = (cx, cy)
+        for cx, cy, _label in corners:
+            key = _corner_key(x, y, cx, cy, region_pixels)
             if key not in top_vertex_map:
                 top_vertex_map[key] = len(vertices)
                 vertices.append((cx * ps, cy * ps, z_top))
@@ -459,14 +459,11 @@ def generate_region_mesh_shell(
         triangles.append((br, tr, tl))
 
     bottom_vertex_map: Dict[tuple, int] = {}
-    for x, y in region.pixels:
+    for x, y in region_pixels:
         corners = [(x, y, "bl"), (x+1, y, "br"), (x, y+1, "tl"), (x+1, y+1, "tr")]
         corner_indices = []
-        for cx, cy, label in corners:
-            if (x, y) in diagonal_only_pixels:
-                key = ((x, y), cx, cy, "bottom")
-            else:
-                key = (cx, cy)
+        for cx, cy, _label in corners:
+            key = _corner_key(x, y, cx, cy, region_pixels)
             if key not in bottom_vertex_map:
                 bottom_vertex_map[key] = len(vertices)
                 vertices.append((cx * ps, cy * ps, z_bottom))
@@ -491,29 +488,21 @@ def generate_region_mesh_shell(
                 neighbor = (x, y + 1)
             else:
                 neighbor = (x - 1, y)
-            if neighbor in region.pixels:
+            if neighbor in region_pixels:
                 continue
-            if (x, y) in diagonal_only_pixels:
-                bl_key: tuple = ((x, y), x1, y1, "bottom")
-                br_key: tuple = ((x, y), x2, y2, "bottom")
-                tl_key: tuple = ((x, y), x1, y1, "top")
-                tr_key: tuple = ((x, y), x2, y2, "top")
-            else:
-                bl_key = (x1, y1)
-                br_key = (x2, y2)
-                tl_key = (x1, y1)
-                tr_key = (x2, y2)
-            idx_bl = bottom_vertex_map[bl_key]
-            idx_br = bottom_vertex_map[br_key]
-            idx_tl = top_vertex_map[tl_key]
-            idx_tr = top_vertex_map[tr_key]
+            c1_key = _corner_key(x, y, x1, y1, region_pixels)
+            c2_key = _corner_key(x, y, x2, y2, region_pixels)
+            idx_bl = bottom_vertex_map[c1_key]
+            idx_br = bottom_vertex_map[c2_key]
+            idx_tl = top_vertex_map[c1_key]
+            idx_tr = top_vertex_map[c2_key]
             triangles.append((idx_bl, idx_br, idx_tl))
             triangles.append((idx_br, idx_tr, idx_tl))
 
     return Mesh(vertices=vertices, triangles=triangles)
 
 
-def check_mesh_manifold(mesh: Mesh) -> Dict[str, object]:
+def check_mesh_manifold(mesh: Mesh) -> MeshValidationResult:
     """
     Check a mesh for manifold properties and CCW top-face winding.
 

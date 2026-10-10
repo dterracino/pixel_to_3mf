@@ -11,6 +11,7 @@ No print statements, no argparse, just clean conversion logic! 🎯
 import math
 import os
 import logging
+from hashlib import sha256
 
 from typing import Optional, Callable, Dict, Any, List, Set, Tuple
 from pathlib import Path
@@ -24,6 +25,11 @@ from .threemf_writer import write_3mf
 from .config import ConversionConfig
 from .constants import COORDINATE_PRECISION
 from .pipeline_context import PipelineContext, generate_previews
+from .relief_manifest import (
+    apply_manifest_settings,
+    load_relief_manifest,
+    validate_relief_manifest,
+)
 
 def _create_filtered_pixel_data(regions: List[Region], original_pixel_data: PixelData) -> PixelData:
     """
@@ -155,6 +161,22 @@ def convert_image_to_3mf(
     # Use default config if none provided
     if config is None:
         config = ConversionConfig()
+
+    relief_manifest_data = None
+    if config.relief_manifest_path is not None:
+        if config.relief:
+            raise ValueError("--relief-manifest cannot be combined with traditional --relief")
+        if config.solid_core or config.no_backing_plate:
+            raise ValueError("Palette relief currently requires a physical backing plate")
+        if config.smooth_boundaries:
+            raise ValueError("Palette relief does not currently support boundary smoothing")
+        if config.optimize_mesh:
+            raise ValueError("Palette relief does not currently support optimized mesh generation")
+        relief_manifest_data = load_relief_manifest(config.relief_manifest_path)
+        _, manifest_errors, _ = validate_relief_manifest(relief_manifest_data)
+        if manifest_errors:
+            raise ValueError("Invalid relief manifest: " + "; ".join(manifest_errors))
+        apply_manifest_settings(relief_manifest_data, config)
     
     # Reset optimization statistics if optimization is enabled
     from . import mesh_generator as mg
@@ -169,6 +191,14 @@ def convert_image_to_3mf(
     input_file = Path(input_path)
     if not input_file.exists():
         raise FileNotFoundError(f"Input image not found: {input_path}")
+    if relief_manifest_data is not None:
+        source_info = relief_manifest_data.get("source", {})
+        expected_source_hash = (
+            source_info.get("sha256") if isinstance(source_info, dict) else None
+        )
+        actual_source_hash = sha256(input_file.read_bytes()).hexdigest()
+        if expected_source_hash and expected_source_hash != actual_source_hash:
+            raise ValueError("Relief manifest source SHA-256 does not match the input image")
     
     # Set source image information in config
     # WHY: This allows the config to auto-generate the model title and makes
@@ -188,101 +218,24 @@ def convert_image_to_3mf(
     regions = None  # May be set inside the iterate block; checked in Step 2 below
 
     if config.iterate_quantize and config.quantize:
-        # ITERATIVE MODE: Start at quantize_colors and decrement until the merged color
-        # count fits within max_colors. This gives accent colors a better chance of
-        # surviving quantization — more initial colors means the quantizer has less
-        # reason to collapse small-but-important clusters into nearby larger ones.
-        from .threemf_writer import get_color_name
+        from .iterative_quantizer import select_iterative_quantization
 
         start_colors = config.quantize_colors if config.quantize_colors is not None else config.max_colors
-        min_colors = config.max_colors  # don't go below max_colors; normal rules apply there
-        current_q = start_colors
+        pixel_data, regions, quantized_snapshot, final_q = select_iterative_quantization(
+            str(input_path), config, _progress
+        )
 
-        pixel_data = None
-        regions = None
-        final_q = current_q
-
-        while current_q >= min_colors:
-            config.quantize_colors = current_q
-            _progress("load", f"Trying quantize-colors={current_q}...")
-            candidate_pixel_data = load_image(str(input_path), config)
-
-            if config.denoise_min_size > 0:
-                _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
-                candidate_pixel_data.pixels = denoise_blob_pixels(
-                    candidate_pixel_data.pixels, config.denoise_min_size, config.connectivity
-                )
-                _progress("denoise", "Complete!")
-
-            candidate_regions = merge_regions(candidate_pixel_data, config)
-            if config.trim_disconnected:
-                candidate_regions = trim_disconnected_pixels(candidate_regions, candidate_pixel_data.pixels)
-
-            # Count how many unique color names (slots) the merge step would produce
-            unique_region_colors = list({r.color for r in candidate_regions})
-            unique_names: set[str | Tuple[int, int, int]]
-            if config.merge_similar_colors:
-                unique_names = {get_color_name(rgb, config) for rgb in unique_region_colors}
-            else:
-                unique_names = set(unique_region_colors)  # no merging → count raw RGBs
-
-            # Account for backing color slot reservation.
-            # Slot 1 is always the backing color when no_backing_color=False.
-            # If the backing color appears in the image it shares slot 1 (discard it so
-            # it isn't double-counted). Either way, image colors can only use
-            # max_colors-1 slots (2..max_colors), so compare against that limit.
-            if not config.no_backing_color:
-                if config.merge_similar_colors:
-                    unique_names.discard(get_color_name(config.backing_color, config))
-                else:
-                    unique_names.discard(config.backing_color)
-
-            effective_limit = config.max_colors if config.no_backing_color else config.max_colors - 1
-
-            merged_count = len(unique_names)
-            _progress("load", f"  → {merged_count} merged colors (target: ≤{effective_limit})")
-
-            if merged_count <= effective_limit:
-                pixel_data = candidate_pixel_data
-                regions = candidate_regions
-                final_q = current_q
-                break
-            current_q -= 1
-
-        if pixel_data is None:
-            # Fell through — even at min_colors it didn't fit; use the last attempt
-            # (load_image at min_colors will raise the normal error if still too many)
-            config.quantize_colors = min_colors
-            pixel_data = load_image(str(input_path), config)
-            ctx.snapshot_original(pixel_data)
-            if config.quantize:
-                ctx.snapshot_quantized(pixel_data)
-            if config.denoise_min_size > 0:
-                _progress("denoise", f"Denoising blobs smaller than {config.denoise_min_size}px...")
-                pixel_data.pixels = denoise_blob_pixels(
-                    pixel_data.pixels, config.denoise_min_size, config.connectivity
-                )
-                ctx.snapshot_denoised(pixel_data)
-                _progress("denoise", "Complete!")
-            regions = merge_regions(pixel_data, config)
-            if config.trim_disconnected:
-                regions = trim_disconnected_pixels(regions, pixel_data.pixels)
-            final_q = min_colors
-        else:
-            # Capture snapshots for the winning candidate
-            # Reconstruct: load without quantize to get original, then the
-            # quantized result is already in pixel_data.
-            original_config_q = config.quantize_colors
-            resolved_backing_color = config.backing_color
-            config.quantize = False
-            original_pixel_data = load_image(str(input_path), config)
-            config.quantize = True
-            config.quantize_colors = original_config_q
-            config.backing_color = resolved_backing_color
-            ctx.snapshot_original(original_pixel_data)
-            ctx.snapshot_quantized(pixel_data)
-            if config.denoise_min_size > 0:
-                ctx.snapshot_denoised(pixel_data)
+        # Reconstruct the pre-quantization state for comparison artifacts.
+        resolved_backing_color = config.backing_color
+        config.quantize = False
+        original_pixel_data = load_image(str(input_path), config)
+        config.quantize = True
+        config.quantize_colors = final_q
+        config.backing_color = resolved_backing_color
+        ctx.snapshot_original(original_pixel_data)
+        ctx.snapshot_quantized(quantized_snapshot)
+        if config.denoise_min_size > 0:
+            ctx.snapshot_denoised(pixel_data)
 
         if final_q < start_colors:
             _progress("load", f"Settled on quantize-colors={final_q} (started at {start_colors})")
@@ -291,7 +244,7 @@ def convert_image_to_3mf(
 
     else:
         # Normal (non-iterative) load
-        if config.quantize and config.generate_preview:
+        if config.quantize and (config.generate_preview or config.generate_quantized_preview):
             # Load without quantize first to capture a true "original" snapshot,
             # then load again with quantize to get the actual working pixel_data.
             # WHY: quantization happens inside load_image(), so to show a
@@ -383,8 +336,23 @@ def convert_image_to_3mf(
     else:
         _progress("merge", f"Found {len(regions)} connected regions")
 
-    if config.generate_preview:
+    if config.generate_preview or config.generate_quantized_preview:
         ctx.snapshot_model(_create_filtered_pixel_data(regions, pixel_data))
+
+    relief_manifest = None
+    relief_plan = None
+    if relief_manifest_data is not None:
+        relief_manifest, manifest_errors, manifest_warnings = validate_relief_manifest(
+            relief_manifest_data, pixel_data, regions
+        )
+        if manifest_errors:
+            raise ValueError("Relief manifest does not match this image: " + "; ".join(manifest_errors))
+        for warning in manifest_warnings:
+            _progress("manifest", warning)
+        assert relief_manifest is not None
+        from .relief_plan import create_palette_relief_plan
+
+        relief_plan = create_palette_relief_plan(relief_manifest, regions)
 
     # Step 2.7: Smooth region boundaries (optional — disabled by default)
     smoothed_regions = None
@@ -400,7 +368,16 @@ def convert_image_to_3mf(
     meshes = []
     region_colors = []
 
-    if config.has_solid_core:
+    explicit_mesh_colors = relief_plan is not None
+    if relief_plan is not None:
+        from .palette_relief import build_palette_relief_meshes
+
+        _progress("mesh", "Building palette-relief material volumes...")
+        filtered_pixel_data = _create_filtered_pixel_data(regions, pixel_data)
+        meshes, region_colors = build_palette_relief_meshes(
+            relief_plan, filtered_pixel_data, config
+        )
+    elif config.has_solid_core:
         # Solid-core mode: each region becomes two thin shells (bottom + top).
         # A single solid core object spans the full model footprint between them.
         z_core_bot = config.core_z_bottom
@@ -572,16 +549,24 @@ def convert_image_to_3mf(
         region_colors, 
         pixel_data, 
         config, 
-        progress_callback
+        progress_callback,
+        explicit_mesh_colors=explicit_mesh_colors,
     )
     _progress("export", "Complete!")
     
     # Step 6.5: Generate preview images if requested
     preview_paths: list[str] = []
-    if config.generate_preview:
+    if config.generate_preview or config.generate_quantized_preview:
         ctx.color_mapping = preview_mapping or {}
         _progress("preview", "Generating preview images...")
-        preview_paths = generate_previews(ctx, output_path, progress_callback)
+        preview_paths = generate_previews(
+            ctx,
+            output_path,
+            progress_callback,
+            include_quantized=(config.generate_preview or config.generate_quantized_preview),
+            include_denoised=config.generate_preview,
+            include_matched=config.generate_preview,
+        )
         _progress("preview", "Complete!")
     
     # Step 6.6: Generate color swatches if requested
@@ -599,18 +584,9 @@ def convert_image_to_3mf(
     # Step 7: Render model if requested
     render_path = None
     if config.render_model:
-        _progress("render", "Rendering 3D model preview...")
-        from .render_model import render_meshes_to_file, generate_render_path
-        
+        from .render_model import generate_render_path
+
         render_path = generate_render_path(output_path)
-        render_meshes_to_file(
-            meshes=meshes,
-            region_colors=region_colors,
-            output_path=render_path,
-            model_width_mm=pixel_data.model_width_mm,
-            model_height_mm=pixel_data.model_height_mm,
-            backing_color=config.backing_color
-        )
         _progress("render", f"Render saved to: {render_path}")
     
     # Count mesh statistics (extract Mesh objects from tuples)

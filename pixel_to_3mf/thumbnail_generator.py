@@ -13,8 +13,9 @@ dimension to fit the target size and centering with transparent padding.
 """
 
 from PIL import Image
-from typing import BinaryIO
 import io
+
+from .constants import THUMBNAIL_IMAGE_SIZE_PX, THUMBNAIL_SMALL_SIZE_PX
 
 
 def _scale_to_fit(
@@ -134,41 +135,20 @@ def generate_pick_view(source_img: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
-def generate_plate_view(source_img: Image.Image) -> bytes:
+def generate_plate_view(render_png_bytes: bytes) -> bytes:
     """
-    Generate plate_1.png - 512x512 isometric view.
+    Generate plate_1.png from the authoritative shaded 3D render.
     
-    Creates an isometric view by rotating the source image -30 degrees.
-    This is a simplified 2D transformation without shadow effects.
+    Using the mesh render preserves extrusion, relief levels, final filament
+    colors, and model geometry that a rotated source image cannot represent.
     
     Args:
-        source_img: Source image (must have RGBA mode)
+        render_png_bytes: Transparent PNG bytes produced by render_model.
         
     Returns:
-        PNG image bytes
+        Centered 512x512 PNG image bytes.
     """
-    target_size = 512
-    
-    # Create transparent canvas
-    canvas = Image.new('RGBA', (target_size, target_size), (0, 0, 0, 0))
-    
-    # Scale source image to fit (leaving room for rotation)
-    # Use 70% of target size to leave room for rotation expansion
-    scaled_img, _, _ = _scale_to_fit(source_img, int(target_size * 0.7))
-    
-    # Rotate by -30 degrees to create isometric effect
-    # Use NEAREST resampling to avoid anti-aliasing artifacts on pixel art edges
-    iso_img = scaled_img.rotate(-30, expand=True, resample=Image.Resampling.NEAREST)
-    
-    # Center in canvas
-    img_offset_x = (target_size - iso_img.size[0]) // 2
-    img_offset_y = (target_size - iso_img.size[1]) // 2
-    canvas.paste(iso_img, (img_offset_x, img_offset_y), iso_img)
-    
-    # Convert to PNG bytes
-    buffer = io.BytesIO()
-    canvas.save(buffer, format='PNG')
-    return buffer.getvalue()
+    return _fit_render_to_canvas(render_png_bytes, THUMBNAIL_IMAGE_SIZE_PX)
 
 
 def generate_plate_small(plate_img_bytes: bytes) -> bytes:
@@ -187,8 +167,11 @@ def generate_plate_small(plate_img_bytes: bytes) -> bytes:
     # Load the plate image
     plate_img = Image.open(io.BytesIO(plate_img_bytes))
     
-    # Downscale to 128x128
-    small_img = plate_img.resize((128, 128), Image.Resampling.LANCZOS)
+    # Downscale to the printer-screen thumbnail size.
+    small_img = plate_img.resize(
+        (THUMBNAIL_SMALL_SIZE_PX, THUMBNAIL_SMALL_SIZE_PX),
+        Image.Resampling.LANCZOS,
+    )
     
     # Convert to PNG bytes
     buffer = io.BytesIO()
@@ -196,38 +179,31 @@ def generate_plate_small(plate_img_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 
-def generate_plate_no_light(source_img: Image.Image) -> bytes:
+def generate_plate_no_light(render_png_bytes: bytes) -> bytes:
     """
-    Generate plate_no_light_1.png - 512x512 isometric view.
+    Generate plate_no_light_1.png from the shared 3D render.
     
-    Creates an isometric view by rotating the source image -30 degrees.
-    Identical to plate_1.png (no separate lighting effects).
+    Bambu-compatible archives require this filename. The converter has one
+    authoritative shaded render, so both plate entries intentionally contain
+    the same geometry and colors.
     
     Args:
-        source_img: Source image (must have RGBA mode)
+        render_png_bytes: Transparent PNG bytes produced by render_model.
         
     Returns:
-        PNG image bytes
+        Centered 512x512 PNG image bytes.
     """
-    target_size = 512
-    
-    # Create transparent canvas
-    canvas = Image.new('RGBA', (target_size, target_size), (0, 0, 0, 0))
-    
-    # Scale source image to fit (leaving room for rotation)
-    # Use 70% of target size to leave room for rotation expansion
-    scaled_img, _, _ = _scale_to_fit(source_img, int(target_size * 0.7))
-    
-    # Rotate by -30 degrees to create isometric effect
-    # Use NEAREST resampling to avoid anti-aliasing artifacts on pixel art edges
-    iso_img = scaled_img.rotate(-30, expand=True, resample=Image.Resampling.NEAREST)
-    
-    # Center in canvas
-    img_offset_x = (target_size - iso_img.size[0]) // 2
-    img_offset_y = (target_size - iso_img.size[1]) // 2
-    canvas.paste(iso_img, (img_offset_x, img_offset_y), iso_img)
-    
-    # Convert to PNG bytes
+    return _fit_render_to_canvas(render_png_bytes, THUMBNAIL_IMAGE_SIZE_PX)
+
+
+def _fit_render_to_canvas(render_png_bytes: bytes, target_size: int) -> bytes:
+    """Scale and center a transparent model render without changing its view."""
+    with Image.open(io.BytesIO(render_png_bytes)) as render_image:
+        source = render_image.convert("RGBA")
+        scaled, x_offset, y_offset = _scale_to_fit(source, target_size)
+
+    canvas = Image.new("RGBA", (target_size, target_size), (0, 0, 0, 0))
+    canvas.paste(scaled, (x_offset, y_offset), scaled)
     buffer = io.BytesIO()
-    canvas.save(buffer, format='PNG')
+    canvas.save(buffer, format="PNG")
     return buffer.getvalue()

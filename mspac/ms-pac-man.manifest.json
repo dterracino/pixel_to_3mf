@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "mode": "palette_relief",
+  "source": {
+    "path": "E:\\pixel_to_3mf\\mspac\\ms-pac-man.png",
+    "name": "ms-pac-man.png",
+    "sha256": "4030c5c33199ea5a3b0fe027dca3eb1d89fea19e8b708d630f996bb24b8f9f04"
+  },
+  "processing": {
+    "max_size_mm": 200.0,
+    "scale_mm_per_pixel": null,
+    "max_colors": 16,
+    "auto_crop": false,
+    "padding_size": 10,
+    "padding_color": [
+      0,
+      0,
+      0
+    ],
+    "padding_type": "square",
+    "preprocess_filter": null,
+    "preprocess_filter_size": 3,
+    "quantize": false,
+    "quantize_algorithm": "none",
+    "quantize_colors": null,
+    "iterate_quantize": false,
+    "denoise_min_size": 0,
+    "connectivity": 8,
+    "trim_disconnected": true
+  },
+  "model": {
+    "height_mode": "exact",
+    "height_reference": "backing_top",
+    "units": "mm",
+    "background_color": [
+      0,
+      0,
+      0
+    ],
+    "background_height_mm": 1.0,
+    "backing_color": [
+      0,
+      0,
+      0
+    ],
+    "backing_height_mm": 1.0,
+    "backing_color_selection": "explicit",
+    "backing_color_coordinate": null
+  },
+  "processed_image": {
+    "width": 244,
+    "height": 308,
+    "opaque_pixel_count": 75152,
+    "color_count": 10,
+    "pixel_sha256": "e4d318b43ca263f3f1e4b1f1b47b08e64ffbde25b005ae6083f453d0042ad4d7",
+    "pre_quantization_color_count": 10
+  },
+  "sections": [
+    {
+      "section_number": 1,
+      "section_name": "ms-pac-man.section_01",
+      "section_image": "ms-pac-man.section_01.png",
+      "color": {
+        "rgb": [
+          255,
+          184,
+          174
+        ],
+        "hex": "#FFB8AE",
+        "name": "Bambu Lab PLA Matte Latte Brown",
+        "matched_rgb": [
+          211,
+          183,
+          167
+        ],
+        "matched_hex": "#D3B7A7"
+      },
+      "pixel_count": 10164,
+      "component_count": 25,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 2,
+      "section_name": "ms-pac-man.section_02",
+      "section_image": "ms-pac-man.section_02.png",
+      "color": {
+        "rgb": [
+          255,
+          0,
+          0
+        ],
+        "hex": "#FF0000",
+        "name": "Bambu Lab PLA Matte Scarlet Red",
+        "matched_rgb": [
+          222,
+          67,
+          67
+        ],
+        "matched_hex": "#DE4343"
+      },
+      "pixel_count": 4868,
+      "component_count": 40,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 3,
+      "section_name": "ms-pac-man.section_03",
+      "section_image": "ms-pac-man.section_03.png",
+      "color": {
+        "rgb": [
+          222,
+          222,
+          255
+        ],
+        "hex": "#DEDEFF",
+        "name": "Bambu Lab PLA Basic Light Gray",
+        "matched_rgb": [
+          209,
+          211,
+          213
+        ],
+        "matched_hex": "#D1D3D5"
+      },
+      "pixel_count": 1484,
+      "component_count": 245,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 4,
+      "section_name": "ms-pac-man.section_04",
+      "section_image": "ms-pac-man.section_04.png",
+      "color": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "hex": "#FFFF00",
+        "name": "Bambu Lab PLA Basic Yellow",
+        "matched_rgb": [
+          244,
+          238,
+          42
+        ],
+        "matched_hex": "#F4EE2A"
+      },
+      "pixel_count": 412,
+      "component_count": 10,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 5,
+      "section_name": "ms-pac-man.section_05",
+      "section_image": "ms-pac-man.section_05.png",
+      "color": {
+        "rgb": [
+          255,
+          184,
+          255
+        ],
+        "hex": "#FFB8FF",
+        "name": "Bambu Lab PLA Matte Sakura Pink",
+        "matched_rgb": [
+          232,
+          175,
+          207
+        ],
+        "matched_hex": "#E8AFCF"
+      },
+      "pixel_count": 158,
+      "component_count": 2,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 6,
+      "section_name": "ms-pac-man.section_06",
+      "section_image": "ms-pac-man.section_06.png",
+      "color": {
+        "rgb": [
+          0,
+          255,
+          255
+        ],
+        "hex": "#00FFFF",
+        "name": "Bambu Lab PLA Basic Turquoise",
+        "matched_rgb": [
+          0,
+          177,
+          183
+        ],
+        "matched_hex": "#00B1B7"
+      },
+      "pixel_count": 126,
+      "component_count": 1,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 7,
+      "section_name": "ms-pac-man.section_07",
+      "section_image": "ms-pac-man.section_07.png",
+      "color": {
+        "rgb": [
+          255,
+          184,
+          81
+        ],
+        "hex": "#FFB851",
+        "name": "Bambu Lab PLA Basic Gold",
+        "matched_rgb": [
+          228,
+          189,
+          104
+        ],
+        "matched_hex": "#E4BD68"
+      },
+      "pixel_count": 126,
+      "component_count": 1,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 8,
+      "section_name": "ms-pac-man.section_08",
+      "section_image": "ms-pac-man.section_08.png",
+      "color": {
+        "rgb": [
+          33,
+          33,
+          255
+        ],
+        "hex": "#2121FF",
+        "name": "Bambu Lab PLA Basic Blue",
+        "matched_rgb": [
+          10,
+          41,
+          137
+        ],
+        "matched_hex": "#0A2989"
+      },
+      "pixel_count": 41,
+      "component_count": 14,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    },
+    {
+      "section_number": 9,
+      "section_name": "ms-pac-man.section_09",
+      "section_image": "ms-pac-man.section_09.png",
+      "color": {
+        "rgb": [
+          222,
+          151,
+          81
+        ],
+        "hex": "#DE9751",
+        "name": "Bambu Lab PLA Basic Pumpkin Orange",
+        "matched_rgb": [
+          255,
+          144,
+          22
+        ],
+        "matched_hex": "#FF9016"
+      },
+      "pixel_count": 17,
+      "component_count": 1,
+      "pre_quantization_colors": [],
+      "height_mm": null,
+      "color_depth_mode": "top_cap",
+      "interface_depth_mm": 1.0
+    }
+  ]
+}

@@ -97,6 +97,10 @@ def generate_previews(
     ctx: PipelineContext,
     output_path: str,
     progress_callback=None,
+    *,
+    include_quantized: bool = True,
+    include_denoised: bool = True,
+    include_matched: bool = True,
 ) -> list[str]:
     """
     Generate all applicable side-by-side preview PNGs from the pipeline context.
@@ -126,7 +130,7 @@ def generate_previews(
     stem = output_path.replace('.3mf', '')
 
     # --- 1. Quantized preview ---
-    if ctx.quantized_pixels is not None and ctx.original_pixels is not None:
+    if include_quantized and ctx.quantized_pixels is not None and ctx.original_pixels is not None:
         path = f"{stem}_quantized.png"
         _progress("Generating quantized preview...")
         _save_side_by_side(
@@ -140,7 +144,7 @@ def generate_previews(
         _progress(f"Quantized preview saved to: {path}")
 
     # --- 2. Denoised preview ---
-    if ctx.denoised_pixels is not None:
+    if include_denoised and ctx.denoised_pixels is not None:
         path = f"{stem}_denoised.png"
         before = ctx.quantized_pixels or ctx.original_pixels
         assert before is not None  # original_pixels is always set
@@ -156,7 +160,7 @@ def generate_previews(
         _progress(f"Denoised preview saved to: {path}")
 
     # --- 3. Matched-filament preview ---
-    if ctx.color_mapping is not None:
+    if include_matched and ctx.color_mapping is not None:
         path = f"{stem}_preview.png"
         before = ctx.pre_match_pixels()
         assert before is not None

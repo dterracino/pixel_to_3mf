@@ -17,6 +17,9 @@ with pixel art specific callbacks.
 For reusable 3MF writing in other applications, use threemf_core directly!
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass
 from typing import List, Tuple, Dict, TYPE_CHECKING, Optional, Callable, Any
 from pathlib import Path
 from PIL import Image
@@ -32,6 +35,14 @@ from color_tools import Palette, FilamentPalette, rgb_to_lab, rgb_to_hex
 if TYPE_CHECKING:
     from .image_processor import PixelData
     from .config import ConversionConfig
+
+
+@dataclass(frozen=True)
+class _ThumbnailContext:
+    """Carry finalized model data into the generic writer's thumbnail callback."""
+
+    config: ConversionConfig
+    colored_meshes: list[tuple[Mesh, tuple[int, int, int]]]
 
 # ============================================================================
 # Color Naming Functions (Pixel Art Specific)
@@ -689,7 +700,7 @@ def _pixel_art_thumbnail_callback(output_path: str, context: Any) -> List[Tuple[
     
     Args:
         output_path: Path where 3MF will be saved (unused, kept for API consistency)
-        context: config object with source_image_path attribute
+        context: Finalized model geometry, colors, and conversion configuration.
     
     Returns:
         List of (zip_path, image_bytes) tuples for each thumbnail
@@ -702,22 +713,37 @@ def _pixel_art_thumbnail_callback(output_path: str, context: Any) -> List[Tuple[
         generate_plate_no_light
     )
     
-    config = context
-    thumbnails = []
+    from .constants import RENDER_IMAGE_SIZE_PX, THUMBNAIL_IMAGE_SIZE_PX
+    from .render_model import generate_render_path, render_meshes_to_png
+
+    if not isinstance(context, _ThumbnailContext):
+        raise TypeError("Pixel art thumbnails require a _ThumbnailContext")
+
+    config = context.config
+    thumbnails: List[Tuple[str, bytes]] = []
     
     # Load source image in RGBA mode for thumbnail generation
     source_path = Path(config.source_image_path) if config.source_image_path else None
     if source_path and source_path.exists():
-        source_img = Image.open(source_path).convert('RGBA')
-        
-        # Generate all 5 thumbnail types
-        thumbnails.append(("Metadata/top_1.png", generate_top_view(source_img)))
-        thumbnails.append(("Metadata/pick_1.png", generate_pick_view(source_img)))
-        
-        plate_view = generate_plate_view(source_img)
-        thumbnails.append(("Metadata/plate_1.png", plate_view))
-        thumbnails.append(("Metadata/plate_1_small.png", generate_plate_small(plate_view)))
-        thumbnails.append(("Metadata/plate_no_light_1.png", generate_plate_no_light(source_img)))
+        with Image.open(source_path) as source_file:
+            source_img = source_file.convert("RGBA")
+            thumbnails.append(("Metadata/top_1.png", generate_top_view(source_img)))
+            thumbnails.append(("Metadata/pick_1.png", generate_pick_view(source_img)))
+
+    render_png = render_meshes_to_png(
+        context.colored_meshes,
+        image_size_px=(
+            RENDER_IMAGE_SIZE_PX
+            if config.render_model
+            else THUMBNAIL_IMAGE_SIZE_PX
+        ),
+    )
+    if config.render_model:
+        Path(generate_render_path(output_path)).write_bytes(render_png)
+    plate_view = generate_plate_view(render_png)
+    thumbnails.append(("Metadata/plate_1.png", plate_view))
+    thumbnails.append(("Metadata/plate_1_small.png", generate_plate_small(plate_view)))
+    thumbnails.append(("Metadata/plate_no_light_1.png", generate_plate_no_light(render_png)))
     
     return thumbnails
 
@@ -732,8 +758,10 @@ def write_3mf(
     region_colors: List[Tuple[int, int, int]],
     pixel_data: 'PixelData',
     config: 'ConversionConfig',
-    progress_callback: Optional[Callable[[str, str], None]] = None
-) -> Tuple[Optional[str], Optional[Dict[Tuple[int, int, int], Tuple[int, int, int]]], List[Tuple[int, str, Tuple[int, int, int]]]]:
+    progress_callback: Optional[Callable[[str, str], None]] = None,
+    *,
+    explicit_mesh_colors: bool = False,
+) -> Tuple[Optional[str], Dict[Tuple[int, int, int], Tuple[int, int, int]], List[Tuple[int, str, Tuple[int, int, int]]]]:
     """
     Write all meshes to a 3MF file (pixel art specific wrapper).
 
@@ -751,7 +779,8 @@ def write_3mf(
     Args:
         output_path: Path where to write the .3mf file
         meshes: List of (Mesh, name) tuples (regions + optional backing plate)
-        region_colors: List of RGB colors for each region (for naming)
+        region_colors: RGB colors for logical regions, or one RGB per mesh when
+            explicit_mesh_colors is True
         pixel_data: PixelData object with model dimensions
         config: ConversionConfig object with conversion parameters
         progress_callback: Optional function to call with progress updates
@@ -759,7 +788,7 @@ def write_3mf(
     Returns:
         Tuple of (summary_path, preview_mapping, color_mapping):
         - summary_path: Path to summary file if generated, None otherwise
-        - preview_mapping: Dict mapping detected RGB to filament RGB if preview requested, None otherwise
+        - preview_mapping: Dict mapping detected RGB to exported filament RGB
         - color_mapping: List of (slot, color_name, rgb) tuples sorted by slot number
     """
     # Helper to send progress updates
@@ -768,8 +797,8 @@ def write_3mf(
             progress_callback("export", message)
 
     # Determine if we have a backing plate / solid core
-    has_backing_plate = config.has_backing_plate
-    has_solid_core = config.has_solid_core
+    has_backing_plate = config.has_backing_plate and not explicit_mesh_colors
+    has_solid_core = config.has_solid_core and not explicit_mesh_colors
     num_regions = len(region_colors)
 
     _progress(f"Assigning names to {num_regions} color regions...")
@@ -792,6 +821,13 @@ def write_3mf(
     # 1. merge_similar_colors=True: Multiple RGB values can map to same color name (share slot)
     # 2. merge_similar_colors=False: Each unique RGB gets unique slot (greedy matching)
     backing_color_name = get_color_name(config.backing_color, config)
+    unique_rgbs: List[Tuple[int, int, int]] = []
+    use_greedy_matching = False
+    rgb_to_slot: Dict[Tuple[int, int, int], int] = {}
+    rgb_to_name_and_matched_rgb: Dict[
+        Tuple[int, int, int],
+        Tuple[str, Tuple[int, int, int]],
+    ] = {}
     
     if config.merge_similar_colors:
         # MERGE MODE: Group by color name (current behavior)
@@ -843,11 +879,11 @@ def write_3mf(
         # Build slot mappings
         if config.no_backing_color:
             # All slots available for image colors; backing plate reuses slot 1
-            rgb_to_slot: Dict[Tuple[int, int, int], int] = {}
+            rgb_to_slot = {}
             name_to_slot: Dict[str, int] = {}
             next_slot = 1
         else:
-            rgb_to_slot: Dict[Tuple[int, int, int], int] = {config.backing_color: 1}
+            rgb_to_slot = {config.backing_color: 1}
             name_to_slot: Dict[str, int] = {backing_color_name: 1}
             next_slot = 2
         
@@ -868,6 +904,58 @@ def write_3mf(
         
         # For backward compatibility, create color_to_slot
         color_to_slot = rgb_to_slot
+
+    # Resolve the final RGB assigned to each AMS slot before writing so both
+    # embedded thumbnails and standalone renders use the exported colors.
+    slot_to_color: Dict[int, Tuple[str, Tuple[int, int, int]]] = {}
+    if not config.no_backing_color:
+        _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
+        slot_to_color[1] = (backing_color_name, backing_matched_rgb)
+
+    for unique_name, slot in name_to_slot.items():
+        if slot == 1 and not config.no_backing_color:
+            continue
+
+        if not config.merge_similar_colors:
+            for rgb, rgb_slot in rgb_to_slot.items():
+                if rgb_slot != slot:
+                    continue
+                if use_greedy_matching:
+                    filament_name, matched_rgb = rgb_to_name_and_matched_rgb[rgb]
+                else:
+                    filament_name = get_color_name(rgb, config)
+                    matched_rgb = rgb
+                slot_to_color[slot] = (filament_name, matched_rgb)
+                break
+        else:
+            for _, detected_rgb, color_name in region_data:
+                if color_name == unique_name:
+                    _, matched_rgb = get_color_name_and_rgb(detected_rgb, config)
+                    slot_to_color[slot] = (unique_name, matched_rgb)
+                    break
+
+    preview_mapping: Dict[
+        Tuple[int, int, int],
+        Tuple[int, int, int],
+    ] = {}
+    if not config.no_backing_color:
+        preview_mapping[config.backing_color] = slot_to_color[1][1]
+
+    if not config.merge_similar_colors:
+        if use_greedy_matching:
+            for rgb, (_, matched_rgb) in rgb_to_name_and_matched_rgb.items():
+                preview_mapping[rgb] = matched_rgb
+        else:
+            for rgb in unique_rgbs:
+                preview_mapping[rgb] = rgb
+    else:
+        for _, detected_rgb, color_name in region_data:
+            if detected_rgb in preview_mapping:
+                continue
+            for name, matched_rgb in slot_to_color.values():
+                if name == color_name:
+                    preview_mapping[detected_rgb] = matched_rgb
+                    break
     
     # Reorder meshes to match the sorted color order
     if has_solid_core:
@@ -936,6 +1024,14 @@ def write_3mf(
             }
         )
         threemf_meshes.append(threemf_mesh)
+
+    colored_meshes = [
+        (
+            mesh,
+            slot_to_color[int(threemf_mesh.metadata["ams_slot"])][1],
+        )
+        for (mesh, _), threemf_mesh in zip(sorted_meshes, threemf_meshes)
+    ]
     
     # Define callbacks for ThreeMFWriter
     def naming_callback(obj_id: int, mesh: ThreeMFMesh) -> str:
@@ -960,12 +1056,21 @@ def write_3mf(
     )
     
     # Write the 3MF file
-    writer.write(output_path, threemf_meshes, context=config)
+    writer.write(
+        output_path,
+        threemf_meshes,
+        context=_ThumbnailContext(
+            config=config,
+            colored_meshes=colored_meshes,
+        ),
+    )
     
     # Report completion
     _progress(f"✨ 3MF file written to: {output_path}")
     if has_solid_core:
         _progress(f"{len(region_colors)} colored regions (×2 shells) + 1 solid core = {len(meshes)} objects")
+    elif explicit_mesh_colors:
+        _progress(f"{len(meshes)} palette-relief material objects")
     elif has_backing_plate:
         _progress(f"{len(region_colors)} colored regions + 1 backing plate")
     else:
@@ -1009,77 +1114,7 @@ def write_3mf(
         )
         _progress(f"📄 Summary written to: {summary_path}")
     
-    # Build color mapping for CLI display
-    # Use MATCHED RGB values (from filament/color lookup), not detected pixel RGB
-    slot_to_color: Dict[int, Tuple[str, Tuple[int, int, int]]] = {}
-    
-    # Build slot_to_color using matched RGB values
-    if config.no_backing_color:
-        # Slot 1 belongs to the first image color; it will be filled by the loop below
-        pass
-    else:
-        _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
-        slot_to_color[1] = (backing_color_name, backing_matched_rgb)
-    
-    # Process each unique color/filament assignment
-    for unique_name, slot in name_to_slot.items():
-        if slot == 1 and not config.no_backing_color:  # Skip backing plate (already added)
-            continue
-        
-        # Find the RGB and matched values for this slot
-        if not config.merge_similar_colors:
-            # In no-merge mode, behavior depends on whether we used greedy matching
-            for rgb, rgb_slot in rgb_to_slot.items():
-                if rgb_slot == slot:
-                    if use_greedy_matching:
-                        # Get the matched filament RGB from greedy matching
-                        filament_name, matched_rgb = rgb_to_name_and_matched_rgb[rgb]
-                    else:
-                        # For hex/color/generated modes, use the RGB directly
-                        filament_name = get_color_name(rgb, config)
-                        matched_rgb = rgb  # Use the actual RGB, not a matched one
-                    slot_to_color[slot] = (filament_name, matched_rgb)
-                    break
-        else:
-            # In merge mode, find any RGB with this color name
-            for _, detected_rgb, color_name in region_data:
-                if color_name == unique_name:
-                    _, matched_rgb = get_color_name_and_rgb(detected_rgb, config)
-                    slot_to_color[slot] = (unique_name, matched_rgb)
-                    break
-    
-    # Convert to sorted list
+    # Convert the already-resolved slot colors to the public CLI display shape.
     color_mapping = [(slot, name, rgb) for slot, (name, rgb) in sorted(slot_to_color.items())]
-    
-    # Build preview color mapping if requested (generation happens in caller)
-    preview_mapping = None
-    if config.generate_preview:
-        # Build color mapping: detected RGB → matched filament RGB
-        preview_mapping = {}
-        
-        # Include backing color mapping (unless no_backing_color, where it reuses slot 1)
-        if not config.no_backing_color:
-            _, backing_matched_rgb = get_color_name_and_rgb(config.backing_color, config)
-            preview_mapping[config.backing_color] = backing_matched_rgb
-        
-        if not config.merge_similar_colors:
-            # In no-merge mode, behavior depends on whether we used greedy matching
-            if use_greedy_matching:
-                # Use the greedy assignment results
-                for rgb, (filament_name, matched_rgb) in rgb_to_name_and_matched_rgb.items():
-                    preview_mapping[rgb] = matched_rgb
-            else:
-                # For hex/color/generated modes, use RGB directly (no matching)
-                for rgb in unique_rgbs:
-                    preview_mapping[rgb] = rgb
-        else:
-            # In merge mode, look up matched RGB for each detected RGB
-            for _, detected_rgb, color_name in region_data:
-                if detected_rgb not in preview_mapping:
-                    # Find the matched RGB from slot_to_color
-                    for slot, (name, matched_rgb) in slot_to_color.items():
-                        if name == color_name:
-                            preview_mapping[detected_rgb] = matched_rgb
-                            break
     
     return summary_path, preview_mapping, color_mapping

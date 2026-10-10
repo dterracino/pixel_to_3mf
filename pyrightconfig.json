@@ -1,6 +1,8 @@
 {
   "include": ["pixel_to_3mf", "tests"],
   "exclude": ["**/color_tools/**", "**/node_modules", "**/__pycache__"],
+  "venvPath": ".",
+  "venv": ".venv",
   "typeCheckingMode": "basic",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,

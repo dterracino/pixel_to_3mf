@@ -79,10 +79,28 @@ def _parse_rgb_color(value: str) -> tuple[int, int, int]:
     parts = value.split(',')
     if len(parts) != 3:
         raise ValueError("Must have exactly 3 values (R,G,B)")
-    color = tuple(int(part.strip()) for part in parts)
+    color = (
+        int(parts[0].strip()),
+        int(parts[1].strip()),
+        int(parts[2].strip()),
+    )
     if not all(0 <= channel <= 255 for channel in color):
         raise ValueError("RGB values must be 0-255")
     return color
+
+
+def _parse_xy(value: str) -> tuple[int, int]:
+    """Parse an image coordinate written as X,Y."""
+    parts = value.split(',')
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError("coordinate must use X,Y format")
+    try:
+        x, y = (int(part.strip()) for part in parts)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("X and Y must be integers") from exc
+    if x < 0 or y < 0:
+        raise argparse.ArgumentTypeError("X and Y must be non-negative")
+    return x, y
 
 
 def generate_batch_summary(
@@ -483,6 +501,45 @@ The program will:
         metavar="MM",
         help=f"Extra height for non-background colors in relief mode (default: {RELIEF_HEIGHT_MM})"
     )
+
+    parser.add_argument(
+        "--generate-relief-manifest",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help="Analyze the processed image palette and write an editable relief manifest "
+             "plus one reference PNG per color section. Defaults to "
+             "{image_stem}.manifest.json."
+    )
+
+    parser.add_argument(
+        "--validate-relief-manifest",
+        type=str,
+        metavar="PATH",
+        help="Validate a relief manifest and its processed source image, then exit"
+    )
+
+    parser.add_argument(
+        "--relief-manifest",
+        type=str,
+        metavar="PATH",
+        help="Generate palette-relief geometry using the exact heights in PATH"
+    )
+
+    parser.add_argument(
+        "--color-at",
+        type=_parse_xy,
+        metavar="X,Y",
+        help="Run image preprocessing, print the final RGBA color at X,Y, then exit"
+    )
+
+    parser.add_argument(
+        "--backing-color-at",
+        type=_parse_xy,
+        metavar="X,Y",
+        help="Choose the backing-plate color by sampling processed image coordinate X,Y"
+    )
     
     parser.add_argument(
         "--base-height",
@@ -803,6 +860,12 @@ The program will:
              "Preview is saved as {output_name}_preview.png in the same location as the output file. "
              "Makes it easy to identify color shifts before printing."
     )
+
+    parser.add_argument(
+        "--quantized",
+        action="store_true",
+        help="Generate the original-vs-quantized comparison independently of --preview"
+    )
     
     parser.add_argument(
         "--swatches",
@@ -824,7 +887,8 @@ The program will:
     parser.add_argument(
         "--render",
         action="store_true",
-        help="Generate a 3D rendering of the model showing all colored regions. "
+        help="Generate an angled, shaded 3D rendering from the final model meshes, "
+             "including relief levels and matched filament colors. "
              "Rendering is saved as {output_name}_render.png in the same location as the output file."
     )
     
@@ -906,13 +970,28 @@ The program will:
         if args.scale_to:
             error_console.print("[red]❌ Error: --scale-to is only valid in batch mode[/red]")
             sys.exit(1)
-        if not args.image_file:
+        if not args.image_file and not args.validate_relief_manifest:
             error_console.print("[red]❌ Error: Image file is required (or use --batch mode)[/red]")
             parser.print_help()
             sys.exit(1)
 
-    if args.background_color is not None and not args.relief:
-        error_console.print("[red]❌ Error: --background-color is only valid with --relief[/red]")
+    palette_relief_requested = bool(
+        args.generate_relief_manifest is not None
+        or args.validate_relief_manifest
+        or args.relief_manifest
+    )
+    if args.relief and args.relief_manifest:
+        error_console.print("[red]❌ Error: --relief and --relief-manifest are mutually exclusive[/red]")
+        sys.exit(1)
+    if args.batch and palette_relief_requested:
+        error_console.print(
+            "[red]❌ Error: Relief-manifest operations currently support single images only[/red]"
+        )
+        sys.exit(1)
+    if args.background_color is not None and not (args.relief or palette_relief_requested):
+        error_console.print(
+            "[red]❌ Error: --background-color requires --relief or a relief-manifest operation[/red]"
+        )
         sys.exit(1)
     if args.relief_height is not None and not args.relief:
         error_console.print("[red]❌ Error: --relief-height is only valid with --relief[/red]")
@@ -927,6 +1006,11 @@ The program will:
     if args.auto_backing_color and args.backing_color is not None:
         error_console.print(
             "[red]❌ Error: Use either --auto-backing-color or --backing-color, not both[/red]"
+        )
+        sys.exit(1)
+    if args.backing_color_at and (args.auto_backing_color or args.backing_color is not None):
+        error_console.print(
+            "[red]❌ Error: --backing-color-at cannot be combined with another backing-color selector[/red]"
         )
         sys.exit(1)
     if backing_color_is_auto and args.no_backing_color:
@@ -1012,6 +1096,13 @@ The program will:
             max_colors=args.max_colors,
             backing_color=backing_color,
             auto_backing_color=backing_color_is_auto,
+            backing_color_selection=(
+                "auto"
+                if backing_color_is_auto
+                else "explicit"
+                if args.backing_color is not None
+                else "default"
+            ),
             no_backing_color=args.no_backing_color,
             no_backing_plate=args.no_backing_plate,
             solid_core=args.solid_core,
@@ -1036,6 +1127,8 @@ The program will:
             iterate_quantize=args.iterate_quantize,
             generate_summary=args.summary,
             generate_preview=args.preview,
+            generate_quantized_preview=args.quantized,
+            relief_manifest_path=args.relief_manifest,
             generate_swatches=args.swatches,
             ams_count=args.ams_count,
             render_model=args.render,
@@ -1058,6 +1151,136 @@ The program will:
         )
     except ValueError as e:
         error_console.print(f"[red]❌ Error: Invalid configuration: {e}[/red]")
+        sys.exit(1)
+
+    # Palette-relief analysis commands intentionally stop before mesh creation.
+    # They share the same preprocessing helper so generated manifests and color
+    # sampling observe the same palette as the model pipeline.
+    try:
+        from .relief_workflow import (
+            color_at_image_coordinate,
+            generate_relief_manifest_file,
+            prepare_relief_image,
+        )
+        from .relief_manifest import (
+            apply_manifest_settings,
+            load_relief_manifest,
+            validate_relief_manifest,
+        )
+
+        if args.validate_relief_manifest:
+            from hashlib import sha256
+
+            manifest_data = load_relief_manifest(args.validate_relief_manifest)
+            _, static_errors, static_warnings = validate_relief_manifest(manifest_data)
+            for warning in static_warnings:
+                console.print(f"[yellow]Warning: {warning}[/yellow]")
+            if static_errors:
+                raise ValueError("; ".join(static_errors))
+            apply_manifest_settings(manifest_data, config)
+            source = args.image_file
+            if source is None:
+                source_obj = manifest_data.get("source", {})
+                source = source_obj.get("path") if isinstance(source_obj, dict) else None
+            if not source:
+                raise ValueError("Manifest does not identify a source image; pass image_file explicitly")
+            source_info = manifest_data.get("source", {})
+            expected_hash = source_info.get("sha256") if isinstance(source_info, dict) else None
+            if expected_hash and sha256(Path(source).read_bytes()).hexdigest() != expected_hash:
+                raise ValueError("Manifest source SHA-256 does not match the source image")
+            pixels, regions = prepare_relief_image(source, config)
+            manifest, errors, warnings = validate_relief_manifest(
+                manifest_data, pixels, regions
+            )
+            for warning in warnings:
+                console.print(f"[yellow]Warning: {warning}[/yellow]")
+            if errors:
+                raise ValueError("; ".join(errors))
+            assert manifest is not None
+            from .palette_relief import validate_palette_relief_geometry
+            from .relief_plan import create_palette_relief_plan
+
+            plan = create_palette_relief_plan(manifest, regions)
+            geometry_errors = validate_palette_relief_geometry(
+                plan, pixels, config
+            )
+            if geometry_errors:
+                raise ValueError("; ".join(geometry_errors))
+            console.print(
+                f"[green]✅ Relief manifest is valid:[/green] {args.validate_relief_manifest}"
+            )
+            return
+
+        if args.backing_color_at:
+            from copy import deepcopy
+
+            if not args.image_file:
+                raise ValueError("--backing-color-at requires an image file")
+            # Establish a provisional image-derived backing color without a
+            # slot-reservation failure, then rerun the complete requested
+            # preprocessing with that real image color in place.
+            sampling_config = deepcopy(config)
+            sampling_config.quantize = False
+            sampling_config.iterate_quantize = False
+            sampling_config.no_backing_color = True
+            sampling_config.max_colors = 1_000_000
+            preliminary_pixels, _ = prepare_relief_image(args.image_file, sampling_config)
+            preliminary = color_at_image_coordinate(
+                preliminary_pixels, *args.backing_color_at
+            )
+            config.backing_color = preliminary[:3]
+            pixels, _ = prepare_relief_image(args.image_file, config)
+            rgba = color_at_image_coordinate(pixels, *args.backing_color_at)
+            config.backing_color = rgba[:3]
+            config.auto_backing_color = False
+            config.backing_color_selection = "coordinate"
+            config.backing_color_coordinate = args.backing_color_at
+
+        if args.color_at:
+            if not args.image_file:
+                raise ValueError("--color-at requires an image file")
+            pixels, _ = prepare_relief_image(args.image_file, config)
+            rgba = color_at_image_coordinate(pixels, *args.color_at)
+            console.print(
+                f"Processed color at {args.color_at[0]},{args.color_at[1]}: "
+                f"RGB{rgba[:3]} alpha={rgba[3]}"
+            )
+            return
+
+        if args.generate_relief_manifest is not None:
+            if not args.image_file:
+                raise ValueError("--generate-relief-manifest requires an image file")
+            image_path = Path(args.image_file)
+            manifest_path = (
+                Path(args.generate_relief_manifest)
+                if args.generate_relief_manifest
+                else image_path.with_suffix(".manifest.json")
+            )
+            written = generate_relief_manifest_file(image_path, manifest_path, config)
+            console.print(f"[green]✅ Relief manifest written:[/green] {written}")
+            console.print(
+                "[green]✅ Section reference images written beside the manifest[/green]"
+            )
+            console.print(
+                "Edit each section's height_mm, then run "
+                f"--validate-relief-manifest {written}"
+            )
+            return
+
+        if args.relief_manifest:
+            if config.optimize_mesh:
+                raise ValueError(
+                    "Palette relief does not currently support --optimize-mesh"
+                )
+            manifest_data = load_relief_manifest(args.relief_manifest)
+            _, errors, warnings = validate_relief_manifest(manifest_data)
+            for warning in warnings:
+                console.print(f"[yellow]Warning: {warning}[/yellow]")
+            if errors:
+                raise ValueError("; ".join(errors))
+            apply_manifest_settings(manifest_data, config)
+    except (OSError, ValueError, KeyError) as exc:
+        error_console.print(f"[red]❌ Relief manifest error: {exc}[/red]")
         sys.exit(1)
     
     # =========================================================================
@@ -1188,6 +1411,9 @@ The program will:
             "Relief",
             f"+{config.relief_height_mm:g}mm above RGB{config.relief_background_color}",
         )
+    elif config.relief_manifest_path:
+        config_table.add_row("Relief", f"Palette manifest: {config.relief_manifest_path}")
+        config_table.add_row("Background Color", f"RGB{config.relief_background_color}")
     config_table.add_row("Base Layer Height", f"{config.base_height_mm}mm" if config.base_height_mm > 0 else "0mm (disabled)")
     if config.no_backing_plate:
         config_table.add_row("Backing Plate", "Disabled (colors fill full depth)")
@@ -1198,6 +1424,10 @@ The program will:
     config_table.add_row("Max Colors", str(config.max_colors))
     if config.auto_backing_color:
         backing_color_display = "Automatic (dominant image color)"
+    elif config.backing_color_selection == "coordinate":
+        backing_color_display = (
+            f"RGB{config.backing_color} sampled at {config.backing_color_coordinate}"
+        )
     else:
         backing_color_display = f"RGB{config.backing_color}"
         if config.no_backing_color:

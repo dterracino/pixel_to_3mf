@@ -31,12 +31,14 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **AMS Integration**: Automatic AMS slot assignments with validation, CLI display table, and summary file recommendations
 - **Summary File Generation**: Optional .summary.txt file listing all colors/filaments used with AMS slot locations (use `--summary`)
 - **Color Preview**: Optional side-by-side comparison showing original vs matched filament colors for easy visual verification (use `--preview`)
+- **Shaded 3D Render**: Optional 1200×1200 angled PNG generated from the final meshes and matched filament colors (use `--render`); the same renderer supplies the embedded 3MF plate thumbnails
 - **Mesh Statistics**: Displays triangle and vertex counts in conversion summary for understanding model complexity
 - **Winding Order Validation**: Automatically validates CCW (counter-clockwise) winding for proper surface normals
 - **Perceptual Color Matching**: Uses Delta E 2000 (industry standard) for accurate color distance calculations with smart RGB-based boundary detection to prevent blue→purple mismatches in palettes with gaps (e.g., Bambu Lab)
 - **Transparent Pixel Support**: Transparent areas become holes in the model
 - **Flexible Layer Design**: Colored regions on top (default 1mm) + optional solid backing plate (default 1mm, set to 0 to disable, or use `--no-backing-plate` to omit it entirely while extending color layers to fill the same depth — ideal for suncatchers and reversible pieces). Use `--solid-core` to sandwich a single-filament core between two thin colour shells for faster multi-colour prints.
 - **Two-Level Relief**: Keep an exact background RGB at the normal color plane while raising every other image color by a configurable extra height with `--relief`
+- **Palette Relief**: Generate an editable manifest, assign an exact height to every processed color, validate it, then build one slicer object per material color
 - **Color Limiting**: Prevents accidentally converting images with too many colors (default max: 16)
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
@@ -53,13 +55,19 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 ### Install Dependencies
 
 ```bash
+pip install -e ../preview_renderer
 pip install -r requirements.txt
 ```
+
+`preview_renderer` is currently developed as a sibling repository. The
+versioned requirement can use a package index once its first release is
+published.
 
 Or install manually:
 
 ```bash
 pip install Pillow numpy rich shapely triangle
+pip install -e ../preview_renderer
 ```
 
 ### Project Structure
@@ -181,6 +189,11 @@ python run_converter.py --batch \
 | `--relief` | Raise all image colors except the exact background RGB | Off |
 | `--background-color` | Exact image RGB that remains at normal color height in relief mode | `255,255,255` |
 | `--relief-height` | Extra height for non-background colors in relief mode (mm) | 1.0 |
+| `--generate-relief-manifest [PATH]` | Write an editable manifest and one full-canvas reference PNG per color section | `{image}.manifest.json` |
+| `--validate-relief-manifest PATH` | Validate manifest values and reproduce its processed source image | Off |
+| `--relief-manifest PATH` | Build palette-relief geometry from a validated manifest | Off |
+| `--color-at X,Y` | Print the processed color at a top-left-origin image coordinate | Off |
+| `--backing-color-at X,Y` | Select the backing color from a processed image coordinate | Off |
 | `--base-height` | Height of backing plate (mm) - set to 0 to disable | 1.0 |
 | `--max-colors` | Maximum unique colors allowed | 16 |
 | `--backing-color` | Backing plate color as R,G,B, or `auto` for the dominant image color | `255,255,255` (white) |
@@ -207,6 +220,8 @@ python run_converter.py --batch \
 | `--optimize-mesh` | Use polygon-based mesh optimization | Off |
 | `--summary` | Generate summary file listing colors/filaments used | Off |
 | `--preview` | Generate side-by-side comparison preview (original vs matched colors) | Off |
+| `--quantized` | Generate the original-vs-quantized comparison independently | Off |
+| `--render` | Generate an angled, shaded 3D PNG from the final model meshes | Off |
 | `--ams-count` | Number of AMS units (1-4). Total slots = ams-count × ams-slots-per-unit | 4 |
 
 #### Batch Mode
@@ -561,6 +576,49 @@ python run_converter.py artwork.png \
 - **Matching:** Uses the exact RGB assigned during region merging, before filament or color-name matching
 - **Compatibility:** Works with standard, optimized, smoothed, no-backing, and solid-core meshes; solid-core relief raises only the top-facing shell
 
+#### Palette Relief with Exact Per-Color Heights
+
+Palette relief is a three-step workflow. The background color stays at the
+normal color-layer height and is omitted from the editable section list. Every
+other processed color receives an exact height measured upward from the top of
+the physical backing plate.
+
+```bash
+# 1. Preprocess the image and create the editable contract
+python run_converter.py pacman.png \
+  --background-color 0,0,0 \
+  --backing-color 0,0,0 \
+  --generate-relief-manifest
+
+# 2. Edit each section's height_mm, then check source/palette/geometry rules
+python run_converter.py --validate-relief-manifest pacman.manifest.json
+
+# 3. Build the model and its inspection artifacts
+python run_converter.py pacman.png \
+  --relief-manifest pacman.manifest.json \
+  --summary --swatches --render
+```
+
+When no manifest filename is supplied, generation writes
+`{input_stem}.manifest.json` beside the source image. Each editable section has
+a stable `section_number`, a generated `section_name`, and a `section_image`
+such as `pacman.section_01.png`. A section image uses the entire processed
+canvas, fills it with the selected background RGB, and shows only the pixels
+belonging to that section in their exact processed RGB. This makes each color's
+role easy to inspect before assigning heights. Crop and padding options affect
+the reference canvas in exactly the same way they affect generated geometry.
+
+Each section supports `top_cap` (the section color occupies the top
+`interface_depth_mm`) or `deep_color` (the backing color occupies that depth at
+the bottom). In this first implementation, `height_mm` must be greater than
+`interface_depth_mm`, a physical backing plate is required, and optimized,
+smoothed, and solid-core modes are rejected. Disconnected areas of the same material color
+are packaged as one 3MF object without adding visible connectors.
+
+Use `--color-at X,Y` to inspect the final processed color at an image coordinate,
+or `--backing-color-at X,Y` to sample the backing-plate color. Coordinates use
+the familiar image convention: `(0,0)` is the top-left pixel.
+
 #### Multi-Object Images (Separated by Transparency)
 
 ```bash
@@ -914,6 +972,37 @@ python run_converter.py image.png \
 - **Use case:** Verify color accuracy, check for categorical mismatches (e.g., blue→purple with Bambu Lab palette), preview final appearance
 - **Note:** Preview shows the actual RGB values from the matched filaments, not the original pixel colors
 
+Quantization has its own independently selectable comparison:
+
+```bash
+python run_converter.py image.png --quantize --quantize-colors 10 --quantized
+```
+
+This creates `_quantized.png` with the pre-quantization image on the left and
+the quantized palette on the right. For backward compatibility, `--preview`
+continues to emit applicable quantized and denoised comparisons in addition to
+the final filament-mapping preview.
+
+#### Generate a 3D Render
+
+```bash
+# Generate an angled, shaded render beside the 3MF
+python run_converter.py image.png --render
+
+# Relief geometry is rendered at its actual generated levels
+python run_converter.py image.png \
+  --render \
+  --relief \
+  --background-color 255,255,255 \
+  --relief-height 2
+```
+
+- **Effect:** Creates `{output_name}_render.png` as a 1200×1200 transparent PNG
+- **Geometry:** Renders the finalized mesh, including backing thickness, optimized or smoothed boundaries, solid-core shells, and relief Z levels
+- **Colors:** Uses the final matched filament/color RGB values assigned to the exported 3MF
+- **Camera and lighting:** Uses the same angled shaded view as the embedded 3MF plate thumbnails
+- **Use case:** Review the printable model without opening a slicer, or use the image in listings and documentation
+
 #### Enable Debug Logging
 
 ```bash
@@ -1030,9 +1119,9 @@ python run_converter.py sprite.png --auto-crop --padding-size 5 --quantize
    - **Automatic thumbnails**: Generates 5 preview images embedded in the 3MF:
      - `top_1.png`: 512×512 overhead view (scaled source image)
      - `pick_1.png`: 512×512 gray silhouette (50% gray where pixels exist)
-     - `plate_1.png`: 512×512 isometric view (-30° rotation)
-     - `plate_1_small.png`: 128×128 downscaled isometric view
-     - `plate_no_light_1.png`: 512×512 isometric view
+     - `plate_1.png`: 512×512 shaded 3D mesh render
+     - `plate_1_small.png`: 128×128 downscaled 3D mesh render
+     - `plate_no_light_1.png`: 512×512 compatibility copy of the shared mesh render
    - All thumbnails preserve aspect ratio with transparent padding
    - Adds title metadata (auto-formatted from filename)
    - 3MF structure:
@@ -1492,6 +1581,7 @@ pixel_to_3mf/
 ├── region_merger.py         # Flood-fill algorithm (configurable connectivity), trim disconnected
 ├── mesh_generator.py        # 3D geometry generation (manifold meshes), original path
 ├── polygon_optimizer.py     # Polygon-based mesh optimization (shapely + triangle)
+├── render_model.py          # Shared-renderer adapter and PNG-facing API
 ├── threemf_core.py          # Generic 3MF writer core (reusable for other applications)
 ├── threemf_writer.py        # Pixel art specific 3MF export (uses threemf_core)
 ├── summary_writer.py        # Summary file generation (.summary.txt)
@@ -1621,6 +1711,7 @@ Built with love for the 3D printing and pixel art communities!
 
 - **Pillow** - Image processing
 - **NumPy** - Fast array operations  
+- **preview-renderer** - Shared ModernGL camera, shaders, and headless rendering
 - **Rich** - Beautiful terminal output
 - **Shapely & Triangle** - Geometric operations (planned optimization)
 - **Delta E 2000** - Perceptual color science

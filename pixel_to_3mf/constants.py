@@ -155,6 +155,22 @@ AMS_COUNT = 4
 AMS_SLOTS_PER_UNIT = 4
 
 # ============================================================================
+# 3D Rendering
+# ============================================================================
+
+# Standalone renders are intentionally larger than embedded slicer thumbnails.
+RENDER_IMAGE_SIZE_PX = 1200
+THUMBNAIL_IMAGE_SIZE_PX = 512
+THUMBNAIL_SMALL_SIZE_PX = 128
+
+# Camera and lighting match Layerforge's default angled preview.
+RENDER_CAMERA_ELEVATION_DEG = 35.0
+RENDER_CAMERA_AZIMUTH_DEG = -45.0
+RENDER_LIGHT_DIRECTION = (0.35, -0.45, 0.82)
+RENDER_AMBIENT_LIGHT = 0.48
+RENDER_DIFFUSE_LIGHT = 0.52
+
+# ============================================================================
 # Geometry Processing
 # ============================================================================
 
