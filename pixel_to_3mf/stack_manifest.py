@@ -72,6 +72,27 @@ def connected_color_component(
     return frozenset(visited)
 
 
+def matching_color_pixels(
+    pixel_data: PixelData,
+    start: Coordinate,
+    *,
+    contiguous: bool,
+) -> frozenset[Coordinate]:
+    """Select the clicked exact RGB, either connected or across the image."""
+
+    if contiguous:
+        return connected_color_component(pixel_data, start)
+    start_rgba = pixel_data.pixels.get(start)
+    if start_rgba is None:
+        return frozenset()
+    target = start_rgba[:3]
+    return frozenset(
+        coordinate
+        for coordinate, rgba in pixel_data.pixels.items()
+        if rgba[:3] == target
+    )
+
+
 def encode_row_runs(pixels: Iterable[Coordinate], height: int) -> list[list[int]]:
     """Encode model-origin pixels as compact top-left-origin inclusive runs."""
 

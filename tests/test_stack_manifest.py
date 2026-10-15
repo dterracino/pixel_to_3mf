@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO
 import sys
 
 from PIL import Image
+import pytest
 
 from pixel_to_3mf.config import ConversionConfig
 from pixel_to_3mf.relief_workflow import prepare_relief_image
@@ -15,10 +17,12 @@ from pixel_to_3mf.stack_manifest import (
     connected_color_component,
     decode_row_runs,
     encode_row_runs,
+    matching_color_pixels,
     validate_stack_manifest,
     write_stack_manifest,
 )
 from pixel_to_3mf.stack_plan import create_stack_relief_plan
+from pixel_to_3mf.stack_preview import render_stack_preview
 from pixel_to_3mf.pixel_to_3mf import convert_image_to_3mf
 from pixel_to_3mf.cli import main
 
@@ -55,6 +59,19 @@ def test_fill_is_exact_color_and_four_connected(tmp_path):
     assert component == frozenset({(0, 2), (1, 2)})
     assert (3, 2) not in component
     assert connected_color_component(pixels, (99, 99)) == frozenset()
+
+
+def test_noncontiguous_color_match_selects_every_matching_pixel(tmp_path):
+    path = tmp_path / "scene.png"
+    _image(path)
+    pixels, _ = prepare_relief_image(path, _config())
+    top_left = (0, pixels.height - 1)
+
+    contiguous = matching_color_pixels(pixels, top_left, contiguous=True)
+    all_red = matching_color_pixels(pixels, top_left, contiguous=False)
+
+    assert contiguous == frozenset({(0, 2), (1, 2)})
+    assert all_red == frozenset({(0, 2), (1, 2), (3, 2)})
 
 
 def test_row_runs_round_trip_top_left_coordinates():
@@ -225,25 +242,101 @@ def test_stack_manifest_converts_to_3mf_and_render(tmp_path):
     assert (tmp_path / "scene_render.png").exists()
 
 
-def test_cli_manifest_opens_editor_with_default_path(tmp_path, monkeypatch):
+def test_draft_stack_preview_uses_production_renderer(tmp_path):
+    path = tmp_path / "scene.png"
+    _image(path)
+    config = _config()
+    pixels, _ = prepare_relief_image(path, config)
+    red = frozenset(
+        coordinate for coordinate, rgba in pixels.pixels.items() if rgba[:3] == (255, 0, 0)
+    )
+
+    png = render_stack_preview(
+        path,
+        pixels,
+        config,
+        [StackDefinition("stack_01", "Red only", red, 4.0, 1.0)],
+        image_size_px=128,
+    )
+
+    with Image.open(BytesIO(png)) as preview:
+        assert preview.mode == "RGBA"
+        assert preview.size == (128, 128)
+
+
+def test_cli_create_manifest_opens_editor_with_default_path(tmp_path, monkeypatch):
     path = tmp_path / "scene.png"
     _image(path)
     captured = {}
 
-    def fake_launch(source, manifest, config):
+    def fake_launch(source, manifest, config, *, resume):
         captured["source"] = Path(source)
         captured["manifest"] = Path(manifest)
+        captured["resume"] = resume
         return 0
 
     monkeypatch.setattr("pixel_to_3mf.stack_editor.launch_stack_editor", fake_launch)
-    monkeypatch.setattr(sys, "argv", ["pixel-to-3mf", str(path), "--manifest"])
+    monkeypatch.setattr(
+        sys, "argv", ["pixel-to-3mf", str(path), "--create-manifest"]
+    )
 
     main()
 
     assert captured == {
         "source": path,
         "manifest": tmp_path / "scene.manifest.json",
+        "resume": False,
     }
+
+
+def test_cli_resume_manifest_infers_saved_source(tmp_path, monkeypatch):
+    path = tmp_path / "scene.png"
+    manifest_path = tmp_path / "scene.manifest.json"
+    _image(path)
+    config = _config()
+    pixels, _ = prepare_relief_image(path, config)
+    write_stack_manifest(
+        manifest_path,
+        build_stack_manifest_data(path, pixels, config, []),
+    )
+    captured = {}
+
+    def fake_launch(source, manifest, launch_config, *, resume):
+        captured["source"] = Path(source)
+        captured["manifest"] = Path(manifest)
+        captured["resume"] = resume
+        return 0
+
+    monkeypatch.setattr("pixel_to_3mf.stack_editor.launch_stack_editor", fake_launch)
+    monkeypatch.setattr(
+        sys, "argv", ["pixel-to-3mf", "--resume-manifest", str(manifest_path)]
+    )
+
+    main()
+
+    assert captured == {
+        "source": path.resolve(),
+        "manifest": manifest_path,
+        "resume": True,
+    }
+
+
+def test_cli_create_manifest_refuses_existing_destination(tmp_path, monkeypatch):
+    path = tmp_path / "scene.png"
+    manifest_path = tmp_path / "scene.manifest.json"
+    _image(path)
+    manifest_path.write_text("already here", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["pixel-to-3mf", str(path), "--create-manifest", str(manifest_path)],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+    assert manifest_path.read_text(encoding="utf-8") == "already here"
 
 
 def test_cli_validate_manifest_alias_accepts_complete_stack_manifest(

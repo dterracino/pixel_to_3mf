@@ -514,12 +514,22 @@ The program will:
     )
 
     parser.add_argument(
-        "--manifest",
+        "--create-manifest", "--manifest",
+        dest="create_manifest",
         nargs="?",
         const="",
         default=None,
         metavar="PATH",
-        help="Open the stack-relief editor. Defaults to {image_stem}.manifest.json.",
+        help="Create a new stack-relief manifest in the GUI. Defaults to "
+             "{image_stem}.manifest.json. --manifest is a compatibility alias.",
+    )
+
+    parser.add_argument(
+        "--resume-manifest",
+        type=str,
+        metavar="PATH",
+        help="Resume a saved stack-relief manifest in the GUI; the source image "
+             "is inferred when image_file is omitted",
     )
 
     parser.add_argument(
@@ -981,21 +991,27 @@ The program will:
         if args.scale_to:
             error_console.print("[red]❌ Error: --scale-to is only valid in batch mode[/red]")
             sys.exit(1)
-        if not args.image_file and not args.validate_relief_manifest:
+        if (
+            not args.image_file
+            and not args.validate_relief_manifest
+            and not args.resume_manifest
+        ):
             error_console.print("[red]❌ Error: Image file is required (or use --batch mode)[/red]")
             parser.print_help()
             sys.exit(1)
 
     palette_relief_requested = bool(
         args.generate_relief_manifest is not None
-        or args.manifest is not None
+        or args.create_manifest is not None
+        or args.resume_manifest
         or args.validate_relief_manifest
         or args.relief_manifest
     )
     manifest_operations = sum(
         (
             args.generate_relief_manifest is not None,
-            args.manifest is not None,
+            args.create_manifest is not None,
+            bool(args.resume_manifest),
             bool(args.validate_relief_manifest),
             bool(args.relief_manifest),
         )
@@ -1300,18 +1316,46 @@ The program will:
             )
             return
 
-        if args.manifest is not None:
+        if args.create_manifest is not None:
             if not args.image_file:
-                raise ValueError("--manifest requires an image file")
+                raise ValueError("--create-manifest requires an image file")
             image_path = Path(args.image_file)
             manifest_path = (
-                Path(args.manifest)
-                if args.manifest
+                Path(args.create_manifest)
+                if args.create_manifest
                 else image_path.with_suffix(".manifest.json")
             )
+            if manifest_path.exists():
+                raise ValueError(
+                    f"Manifest already exists: {manifest_path}. Use --resume-manifest to edit it."
+                )
             from .stack_editor import launch_stack_editor
 
-            launch_stack_editor(image_path, manifest_path, config)
+            launch_stack_editor(image_path, manifest_path, config, resume=False)
+            return
+
+        if args.resume_manifest:
+            manifest_path = Path(args.resume_manifest)
+            if not manifest_path.exists():
+                raise ValueError(f"Manifest does not exist: {manifest_path}")
+            manifest_data = load_relief_manifest(manifest_path)
+            if manifest_data.get("mode") != "stack_relief":
+                raise ValueError("--resume-manifest requires a stack_relief manifest")
+            source = args.image_file
+            if source is None:
+                source_data = manifest_data.get("source")
+                source = (
+                    source_data.get("path")
+                    if isinstance(source_data, dict)
+                    else None
+                )
+            if not source:
+                raise ValueError(
+                    "Manifest does not identify a source image; pass image_file explicitly"
+                )
+            from .stack_editor import launch_stack_editor
+
+            launch_stack_editor(source, manifest_path, config, resume=True)
             return
 
         if args.generate_relief_manifest is not None:

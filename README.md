@@ -191,7 +191,9 @@ python run_converter.py --batch \
 | `--background-color` | Exact image RGB that remains at normal color height in relief mode | `255,255,255` |
 | `--relief-height` | Extra height for non-background colors in relief mode (mm) | 1.0 |
 | `--generate-relief-manifest [PATH]` | Write an editable manifest and one full-canvas reference PNG per color section | `{image}.manifest.json` |
-| `--manifest [PATH]` | Open the stack-relief GUI editor | `{image}.manifest.json` |
+| `--create-manifest [PATH]` | Create a new stack-relief manifest in the GUI | `{image}.manifest.json` |
+| `--resume-manifest PATH` | Resume editing a saved stack-relief manifest; source image is inferred when omitted | Off |
+| `--manifest [PATH]` | Compatibility alias for `--create-manifest` | `{image}.manifest.json` |
 | `--validate-manifest PATH` | Validate either stack- or palette-relief data, reproduce preprocessing, and dry-run geometry | Off |
 | `--apply-manifest PATH` | Build stack- or palette-relief geometry from a validated manifest | Off |
 | `--validate-relief-manifest PATH` | Legacy spelling of `--validate-manifest` | Off |
@@ -590,12 +592,19 @@ python run_converter.py ms-pac-man.png \
   --background-color 0,0,0 \
   --backing-color 0,0,0 \
   --base-height 2 \
-  --manifest
+  --create-manifest
 ```
 
-The editor uses exact-RGB, 4-connected fills. Click replaces the current
-selection, Shift-click adds another connected area, and Alt-click removes one.
-The mouse wheel zooms and middle-drag pans. A saved stack may contain multiple
+The editor has Fill and Magic Wand tools with distinct toolbar icons. Fill
+always selects one exact-RGB, 4-connected area. Magic Wand's **Contiguous**
+option is enabled by default; disable it to select every pixel of the clicked
+RGB, even when those pixels are physically disconnected. Click replaces the
+current selection by default. The persistent **Replace**, **Add**, and
+**Subtract** modes control what subsequent clicks do; selecting a saved stack
+automatically switches to Add so another region can be appended before
+updating it. Shift-click temporarily adds and Alt-click temporarily removes,
+regardless of the persistent mode. Animated marching ants outline the current
+selection. The mouse wheel zooms and middle-drag pans. A saved stack may contain multiple
 source colors: every selected pixel keeps its own source color in the top
 portion. `stack height - color height` is filled with the manifest's background
 color. The physical backing plate is separate and uses the backing color.
@@ -614,6 +623,26 @@ python run_converter.py ms-pac-man.png \
 The manifest freezes preprocessing settings and source/processed-image hashes,
 so validation catches source edits or option drift. The 3MF, standalone render,
 and embedded thumbnails all consume the same compiled final meshes.
+
+Resume an existing draft without repeating the source image path:
+
+```bash
+python run_converter.py --resume-manifest ms-pac-man.manifest.json
+```
+
+The **View** menu can independently show or hide assigned and unassigned
+pixels. Assigned pixels also have opacity and saturation presets, including
+grayscale, plus an inversion toggle for high-contrast inspection. These are
+display-only controls and never modify source pixels or saved assignments.
+
+Use **Preview → Render 3D Preview**, `Ctrl+R`, or the **Render Preview** button
+to open the interactive rendering of the current saved stacks and backing
+plate. Left-drag orbits the model, middle-drag (or Shift+left-drag) pans,
+right-drag moves the light, and the mouse wheel zooms. **Reset** restores the
+default camera and lighting. Drafts do not need to be assignment-complete: the
+preview compiles the in-memory stack plan through the production mesh builder,
+then uses the same shared camera, lighting, shader, and material batching as
+the exported headless render.
 
 #### Palette Relief (Legacy Color-Based Workflow)
 
