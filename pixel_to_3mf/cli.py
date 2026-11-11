@@ -358,10 +358,9 @@ def process_batch(
     return results
 
 
-def main():
-    """Main CLI entry point."""
-    
-    # Set up command-line argument parser
+def build_parser() -> argparse.ArgumentParser:
+    """Define the command-line contract shared by the CLI and desktop UI."""
+
     parser = argparse.ArgumentParser(
         description="Convert pixel art images to 3D printable 3MF files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -943,6 +942,13 @@ The program will:
              "Example: --check-batch-folder samples/output/"
     )
 
+
+    return parser
+
+
+def main():
+    """Main CLI entry point."""
+    parser = build_parser()
 
     # Parse arguments
     args = parser.parse_args()

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Desktop converter interface**: Added `run_gui.py`, a PySide6 window that exposes every CLI conversion option through grouped controls generated from the shared argument parser. It provides file and folder browsing, a command preview, live process output, warning responses, and a stop control. Conversion runs in a separate process so the window stays responsive.
+
 ### Changed
 
 - **Preview format**: The `--preview` flag now generates a side-by-side comparison image showing original colors (left) and matched filament colors (right) with labeled panels. This makes it much easier to identify color shifts at a glance compared to the previous single-image format.

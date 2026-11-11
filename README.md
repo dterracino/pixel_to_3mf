@@ -44,6 +44,7 @@ Convert pixel art images into 3D printable 3MF files with automatic color detect
 - **Manifold Meshes**: Generates properly manifold geometry that slicers love (no repair needed!)
 - **Correct Orientation**: Models appear right-side-up in slicers
 - **Batch Processing**: Process entire folders of pixel art in one command with automatic summaries
+- **Desktop Interface**: PySide6 window with controls for every converter CLI option, command preview, live output, and responsive background execution
 - **Polygon Optimization**: Optional mesh optimization for 20-77% reduction in file size with 100% reliability (use `--optimize-mesh`)
 
 ## Installation 📦
@@ -90,6 +91,7 @@ pixel_to_3mf/
 │   ├── input/            # Example pixel art
 │   └── output/           # Example 3MF files
 ├── run_converter.py       # CLI entry point
+├── run_gui.py             # Desktop interface entry point
 └── requirements.txt
 ```
 
@@ -105,6 +107,18 @@ python run_converter.py your_image.png
 ```
 
 That's it! Open the generated `.3mf` file in your slicer (Bambu Studio, PrusaSlicer, Cura, etc.).
+
+### Desktop interface
+
+Start the PySide6 interface with:
+
+```bash
+python run_gui.py
+```
+
+Choose an input image in **Files and batch**, then set any conversion options in the tabs and click **Run converter**. The window uses the same defaults and option definitions as `run_converter.py`; leaving a field blank keeps its CLI default. Filament maker, type, and finish fields accept comma-separated values, such as `Basic,Matte,Pure`. The **Command** field shows the exact invocation. The **Output** pane shows conversion progress and results while the app remains responsive.
+
+For batch conversion, select **Batch** and choose input and output folders. For batch compatibility checks, enter one model path per line in **Check Batch**. Optional-path operations such as manifest creation have a **Use** checkbox; select it to use the default path or enter a path beside it. If the converter asks whether to continue after a warning, use **Answer Yes** or **Answer No**. **Stop** terminates the running process.
 
 ## Usage 📖
 
